@@ -10,9 +10,10 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS size TEXT NOT NULL DEFAULT '';
 
 -- ========================
--- 2. Recreate the view to include the new columns
+-- 2. Drop and recreate the view to include the new columns
 -- ========================
-CREATE OR REPLACE VIEW v_products_with_stock AS
+DROP VIEW IF EXISTS v_products_with_stock;
+CREATE VIEW v_products_with_stock AS
 SELECT
   p.*,
   COALESCE(SUM(pbs.quantity), 0)::INT AS total_stock,

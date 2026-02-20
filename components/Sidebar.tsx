@@ -1,10 +1,11 @@
 import React from 'react';
 import { LayoutDashboard, ShoppingCart, Package, Settings, LogOut, History, Store, ChevronDown, Truck, PieChart, Users } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { ViewState } from '../types';
+import { ViewState, Role } from '../types';
 
 const Sidebar: React.FC = () => {
   const { currentView, setView, branches, currentBranch, setBranch, currentUser, logout } = useStore();
+  const role: Role = currentUser?.role || 'CASHIER';
 
   const NavItem = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
     <button
@@ -53,11 +54,11 @@ const Sidebar: React.FC = () => {
         <NavItem view="POS" icon={ShoppingCart} label="Point of Sale" />
         <NavItem view="INVENTORY" icon={Package} label="Inventory" />
         <NavItem view="CUSTOMERS" icon={Users} label="Customers" />
-        <NavItem view="SUPPLIERS" icon={Truck} label="Suppliers" />
-        <NavItem view="ACCOUNTING" icon={PieChart} label="Accounting" />
+        {role !== 'CASHIER' && <NavItem view="SUPPLIERS" icon={Truck} label="Suppliers" />}
+        {role !== 'CASHIER' && <NavItem view="ACCOUNTING" icon={PieChart} label="Accounting" />}
         <NavItem view="HISTORY" icon={History} label="Sales History" />
-        <NavItem view="BRANCHES" icon={Store} label="Branch Mgmt" />
-        <NavItem view="SETTINGS" icon={Settings} label="Settings" />
+        {role === 'ADMIN' && <NavItem view="BRANCHES" icon={Store} label="Branch Mgmt" />}
+        {role === 'ADMIN' && <NavItem view="SETTINGS" icon={Settings} label="Settings" />}
       </nav>
 
       <div className="p-4 border-t border-slate-100">

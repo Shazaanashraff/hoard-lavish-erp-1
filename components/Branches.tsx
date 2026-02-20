@@ -40,12 +40,6 @@ const Branches: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-900">Branch Management</h2>
           <p className="text-slate-500">Manage store locations and view performance.</p>
         </div>
-        <button 
-          onClick={() => { setEditingBranch({}); setIsModalOpen(true); }}
-          className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm"
-        >
-          <Plus size={18} /> Add Branch
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -14,9 +14,16 @@ import LoginPage from './components/LoginPage';
 
 // Main Layout Component handling the view switching
 const Layout: React.FC = () => {
-  const { currentView } = useStore();
+  const { currentView, currentUser } = useStore();
+  const role = currentUser?.role || 'CASHIER';
 
   const renderView = () => {
+    // Role-based view guards
+    if (currentView === 'SETTINGS' && role !== 'ADMIN') return <Dashboard />;
+    if (currentView === 'BRANCHES' && role !== 'ADMIN') return <Dashboard />;
+    if (currentView === 'SUPPLIERS' && role === 'CASHIER') return <Dashboard />;
+    if (currentView === 'ACCOUNTING' && role === 'CASHIER') return <Dashboard />;
+
     switch (currentView) {
       case 'DASHBOARD':
         return <Dashboard />;

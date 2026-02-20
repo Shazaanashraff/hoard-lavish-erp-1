@@ -56,8 +56,10 @@ const Inventory: React.FC = () => {
   const {
     products, categories, brands, stockHistory, currentBranch,
     addProduct, updateProduct, deleteProduct, adjustStock,
-    addCategory, removeCategory, addBrand, removeBrand
+    addCategory, removeCategory, addBrand, removeBrand,
+    currentUser
   } = useStore();
+  const isCashier = currentUser?.role === 'CASHIER';
 
   const [activeTab, setActiveTab] = useState<InventoryTab>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -254,19 +256,21 @@ const Inventory: React.FC = () => {
             </div>
             <p className="text-sm text-slate-500">Manage products and stock levels for this branch.</p>
           </div>
+          {!isCashier && (
           <button
             onClick={handleOpenAdd}
             className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium"
           >
             <Plus size={16} /> Add Product
           </button>
+          )}
         </div>
 
         <div className="flex gap-4 overflow-x-auto">
           <TabButton id="ALL" label="All Products" icon={Box} />
           <TabButton id="LOW_STOCK" label="Low Stock Alerts" icon={AlertCircle} />
           <TabButton id="ADJUSTMENTS" label="Stock History" icon={History} />
-          <TabButton id="CATEGORIES" label="Categories & Brands" icon={Tag} />
+          {!isCashier && <TabButton id="CATEGORIES" label="Categories & Brands" icon={Tag} />}
         </div>
       </div>
 
@@ -364,6 +368,7 @@ const Inventory: React.FC = () => {
                       </td>
                       {/* 1. Always-visible action buttons */}
                       <td className="p-4 text-center">
+                        {!isCashier ? (
                         <div className="flex justify-center gap-1">
                           <button
                             onClick={() => handleOpenAdjustment(p)}
@@ -387,6 +392,9 @@ const Inventory: React.FC = () => {
                             <Trash2 size={16} />
                           </button>
                         </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">View only</span>
+                        )}
                       </td>
                     </tr>
                   );

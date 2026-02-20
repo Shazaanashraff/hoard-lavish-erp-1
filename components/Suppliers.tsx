@@ -41,7 +41,8 @@ const ConfirmDialog: React.FC<{
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
 const Suppliers: React.FC = () => {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, addSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood } = useStore();
+  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, addSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser } = useStore();
+  const isAdmin = currentUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -222,12 +223,14 @@ const Suppliers: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900">Supplier Management</h1>
             <p className="text-sm text-slate-500">Manage vendor profiles, purchase expenses, and damaged goods.</p>
           </div>
+          {isAdmin && (
           <button
             onClick={() => { setEditingSupplier({}); setIsModalOpen(true); }}
             className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium"
           >
             <Plus size={16} /> Add Supplier
           </button>
+          )}
         </div>
 
         <div className="flex gap-4">
@@ -263,6 +266,8 @@ const Suppliers: React.FC = () => {
                       <Truck size={20} />
                     </div>
                     <div className="flex gap-1">
+                      {isAdmin && (
+                      <>
                       <button
                         onClick={() => { setEditingSupplier(supplier); setIsModalOpen(true); }}
                         className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded"
@@ -275,6 +280,8 @@ const Suppliers: React.FC = () => {
                       >
                         <Trash2 size={16} />
                       </button>
+                      </>
+                      )}
                     </div>
                   </div>
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings } from '../types';
+import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_SUPPLIERS, INITIAL_EXPENSES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
 
@@ -15,6 +15,7 @@ interface StoreContextType {
   suppliers: Supplier[];
   supplierTransactions: SupplierTransaction[];
   expenses: Expense[];
+  damagedGoods: DamagedGood[];
   users: User[];
   settings: AppSettings;
   currentBranch: Branch;
@@ -56,6 +57,9 @@ interface StoreContextType {
   addExpense: (expense: Expense) => void;
   deleteExpense: (id: string) => void;
 
+  addDamagedGood: (record: DamagedGood) => void;
+  deleteDamagedGood: (id: string) => void;
+
   addUser: (user: User) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   deleteUser: (id: string) => void;
@@ -93,6 +97,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
   const [supplierTransactions, setSupplierTransactions] = useState<SupplierTransaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
+  const [damagedGoods, setDamagedGoods] = useState<DamagedGood[]>([]);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
 
@@ -123,6 +128,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (data.expenses) setExpenses(data.expenses);
           if (data.users) setUsers(data.users);
           if (data.settings) setSettings(data.settings);
+          if (data.damagedGoods) setDamagedGoods(data.damagedGoods);
         } catch (e) {
           console.error("Failed to load saved data", e);
         }
@@ -149,6 +155,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           settingsData,
           categoriesData,
           brandsData,
+          damagedGoodsData,
         ] = await Promise.all([
           db.fetchBranches(),
           db.fetchProductsWithStock(),
@@ -162,6 +169,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchSettings(),
           db.fetchCategories(),
           db.fetchBrands(),
+          db.fetchDamagedGoods(),
         ]);
 
         setBranches(branchesData);
@@ -176,6 +184,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSettings(settingsData);
         setCategories(categoriesData);
         setBrands(brandsData);
+        setDamagedGoods(damagedGoodsData);
         if (branchesData.length > 0) setCurrentBranch(branchesData[0]);
       } catch (err: unknown) {
         console.error('Failed to load data from Supabase', err);
@@ -192,10 +201,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (useSupabase) return;
     const data = {
       branches, salesHistory, customers, products, categories, brands,
-      stockHistory, suppliers, supplierTransactions, expenses, users, settings
+      stockHistory, suppliers, supplierTransactions, expenses, users, settings, damagedGoods
     };
     localStorage.setItem('hoard_data_v2', JSON.stringify(data));
-  }, [useSupabase, branches, salesHistory, customers, products, categories, brands, stockHistory, suppliers, supplierTransactions, expenses, users, settings]);
+  }, [useSupabase, branches, salesHistory, customers, products, categories, brands, stockHistory, suppliers, supplierTransactions, expenses, users, settings, damagedGoods]);
 
   // ---- Helper for async DB calls with error handling ----
   const dbCall = useCallback(async (fn: () => Promise<void>) => {
@@ -515,6 +524,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // ============================================================
+  // DAMAGED GOODS ACTIONS
+  // ============================================================
+  const addDamagedGood = (record: DamagedGood) => {
+    setDamagedGoods(prev => [record, ...prev]);
+    dbCall(() => db.insertDamagedGood(record));
+  };
+  const deleteDamagedGood = (id: string) => {
+    setDamagedGoods(prev => prev.filter(d => d.id !== id));
+    dbCall(() => db.deleteDamagedGood(id));
+  };
+
+  // ============================================================
   // USER ACTIONS
   // ============================================================
   const addUser = (user: User) => {
@@ -593,7 +614,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StoreContext.Provider value={{
-      products, customers, cart, salesHistory, stockHistory, categories, brands, branches, suppliers, supplierTransactions, expenses, users, settings,
+      products, customers, cart, salesHistory, stockHistory, categories, brands, branches, suppliers, supplierTransactions, expenses, damagedGoods, users, settings,
       currentBranch, currentUser, currentView, isLoading, dbError,
       setBranch, addBranch, updateBranch,
       addProduct, updateProduct, deleteProduct,
@@ -603,6 +624,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addCategory, removeCategory, addBrand, removeBrand,
       addSupplier, updateSupplier, deleteSupplier, addSupplierTransaction,
       addExpense, deleteExpense,
+      addDamagedGood, deleteDamagedGood,
       addUser, updateUser, deleteUser,
       updateSettings, exportData, importData,
       login, logout, setView

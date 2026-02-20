@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Branch, Product, Customer, SalesRecord, StockMovement, Supplier, SupplierTransaction, Expense, User, AppSettings } from '../types';
+import type { Branch, Product, Customer, SalesRecord, StockMovement, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood } from '../types';
 
 // ============================================================
 // BRANCHES
@@ -54,6 +54,8 @@ export async function fetchProductsWithStock(): Promise<Product[]> {
         sku: r.sku,
         description: r.description,
         imageUrl: r.image_url ?? undefined,
+        color: r.color ?? '',
+        size: r.size ?? '',
     }));
 }
 
@@ -68,6 +70,8 @@ export async function insertProduct(product: Product, branches: Branch[]): Promi
         sku: product.sku,
         description: product.description,
         image_url: product.imageUrl ?? null,
+        color: product.color ?? '',
+        size: product.size ?? '',
     }).select('id').single();
     if (error) throw error;
 
@@ -94,6 +98,8 @@ export async function updateProduct(id: string, updates: Partial<Product>): Prom
     if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
     if (updates.description !== undefined) dbUpdates.description = updates.description;
     if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.size !== undefined) dbUpdates.size = updates.size;
 
     if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase.from('products').update(dbUpdates).eq('id', id);
@@ -540,5 +546,48 @@ export async function initializeBranchStock(branchId: string, productIds: string
         quantity: 0,
     }));
     const { error } = await supabase.from('product_branch_stock').upsert(rows, { onConflict: 'product_id,branch_id' });
+    if (error) throw error;
+}
+
+// ============================================================
+// DAMAGED GOODS
+// ============================================================
+export async function fetchDamagedGoods(): Promise<DamagedGood[]> {
+    const { data, error } = await supabase
+        .from('damaged_goods')
+        .select('*')
+        .order('date', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(r => ({
+        id: r.id,
+        productId: r.product_id,
+        productName: r.product_name,
+        supplierId: r.supplier_id,
+        supplierName: r.supplier_name,
+        quantity: r.quantity,
+        unitPrice: Number(r.unit_price),
+        totalLoss: Number(r.total_loss),
+        reason: r.reason,
+        date: r.date,
+    }));
+}
+
+export async function insertDamagedGood(record: DamagedGood): Promise<void> {
+    const { error } = await supabase.from('damaged_goods').insert({
+        product_id: record.productId,
+        product_name: record.productName,
+        supplier_id: record.supplierId,
+        supplier_name: record.supplierName,
+        quantity: record.quantity,
+        unit_price: record.unitPrice,
+        total_loss: record.totalLoss,
+        reason: record.reason,
+        date: record.date,
+    });
+    if (error) throw error;
+}
+
+export async function deleteDamagedGood(id: string): Promise<void> {
+    const { error } = await supabase.from('damaged_goods').delete().eq('id', id);
     if (error) throw error;
 }

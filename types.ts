@@ -84,6 +84,19 @@ export interface SupplierTransaction {
   notes: string;
 }
 
+export interface DamagedGood {
+  id: string;
+  productId: string;
+  productName: string;
+  supplierId: string;
+  supplierName: string;
+  quantity: number;
+  unitPrice: number;
+  totalLoss: number;
+  reason: string;
+  date: string;
+}
+
 export interface Expense {
   id: string;
   description: string;

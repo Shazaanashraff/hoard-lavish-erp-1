@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { Supplier, SupplierTransaction } from '../types';
+import { Supplier, SupplierTransaction, DamagedGood } from '../types';
 
 const CUR = 'LKR';
 const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -13,32 +13,6 @@ interface InventoryLineItem {
   quantity: number;
   unitPrice: number;
 }
-
-// Damaged goods record
-interface DamagedGoodRecord {
-  id: string;
-  productId: string;
-  productName: string;
-  supplierId: string;
-  supplierName: string;
-  quantity: number;
-  unitPrice: number;
-  totalLoss: number;
-  reason: string;
-  date: string;
-}
-
-// Load/persist damaged goods from localStorage
-const DAMAGED_KEY = 'hoard_damaged_goods';
-const loadDamagedGoods = (): DamagedGoodRecord[] => {
-  try {
-    const raw = localStorage.getItem(DAMAGED_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-};
-const saveDamagedGoods = (records: DamagedGoodRecord[]) => {
-  localStorage.setItem(DAMAGED_KEY, JSON.stringify(records));
-};
 
 // --- Delete Confirmation ---
 const ConfirmDialog: React.FC<{
@@ -67,7 +41,7 @@ const ConfirmDialog: React.FC<{
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
 const Suppliers: React.FC = () => {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, addSupplierTransaction } = useStore();
+  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, addSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood } = useStore();
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -90,8 +64,7 @@ const Suppliers: React.FC = () => {
     date: new Date().toISOString().split('T')[0]
   });
 
-  // 2. Damaged Goods state
-  const [damagedGoods, setDamagedGoods] = useState<DamagedGoodRecord[]>(loadDamagedGoods);
+  // Damaged Goods form state
   const [damagedForm, setDamagedForm] = useState({
     productId: '',
     supplierId: '',
@@ -202,7 +175,7 @@ const Suppliers: React.FC = () => {
     const product = products.find(p => p.id === damagedForm.productId);
     const supplier = suppliers.find(s => s.id === damagedForm.supplierId);
     if (product && supplier && damagedForm.quantity > 0) {
-      const record: DamagedGoodRecord = {
+      const record: DamagedGood = {
         id: Math.random().toString(36).substr(2, 9),
         productId: product.id,
         productName: product.name,
@@ -214,9 +187,7 @@ const Suppliers: React.FC = () => {
         reason: damagedForm.reason || 'Damaged on arrival',
         date: new Date(damagedForm.date).toISOString()
       };
-      const updated = [record, ...damagedGoods];
-      setDamagedGoods(updated);
-      saveDamagedGoods(updated);
+      addDamagedGood(record);
       setDamagedForm({
         productId: '',
         supplierId: '',
@@ -229,9 +200,7 @@ const Suppliers: React.FC = () => {
   };
 
   const handleDeleteDamaged = (id: string) => {
-    const updated = damagedGoods.filter(d => d.id !== id);
-    setDamagedGoods(updated);
-    saveDamagedGoods(updated);
+    deleteDamagedGood(id);
   };
 
   // Tab button component

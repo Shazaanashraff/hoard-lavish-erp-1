@@ -254,6 +254,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateProduct = (id: string, updates: Partial<Product>) => {
+    const existing = products.find(p => p.id === id);
     setProducts(prev => prev.map(p => {
       if (p.id === id) {
         const updated = { ...p, ...updates };
@@ -265,6 +266,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return p;
     }));
     dbCall(() => db.updateProduct(id, updates));
+
+    // Log edit event so it appears in dashboard activity feed
+    if (existing) {
+      const editLog: StockMovement = {
+        id: Math.random().toString(36).substr(2, 9),
+        productId: id,
+        productName: existing.name,
+        branchId: currentBranch.id,
+        branchName: currentBranch.name,
+        type: 'ADJUSTMENT',
+        quantity: 0,
+        reason: `Product edited: ${existing.name}`,
+        date: new Date().toISOString()
+      };
+      setStockHistory(prev => [editLog, ...prev]);
+    }
   };
 
   const deleteProduct = (id: string) => {

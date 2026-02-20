@@ -18,6 +18,8 @@ export interface Product {
   sku: string;
   description: string;
   imageUrl?: string;
+  color?: string;
+  size?: string;
 }
 
 export interface CartItem extends Product {

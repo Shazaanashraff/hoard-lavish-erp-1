@@ -1,0 +1,49 @@
+name: Build & Release
+
+# ── Trigger ────────────────────────────────────────────
+# Option A: Push a version tag  →  auto-release
+# Option B: Manually from GitHub UI (Actions → Run workflow)
+on:
+  push:
+    tags:
+      - "v*"          # e.g. v1.1.0, v2.0.0-beta.1
+  workflow_dispatch:   # manual trigger button
+
+permissions:
+  contents: write      # needed to create GitHub Releases
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      # 1 ── Check out the repo ─────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2 ── Set up Node.js ─────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # 3 ── Install dependencies ───────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # 4 ── Build the Vite frontend ───────────────────
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      # 5 ── Package Electron app & publish to GitHub ───
+      #      electron-builder reads publish config from
+      #      electron-builder.json and uploads artifacts
+      #      to the GitHub Release automatically.
+      - name: Build & Publish Electron App
+        run: npx electron-builder --win --config electron-builder.json --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,14 +1,51 @@
 import React, { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts';
-import { DollarSign, TrendingUp, TrendingDown, Plus, Filter, Trash2, Calendar, FileText } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Plus, Filter, Trash2, Calendar, FileText, Building2, AlertTriangle } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { EXPENSE_CATEGORIES } from '../constants';
 import { Expense } from '../types';
+
+const CUR = 'LKR';
+const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// --- Delete Confirmation Popup ---
+const ConfirmDialog: React.FC<{
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ title, message, onConfirm, onCancel }) => (
+  <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onCancel}>
+    <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="p-4 flex items-center gap-3 bg-red-50">
+        <div className="p-2 rounded-full bg-red-100 text-red-600">
+          <AlertTriangle size={20} />
+        </div>
+        <div className="flex-1">
+          <h4 className="font-bold text-sm text-red-800">{title}</h4>
+          <p className="text-sm text-slate-600 mt-0.5">{message}</p>
+        </div>
+      </div>
+      <div className="p-3 flex justify-end gap-2 bg-white border-t border-slate-100">
+        <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+          Cancel
+        </button>
+        <button onClick={onConfirm} className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 const Accounting: React.FC = () => {
   const { salesHistory, expenses, supplierTransactions, currentBranch, branches, addExpense, deleteExpense } = useStore();
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'EXPENSES'>('DASHBOARD');
   const [filterPeriod, setFilterPeriod] = useState<'ALL' | 'MONTH'>('ALL');
+  const [branchFilter, setBranchFilter] = useState<string>('ALL');
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; desc: string } | null>(null);
   
   // Add Expense Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,12 +64,14 @@ const Accounting: React.FC = () => {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   };
 
+  const matchesBranch = (branchId: string) => branchFilter === 'ALL' || branchId === branchFilter;
+
   // 1. Income (Sales)
-  const filteredSales = salesHistory.filter(s => isInPeriod(s.date));
+  const filteredSales = salesHistory.filter(s => isInPeriod(s.date) && matchesBranch(s.branchId));
   const totalIncome = filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
 
   // 2. Expenses (Operating Expenses)
-  const filteredExpenses = expenses.filter(e => isInPeriod(e.date));
+  const filteredExpenses = expenses.filter(e => isInPeriod(e.date) && matchesBranch(e.branchId));
   const totalOperatingExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // 3. COGS / Inventory Costs (Supplier Payments)
@@ -153,19 +192,32 @@ const Accounting: React.FC = () => {
               Expense Management
             </button>
           </div>
-          <div className="flex bg-slate-100 rounded-lg p-1">
-             <button 
-               onClick={() => setFilterPeriod('ALL')}
-               className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${filterPeriod === 'ALL' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-             >
-               All Time
-             </button>
-             <button 
-               onClick={() => setFilterPeriod('MONTH')}
-               className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${filterPeriod === 'MONTH' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-             >
-               This Month
-             </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Building2 size={14} className="text-slate-400" />
+              <select
+                className="text-xs font-medium bg-slate-100 border-0 rounded-lg px-3 py-1.5 text-slate-700 outline-none cursor-pointer"
+                value={branchFilter}
+                onChange={e => setBranchFilter(e.target.value)}
+              >
+                <option value="ALL">All Branches</option>
+                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            <div className="flex bg-slate-100 rounded-lg p-1">
+               <button 
+                 onClick={() => setFilterPeriod('ALL')}
+                 className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${filterPeriod === 'ALL' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+               >
+                 All Time
+               </button>
+               <button 
+                 onClick={() => setFilterPeriod('MONTH')}
+                 className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${filterPeriod === 'MONTH' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+               >
+                 This Month
+               </button>
+            </div>
           </div>
         </div>
       </div>
@@ -179,7 +231,7 @@ const Accounting: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Total Income</p>
-                    <h3 className="text-2xl font-bold text-emerald-600 mt-1">${totalIncome.toLocaleString()}</h3>
+                    <h3 className="text-2xl font-bold text-emerald-600 mt-1">{fmtCurrency(totalIncome)}</h3>
                   </div>
                   <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><TrendingUp size={20} /></div>
                 </div>
@@ -189,8 +241,8 @@ const Accounting: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Total Expenses</p>
-                    <h3 className="text-2xl font-bold text-rose-600 mt-1">${totalExpenses.toLocaleString()}</h3>
-                    <p className="text-xs text-slate-400 mt-1">Ops: ${totalOperatingExpenses} | Stock: ${totalSupplierPayments}</p>
+                    <h3 className="text-2xl font-bold text-rose-600 mt-1">{fmtCurrency(totalExpenses)}</h3>
+                    <p className="text-xs text-slate-400 mt-1">Ops: {fmtCurrency(totalOperatingExpenses)} | Stock: {fmtCurrency(totalSupplierPayments)}</p>
                   </div>
                   <div className="p-2 bg-rose-50 rounded-lg text-rose-600"><TrendingDown size={20} /></div>
                 </div>
@@ -201,7 +253,7 @@ const Accounting: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-slate-500">Net Profit</p>
                     <h3 className={`text-2xl font-bold mt-1 ${netProfit >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-                      ${netProfit.toLocaleString()}
+                      {fmtCurrency(netProfit)}
                     </h3>
                   </div>
                   <div className="p-2 bg-amber-50 rounded-lg text-amber-600"><DollarSign size={20} /></div>
@@ -256,7 +308,7 @@ const Accounting: React.FC = () => {
                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                            ))}
                          </Pie>
-                         <Tooltip formatter={(value) => `$${value}`} />
+                         <Tooltip formatter={(value) => fmtCurrency(Number(value))} />
                          <Legend />
                        </PieChart>
                      </ResponsiveContainer>
@@ -290,7 +342,7 @@ const Accounting: React.FC = () => {
                        <td className="p-4 font-medium text-slate-900">{item.desc}</td>
                        <td className="p-4 text-slate-600">{item.category}</td>
                        <td className={`p-4 text-right font-bold ${item.type === 'IN' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                         {item.type === 'OUT' ? '-' : ''}${item.amount.toFixed(2)}
+                         {item.type === 'OUT' ? '-' : ''}{fmtCurrency(item.amount)}
                        </td>
                        <td className="p-4 text-center">
                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
@@ -331,10 +383,10 @@ const Accounting: React.FC = () => {
                         <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium">{e.category}</span>
                      </td>
                      <td className="p-4 text-slate-600">{e.branchName}</td>
-                     <td className="p-4 text-right font-bold text-slate-800">${e.amount.toFixed(2)}</td>
+                     <td className="p-4 text-right font-bold text-slate-800">{fmtCurrency(e.amount)}</td>
                      <td className="p-4 text-right">
                        <button 
-                         onClick={() => deleteExpense(e.id)}
+                         onClick={() => setDeleteConfirm({ id: e.id, desc: e.description })}
                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                        >
                          <Trash2 size={16} />
@@ -372,7 +424,7 @@ const Accounting: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Amount ($)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Amount (LKR)</label>
                   <input 
                     type="number" 
                     className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900"
@@ -420,6 +472,15 @@ const Accounting: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Delete Confirmation Popup */}
+      {deleteConfirm && (
+        <ConfirmDialog
+          title="Delete Expense"
+          message={`Are you sure you want to delete "${deleteConfirm.desc}"? This action cannot be undone.`}
+          onConfirm={() => { deleteExpense(deleteConfirm.id); setDeleteConfirm(null); }}
+          onCancel={() => setDeleteConfirm(null)}
+        />
       )}
     </div>
   );

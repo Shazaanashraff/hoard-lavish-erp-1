@@ -67,12 +67,11 @@ const POS: React.FC = () => {
 
   const categories = ['All', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // 1. Dynamic filtering by name AND SKU
+  // 1. Dynamic filtering by name AND SKU (search input only — barcode uses dropdown)
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       const term = searchTerm.toLowerCase();
-      const matchesSearch = p.name.toLowerCase().includes(term) ||
-        p.sku.toLowerCase().includes(term);
+      const matchesSearch = !term || p.name.toLowerCase().includes(term) || p.sku.toLowerCase().includes(term);
       const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -114,10 +113,12 @@ const POS: React.FC = () => {
     }
   };
 
-  // 1b. Handle barcode submit — match exact SKU
+  // 1b. Handle barcode submit — exact match first, then top suggestion
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const product = products.find(p => p.sku.toLowerCase() === barcodeInput.toLowerCase());
+    // Try exact SKU match first (for real barcode scanners)
+    const exact = products.find(p => p.sku.toLowerCase() === barcodeInput.toLowerCase());
+    const product = exact || skuSuggestions[0];
     if (product) {
       const branchStock = product.branchStock[currentBranch.id] || 0;
       if (branchStock > 0) {
@@ -127,7 +128,7 @@ const POS: React.FC = () => {
         setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
       }
     } else {
-      setAlertPopup({ message: `No product found with SKU "${barcodeInput}"`, type: 'error' });
+      setAlertPopup({ message: `No product found matching "${barcodeInput}"`, type: 'error' });
     }
   };
 
@@ -150,6 +151,7 @@ const POS: React.FC = () => {
       const stock = topProduct.branchStock[currentBranch.id] || 0;
       if (stock > 0) {
         handleAddToCart(topProduct);
+        setSearchTerm('');
       } else {
         setAlertPopup({ message: `"${topProduct.name}" is out of stock`, type: 'error' });
       }

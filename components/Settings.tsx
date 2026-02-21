@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Settings as SettingsIcon, Users, Database, Shield, Tag, Save, Upload, Download, Trash2, Plus, Edit2, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import { Settings as SettingsIcon, Users, Database, Shield, Tag, Save, Upload, Download, Trash2, Plus, Edit2, CheckCircle, AlertTriangle, X, Lock } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { User, Role } from '../types';
 
@@ -11,7 +11,8 @@ const Settings: React.FC = () => {
     exportData, importData 
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'INVENTORY' | 'DATA'>('GENERAL');
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'DATA'>('GENERAL');
+  const [showDevAccessPopup, setShowDevAccessPopup] = useState(false);
   
   // User Management State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -89,8 +90,13 @@ const Settings: React.FC = () => {
         <div className="py-4">
            <TabButton id="GENERAL" label="General" icon={SettingsIcon} />
            <TabButton id="USERS" label="Users & Roles" icon={Users} />
-           <TabButton id="INVENTORY" label="Categories" icon={Tag} />
-           <TabButton id="DATA" label="Backup & Restore" icon={Database} />
+           <button
+             onClick={() => setShowDevAccessPopup(true)}
+             className="flex items-center gap-3 px-6 py-4 w-full text-left transition-colors border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+           >
+             <Database size={20} />
+             Backup & Restore
+           </button>
         </div>
       </div>
 
@@ -160,12 +166,7 @@ const Settings: React.FC = () => {
           <div className="max-w-4xl">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-900">User Management</h3>
-              <button 
-                onClick={() => { setEditingUser({ role: 'CASHIER' }); setIsUserModalOpen(true); }}
-                className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-slate-800"
-              >
-                <Plus size={16} /> Add User
-              </button>
+              {/* Add User button removed per business requirement */}
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -218,60 +219,7 @@ const Settings: React.FC = () => {
           </div>
         )}
 
-        {/* INVENTORY SETTINGS TAB */}
-        {activeTab === 'INVENTORY' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl">
-            {/* Categories */}
-            <div>
-               <h3 className="text-lg font-bold text-slate-900 mb-4">Product Categories</h3>
-               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                 <div className="flex gap-2 mb-4">
-                   <input id="catInput" type="text" placeholder="New Category" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" />
-                   <button 
-                     onClick={() => {
-                        const el = document.getElementById('catInput') as HTMLInputElement;
-                        if(el.value) { addCategory(el.value); el.value = ''; }
-                     }}
-                     className="bg-slate-900 text-white px-4 rounded-lg text-sm font-medium"
-                   >Add</button>
-                 </div>
-                 <div className="flex flex-wrap gap-2">
-                   {categories.map(c => (
-                     <div key={c} className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg text-sm text-slate-700">
-                       {c}
-                       <button onClick={() => removeCategory(c)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-            </div>
-
-            {/* Brands */}
-            <div>
-               <h3 className="text-lg font-bold text-slate-900 mb-4">Product Brands</h3>
-               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                 <div className="flex gap-2 mb-4">
-                   <input id="brandInput" type="text" placeholder="New Brand" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" />
-                   <button 
-                     onClick={() => {
-                        const el = document.getElementById('brandInput') as HTMLInputElement;
-                        if(el.value) { addBrand(el.value); el.value = ''; }
-                     }}
-                     className="bg-slate-900 text-white px-4 rounded-lg text-sm font-medium"
-                   >Add</button>
-                 </div>
-                 <div className="flex flex-wrap gap-2">
-                   {brands.map(b => (
-                     <div key={b} className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg text-sm text-slate-700">
-                       {b}
-                       <button onClick={() => removeBrand(b)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-            </div>
-          </div>
-        )}
+        {/* INVENTORY SETTINGS TAB - Removed: available in Inventory page */}
 
         {/* DATA BACKUP TAB */}
         {activeTab === 'DATA' && (
@@ -375,6 +323,28 @@ const Settings: React.FC = () => {
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
               <button onClick={handleSaveUser} className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800">Save User</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dev Access Popup for Backup & Restore */}
+      {showDevAccessPopup && (
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowDevAccessPopup(false)}>
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-5 flex items-center gap-3 bg-amber-50">
+              <div className="p-2 rounded-full bg-amber-100 text-amber-600">
+                <Lock size={20} />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-sm text-amber-800">Developer Access Required</h4>
+                <p className="text-sm text-slate-600 mt-1">Backup & Restore features are restricted. Please contact the developer for access.</p>
+              </div>
+            </div>
+            <div className="p-3 flex justify-end bg-white border-t border-slate-100">
+              <button onClick={() => setShowDevAccessPopup(false)} className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-amber-500 hover:bg-amber-600 transition-colors">
+                OK
+              </button>
             </div>
           </div>
         </div>

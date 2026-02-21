@@ -37,7 +37,10 @@ const ConfirmDialog: React.FC<{
 );
 
 const Customers: React.FC = () => {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, salesHistory } = useStore();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, salesHistory, currentUser } = useStore();
+  const role = currentUser?.role;
+  const isCashier = role === 'CASHIER';
+  const canEditDelete = !isCashier;
   const [activeView, setActiveView] = useState<'LIST' | 'PROFILE'>('LIST');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -131,7 +134,7 @@ const Customers: React.FC = () => {
             </button>
           )}
 
-          {activeView === 'PROFILE' && selectedCustomer && (
+          {activeView === 'PROFILE' && selectedCustomer && canEditDelete && (
             <div className="flex gap-2">
               <button
                 onClick={() => { setEditingCustomer(selectedCustomer); setIsModalOpen(true); }}

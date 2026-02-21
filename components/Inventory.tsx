@@ -54,10 +54,16 @@ interface VariationRow {
 
 const Inventory: React.FC = () => {
   const {
-    products, categories, brands, stockHistory, currentBranch,
+    products, categories, brands, stockHistory, currentBranch, currentUser,
     addProduct, updateProduct, deleteProduct, adjustStock,
     addCategory, removeCategory, addBrand, removeBrand
   } = useStore();
+
+  const role = currentUser?.role;
+  const isCashier = role === 'CASHIER';
+  const canManageStock = !isCashier; // Cashier cannot adjust/restock
+  const canManageProducts = !isCashier; // Cashier cannot add/edit/delete
+  const canManageCategoriesBrands = !isCashier; // Cashier cannot add brands/categories
 
   const [activeTab, setActiveTab] = useState<InventoryTab>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -254,19 +260,21 @@ const Inventory: React.FC = () => {
             </div>
             <p className="text-sm text-slate-500">Manage products and stock levels for this branch.</p>
           </div>
+          {canManageProducts && (
           <button
             onClick={handleOpenAdd}
             className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium"
           >
             <Plus size={16} /> Add Product
           </button>
+          )}
         </div>
 
         <div className="flex gap-4 overflow-x-auto">
           <TabButton id="ALL" label="All Products" icon={Box} />
           <TabButton id="LOW_STOCK" label="Low Stock Alerts" icon={AlertCircle} />
           <TabButton id="ADJUSTMENTS" label="Stock History" icon={History} />
-          <TabButton id="CATEGORIES" label="Categories & Brands" icon={Tag} />
+          {canManageCategoriesBrands && <TabButton id="CATEGORIES" label="Categories & Brands" icon={Tag} />}
         </div>
       </div>
 
@@ -362,9 +370,10 @@ const Inventory: React.FC = () => {
                           <span className="text-[10px] text-slate-400 mt-1">Total: {p.stock}</span>
                         </div>
                       </td>
-                      {/* 1. Always-visible action buttons */}
+                      {/* 1. Always-visible action buttons (hidden for cashier) */}
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-1">
+                          {canManageStock && (
                           <button
                             onClick={() => handleOpenAdjustment(p)}
                             className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
@@ -372,6 +381,8 @@ const Inventory: React.FC = () => {
                           >
                             <History size={16} />
                           </button>
+                          )}
+                          {canManageProducts && (
                           <button
                             onClick={() => handleOpenEdit(p)}
                             className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors"
@@ -379,6 +390,8 @@ const Inventory: React.FC = () => {
                           >
                             <Edit2 size={16} />
                           </button>
+                          )}
+                          {canManageProducts && (
                           <button
                             onClick={() => handleDeleteRequest(p)}
                             className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -386,6 +399,7 @@ const Inventory: React.FC = () => {
                           >
                             <Trash2 size={16} />
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>

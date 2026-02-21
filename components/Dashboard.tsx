@@ -10,7 +10,11 @@ const CUR = 'LKR';
 const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory } = useStore();
+  const { salesHistory, products, expenses, supplierTransactions, stockHistory, currentUser } = useStore();
+
+  const role = currentUser?.role;
+  const isAdmin = role === 'ADMIN';
+  const isManagerOrCashier = role === 'MANAGER' || role === 'CASHIER';
 
   // --- Filter State ---
   const today = new Date();
@@ -318,7 +322,8 @@ const Dashboard: React.FC = () => {
         <FilterControls />
       </div>
 
-      {/* OVERVIEW STATS */}
+      {/* OVERVIEW STATS — hidden for Manager & Cashier */}
+      {!isManagerOrCashier && (
       <div className="mb-2">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -336,6 +341,7 @@ const Dashboard: React.FC = () => {
           <StatCard title="Pending Actions" value={lowStockCount} subtext="Low stock alerts" icon={ShoppingBag} colorClass="bg-blue-500" />
         </div>
       </div>
+      )}
 
       {/* ACTIVITY FEED + TOP PERFORMERS side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -418,7 +424,8 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* CHARTS */}
+      {/* CHARTS — hidden for Manager & Cashier */}
+      {!isManagerOrCashier && (
       <div className="grid grid-cols-1 gap-8 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-6">
@@ -457,6 +464,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* UNIFIED LEDGER */}
       <div className="mb-8">

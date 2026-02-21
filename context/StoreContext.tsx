@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_SUPPLIERS, INITIAL_EXPENSES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
+import { calculateCartTotals } from '../utils/cart';
+import { generateInvoiceNumber } from '../utils/generators';
 
 interface StoreContextType {
   products: Product[];
@@ -350,22 +352,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // SALE COMPLETION
   // ============================================================
   const completeSale = (paymentMethod: SalesRecord['paymentMethod'], discount: number, customerId?: string): SalesRecord => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = 0;
-    const totalAmount = subtotal - discount;
-    const totalCost = cart.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
+    const { subtotal, tax, total, totalCost, discount: effDiscount } = calculateCartTotals(cart, discount, 0);
 
     const customer = customers.find(c => c.id === customerId);
 
     const newSale: SalesRecord = {
       id: Math.random().toString(36).substr(2, 9),
-      invoiceNumber: `INV-${Date.now().toString().substr(-6)}`,
+      invoiceNumber: generateInvoiceNumber(),
       date: new Date().toISOString(),
       items: [...cart],
       subtotal,
-      discount,
+      discount: effDiscount,
       tax,
-      totalAmount,
+      totalAmount: total,
       totalCost,
       paymentMethod,
       customerId,
@@ -404,7 +403,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (customer) {
       setCustomers(prev => prev.map(c =>
         c.id === customerId
-          ? { ...c, totalSpent: c.totalSpent + totalAmount, loyaltyPoints: c.loyaltyPoints + Math.floor(totalAmount / 10) }
+          ? { ...c, totalSpent: c.totalSpent + total, loyaltyPoints: c.loyaltyPoints + Math.floor(total / 10) }
           : c
       ));
     }

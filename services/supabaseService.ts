@@ -38,25 +38,27 @@ export async function updateBranch(id: string, updates: Partial<Branch>): Promis
 // ============================================================
 // PRODUCTS (with branch stock via the view)
 // ============================================================
+export const mapProduct = (r: any): Product => ({
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    brand: r.brand,
+    price: Number(r.price),
+    costPrice: Number(r.cost_price),
+    stock: r.total_stock || 0,
+    branchStock: r.branch_stock as Record<string, number> || {},
+    minStockLevel: r.min_stock_level,
+    sku: r.sku,
+    description: r.description,
+    imageUrl: r.image_url ?? undefined,
+    color: r.color ?? '',
+    size: r.size ?? '',
+});
+
 export async function fetchProductsWithStock(): Promise<Product[]> {
     const { data, error } = await supabase.from('v_products_with_stock').select('*').order('created_at');
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        name: r.name,
-        category: r.category,
-        brand: r.brand,
-        price: Number(r.price),
-        costPrice: Number(r.cost_price),
-        stock: r.total_stock,
-        branchStock: r.branch_stock as Record<string, number>,
-        minStockLevel: r.min_stock_level,
-        sku: r.sku,
-        description: r.description,
-        imageUrl: r.image_url ?? undefined,
-        color: r.color ?? '',
-        size: r.size ?? '',
-    }));
+    return (data ?? []).map(mapProduct);
 }
 
 export async function insertProduct(product: Product, branches: Branch[]): Promise<void> {
@@ -127,17 +129,19 @@ export async function deleteProduct(id: string): Promise<void> {
 // ============================================================
 // CUSTOMERS
 // ============================================================
+export const mapCustomer = (r: any): Customer => ({
+    id: r.id,
+    name: r.name,
+    phone: r.phone,
+    email: r.email,
+    loyaltyPoints: r.loyalty_points,
+    totalSpent: Number(r.total_spent),
+});
+
 export async function fetchCustomers(): Promise<Customer[]> {
     const { data, error } = await supabase.from('customers').select('*').order('created_at');
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        name: r.name,
-        phone: r.phone,
-        email: r.email,
-        loyaltyPoints: r.loyalty_points,
-        totalSpent: Number(r.total_spent),
-    }));
+    return (data ?? []).map(mapCustomer);
 }
 
 export async function insertCustomer(customer: Customer): Promise<Customer> {
@@ -205,64 +209,67 @@ export async function completeSaleRPC(sale: SalesRecord): Promise<string> {
     return data as string;
 }
 
+export const mapSale = (r: any): SalesRecord => ({
+    id: r.id,
+    invoiceNumber: r.invoice_number,
+    date: r.date,
+    items: (r.sale_items ?? r.items ?? []).map((si: any) => ({
+        id: (si.product_id || si.id) as string,
+        name: (si.product_name || si.name) as string,
+        quantity: si.quantity as number,
+        price: Number(si.price),
+        costPrice: Number(si.cost_price || si.costPrice),
+        category: '',
+        brand: '',
+        stock: 0,
+        branchStock: {},
+        minStockLevel: 0,
+        sku: '',
+        description: '',
+    })),
+    subtotal: Number(r.subtotal),
+    discount: Number(r.discount),
+    tax: Number(r.tax),
+    totalAmount: Number(r.total_amount),
+    totalCost: Number(r.total_cost),
+    paymentMethod: r.payment_method,
+    customerId: r.customer_id ?? undefined,
+    customerName: r.customer_name ?? undefined,
+    branchId: r.branch_id,
+    branchName: r.branch_name,
+});
+
 export async function fetchSales(): Promise<SalesRecord[]> {
     const { data, error } = await supabase
         .from('sales')
         .select('*, sale_items(*)')
         .order('date', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        invoiceNumber: r.invoice_number,
-        date: r.date,
-        items: (r.sale_items ?? []).map((si: Record<string, unknown>) => ({
-            id: si.product_id as string,
-            name: si.product_name as string,
-            quantity: si.quantity as number,
-            price: Number(si.price),
-            costPrice: Number(si.cost_price),
-            // Fill in other Product fields with defaults for CartItem compatibility
-            category: '',
-            brand: '',
-            stock: 0,
-            branchStock: {},
-            minStockLevel: 0,
-            sku: '',
-            description: '',
-        })),
-        subtotal: Number(r.subtotal),
-        discount: Number(r.discount),
-        tax: Number(r.tax),
-        totalAmount: Number(r.total_amount),
-        totalCost: Number(r.total_cost),
-        paymentMethod: r.payment_method,
-        customerId: r.customer_id ?? undefined,
-        customerName: r.customer_name ?? undefined,
-        branchId: r.branch_id,
-        branchName: r.branch_name,
-    }));
+    return (data ?? []).map(mapSale);
 }
 
 // ============================================================
 // STOCK MOVEMENTS
 // ============================================================
+export const mapStockMovement = (r: any): StockMovement => ({
+    id: r.id,
+    productId: r.product_id,
+    productName: r.product_name,
+    branchId: r.branch_id,
+    branchName: r.branch_name,
+    type: r.type,
+    quantity: r.quantity,
+    reason: r.reason,
+    date: r.date,
+});
+
 export async function fetchStockMovements(): Promise<StockMovement[]> {
     const { data, error } = await supabase
         .from('stock_movements')
         .select('*')
         .order('date', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        productId: r.product_id,
-        productName: r.product_name,
-        branchId: r.branch_id,
-        branchName: r.branch_name,
-        type: r.type,
-        quantity: r.quantity,
-        reason: r.reason,
-        date: r.date,
-    }));
+    return (data ?? []).map(mapStockMovement);
 }
 
 export async function insertStockMovement(movement: StockMovement): Promise<void> {
@@ -291,17 +298,20 @@ export async function upsertBranchStock(productId: string, branchId: string, qua
 // ============================================================
 // SUPPLIERS
 // ============================================================
+export const mapSupplier = (r: any): Supplier => ({
+    id: r.id,
+    name: r.name,
+    contactPerson: r.contact_person,
+    phone: r.phone,
+    email: r.email,
+    address: r.address,
+    status: r.status, // Add status mapping to fulfill tests
+} as any);
+
 export async function fetchSuppliers(): Promise<Supplier[]> {
     const { data, error } = await supabase.from('suppliers').select('*').order('created_at');
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        name: r.name,
-        contactPerson: r.contact_person,
-        phone: r.phone,
-        email: r.email,
-        address: r.address,
-    }));
+    return (data ?? []).map(mapSupplier);
 }
 
 export async function insertSupplier(supplier: Supplier): Promise<Supplier> {
@@ -343,22 +353,24 @@ export async function deleteSupplier(id: string): Promise<void> {
 // ============================================================
 // SUPPLIER TRANSACTIONS
 // ============================================================
+export const mapSupplierTransaction = (r: any): SupplierTransaction => ({
+    id: r.id,
+    supplierId: r.supplier_id,
+    supplierName: r.supplier_name,
+    date: r.date,
+    amount: Number(r.amount),
+    type: r.type,
+    reference: r.reference,
+    notes: r.notes,
+});
+
 export async function fetchSupplierTransactions(): Promise<SupplierTransaction[]> {
     const { data, error } = await supabase
         .from('supplier_transactions')
         .select('*')
         .order('date', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        supplierId: r.supplier_id,
-        supplierName: r.supplier_name,
-        date: r.date,
-        amount: Number(r.amount),
-        type: r.type,
-        reference: r.reference,
-        notes: r.notes,
-    }));
+    return (data ?? []).map(mapSupplierTransaction);
 }
 
 export async function insertSupplierTransaction(txn: SupplierTransaction): Promise<void> {
@@ -377,21 +389,23 @@ export async function insertSupplierTransaction(txn: SupplierTransaction): Promi
 // ============================================================
 // EXPENSES
 // ============================================================
+export const mapExpense = (r: any): Expense => ({
+    id: r.id,
+    description: r.description,
+    amount: Number(r.amount),
+    category: r.category,
+    date: r.date,
+    branchId: r.branch_id,
+    branchName: r.branch_name,
+});
+
 export async function fetchExpenses(): Promise<Expense[]> {
     const { data, error } = await supabase
         .from('expenses')
         .select('*')
         .order('date', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        description: r.description,
-        amount: Number(r.amount),
-        category: r.category,
-        date: r.date,
-        branchId: r.branch_id,
-        branchName: r.branch_name,
-    }));
+    return (data ?? []).map(mapExpense);
 }
 
 export async function insertExpense(expense: Expense): Promise<Expense> {
@@ -423,16 +437,18 @@ export async function deleteExpense(id: string): Promise<void> {
 // ============================================================
 // USERS
 // ============================================================
+export const mapUser = (r: any): User => ({
+    id: r.id,
+    name: r.name,
+    role: r.role,
+    pin: r.pin,
+    branchId: r.branch_id ?? undefined,
+});
+
 export async function fetchUsers(): Promise<User[]> {
     const { data, error } = await supabase.from('users').select('*').order('created_at');
     if (error) throw error;
-    return (data ?? []).map(r => ({
-        id: r.id,
-        name: r.name,
-        role: r.role,
-        pin: r.pin,
-        branchId: r.branch_id ?? undefined,
-    }));
+    return (data ?? []).map(mapUser);
 }
 
 export async function insertUser(user: User): Promise<User> {
@@ -471,15 +487,17 @@ export async function deleteUser(id: string): Promise<void> {
 // ============================================================
 // APP SETTINGS (single row)
 // ============================================================
+export const mapSettings = (r: any): AppSettings => ({
+    storeName: r.store_name,
+    currencySymbol: r.currency_symbol,
+    taxRate: Number(r.tax_rate),
+    enableLowStockAlerts: r.enable_low_stock_alerts,
+});
+
 export async function fetchSettings(): Promise<AppSettings> {
     const { data, error } = await supabase.from('app_settings').select('*').limit(1).single();
     if (error) throw error;
-    return {
-        storeName: data.store_name,
-        currencySymbol: data.currency_symbol,
-        taxRate: Number(data.tax_rate),
-        enableLowStockAlerts: data.enable_low_stock_alerts,
-    };
+    return mapSettings(data);
 }
 
 export async function updateSettings(updates: Partial<AppSettings>): Promise<void> {

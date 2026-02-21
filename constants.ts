@@ -3,6 +3,7 @@ import { Product, Customer, Branch, Supplier, Expense, User, AppSettings } from 
 export const INITIAL_CATEGORIES = ['Clothing', 'Accessories', 'Footwear', 'Bags', 'Jewelry'];
 export const INITIAL_BRANDS = ['Hoard Lavish', 'Gucci', 'Prada', 'Hermes', 'Rolex', 'Generic'];
 export const EXPENSE_CATEGORIES = ['Rent', 'Utilities', 'Salaries', 'Marketing', 'Maintenance', 'Software', 'Other'];
+export const CUR = 'LKR';
 
 export const INITIAL_BRANCHES: Branch[] = [
   {

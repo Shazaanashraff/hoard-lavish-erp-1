@@ -1,5 +1,10 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
 
 const isDev = !app.isPackaged;
 
@@ -35,7 +40,48 @@ function createWindow() {
     }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    createWindow();
+
+    // Check for updates in production only
+    if (!isDev) {
+        autoUpdater.checkForUpdatesAndNotify();
+    }
+});
+
+// ─── Auto-Updater Events ───────────────────────────────
+autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info.version);
+});
+
+autoUpdater.on('update-not-available', () => {
+    log.info('App is up to date.');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+    log.info(`Download speed: ${progress.bytesPerSecond} - ${Math.round(progress.percent)}%`);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded:', info.version);
+    dialog
+        .showMessageBox({
+            type: 'info',
+            title: 'Update Ready',
+            message: `Version ${info.version} has been downloaded. Restart now to apply the update?`,
+            buttons: ['Restart', 'Later'],
+            defaultId: 0,
+        })
+        .then((result) => {
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall();
+            }
+        });
+});
+
+autoUpdater.on('error', (err) => {
+    log.error('AutoUpdater error:', err);
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

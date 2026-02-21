@@ -26,5 +26,12 @@
         "allowToChangeInstallationDirectory": true,
         "installerIcon": "public/icon.png",
         "uninstallerIcon": "public/icon.png"
-    }
+    },
+    "publish": [
+        {
+            "provider": "github",
+            "owner": "Hesara2003",
+            "repo": "hoard-lavish-erp"
+        }
+    ]
 }

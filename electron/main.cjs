@@ -6,6 +6,15 @@ const log = require('electron-log');
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
+// GitHub token for private repo auto-updates
+const GH_TOKEN = process.env.GH_TOKEN || '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';
+if (GH_TOKEN) {
+    autoUpdater.requestHeaders = { Authorization: `token ${GH_TOKEN}` };
+    log.info('Auto-updater: Using GitHub token for private repo access.');
+} else {
+    log.warn('Auto-updater: No GH_TOKEN found. Updates from private repos will fail.');
+}
+
 const isDev = !app.isPackaged;
 let mainWindow = null;
 

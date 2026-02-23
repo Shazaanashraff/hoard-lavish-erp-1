@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DollarSign, ShoppingBag, TrendingUp, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type FilterMode = 'daily' | 'monthly';
 
@@ -223,50 +225,150 @@ const Dashboard: React.FC = () => {
     return `${days}d ago`;
   };
 
-  // --- Report Generation ---
+  // --- Report Generation (PDF) ---
   const generateReport = () => {
-    const lines: string[] = [];
-    lines.push('='.repeat(60));
-    lines.push(`  HOARD LAVISH — ${filterMode === 'daily' ? 'Daily' : 'Monthly'} Analysis Report`);
-    lines.push(`  Period: ${periodLabel}`);
-    lines.push(`  Generated: ${new Date().toLocaleString()}`);
-    lines.push('='.repeat(60));
-    lines.push('');
-    lines.push('--- SUMMARY ---');
-    lines.push(`Total Revenue:      ${fmtCurrency(revenue)}`);
-    lines.push(`Total Cost (COGS):  ${fmtCurrency(cost)}`);
-    lines.push(`Net Profit:         ${fmtCurrency(profit)}`);
-    lines.push(`Profit Margin:      ${revenue ? ((profit / revenue) * 100).toFixed(1) : 0}%`);
-    lines.push(`Transactions:       ${txCount}`);
-    lines.push('');
-    lines.push('--- TOP PERFORMERS ---');
-    lines.push(`Top Revenue Product:  ${topPerformers.bestRev.name} (${fmtCurrency(topPerformers.bestRev.value)})`);
-    lines.push(`Most Sold Product:    ${topPerformers.bestQty.name} (${topPerformers.bestQty.value} units)`);
-    lines.push('');
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HOARD LAVISH', pageWidth / 2, 18, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${filterMode === 'daily' ? 'Daily' : 'Monthly'} Analysis Report`, pageWidth / 2, 28, { align: 'center' });
+    doc.text(`Period: ${periodLabel}`, pageWidth / 2, 35, { align: 'center' });
+    
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+    
+    // Generated date
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 50, { align: 'right' });
+    
+    // Summary Section
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 14, 58);
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, 61, pageWidth - 14, 61);
+    
+    const profitMargin = revenue ? ((profit / revenue) * 100).toFixed(1) : '0';
+    
+    const summaryData = [
+      ['Total Revenue', fmtCurrency(revenue)],
+      ['Total Cost (COGS)', fmtCurrency(cost)],
+      ['Net Profit', fmtCurrency(profit)],
+      ['Profit Margin', `${profitMargin}%`],
+      ['Transactions', txCount.toString()]
+    ];
+    
+    autoTable(doc, {
+      startY: 65,
+      head: [],
+      body: summaryData,
+      theme: 'plain',
+      styles: { fontSize: 11, cellPadding: 3 },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 60 },
+        1: { halign: 'right' }
+      },
+      margin: { left: 14, right: 14 }
+    });
+    
+    // Top Performers Section
+    const afterSummaryY = (doc as any).lastAutoTable.finalY + 10;
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Top Performers', 14, afterSummaryY);
+    doc.line(14, afterSummaryY + 3, pageWidth - 14, afterSummaryY + 3);
+    
+    const performersData = [
+      ['Top Revenue Product', `${topPerformers.bestRev.name} (${fmtCurrency(topPerformers.bestRev.value)})`],
+      ['Most Sold Product', `${topPerformers.bestQty.name} (${topPerformers.bestQty.value} units)`]
+    ];
+    
+    autoTable(doc, {
+      startY: afterSummaryY + 7,
+      head: [],
+      body: performersData,
+      theme: 'plain',
+      styles: { fontSize: 11, cellPadding: 3 },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 60 }
+      },
+      margin: { left: 14, right: 14 }
+    });
+    
+    // Transaction Ledger Section
     if (ledger.length > 0) {
-      lines.push('--- TRANSACTION LEDGER ---');
-      lines.push(`${'Date'.padEnd(14)} ${'Type'.padEnd(6)} ${'Category'.padEnd(14)} ${'Amount'.padStart(16)}  Description`);
-      lines.push('-'.repeat(85));
-      ledger.forEach(item => {
+      const afterPerformersY = (doc as any).lastAutoTable.finalY + 10;
+      
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Transaction Ledger', 14, afterPerformersY);
+      doc.line(14, afterPerformersY + 3, pageWidth - 14, afterPerformersY + 3);
+      
+      const ledgerTableData = ledger.map(item => {
         const date = new Date(item.date).toLocaleDateString();
         const sign = item.type === 'OUT' ? '-' : '+';
-        lines.push(`${date.padEnd(14)} ${item.type.padEnd(6)} ${item.category.padEnd(14)} ${(sign + fmtCurrency(item.amount)).padStart(16)}  ${item.desc}`);
+        return [date, item.type, item.category, sign + fmtCurrency(item.amount), item.desc];
       });
-      lines.push('');
+      
+      autoTable(doc, {
+        startY: afterPerformersY + 7,
+        head: [['Date', 'Type', 'Category', 'Amount', 'Description']],
+        body: ledgerTableData,
+        theme: 'striped',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 15 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 35, halign: 'right' },
+          4: { cellWidth: 'auto' }
+        },
+        margin: { left: 14, right: 14 },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 3) {
+            const text = data.cell.raw as string;
+            if (text.startsWith('-')) {
+              data.cell.styles.textColor = [220, 38, 38]; // red-600
+            } else {
+              data.cell.styles.textColor = [22, 163, 74]; // green-600
+            }
+          }
+        }
+      });
     }
-    lines.push('='.repeat(60));
-    lines.push('  End of Report');
-    lines.push('='.repeat(60));
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filterMode === 'daily' ? `report_${selectedDate}.txt` : `report_${selectedMonth}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Page ${i} of ${pageCount} — Hoard Lavish ERP`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: 'center' }
+      );
+    }
+    
+    // Save the PDF
+    const filename = filterMode === 'daily' ? `report_${selectedDate}.pdf` : `report_${selectedMonth}.pdf`;
+    doc.save(filename);
   };
 
   // --- Reusable Components ---

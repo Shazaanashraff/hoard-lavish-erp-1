@@ -39,7 +39,7 @@ describe('Inventory â€” Product List', () => {
   it('shows product SKU, category, price columns', async () => {
     renderInventory();
     expect(screen.getByText('DRS-001')).toBeInTheDocument();
-    expect(screen.getByText('$1250.00')).toBeInTheDocument();
+    expect(screen.getByText('LKR 1,250.00')).toBeInTheDocument();
   });
 
   it('has Add Product button', async () => {

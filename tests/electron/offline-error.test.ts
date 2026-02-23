@@ -296,7 +296,7 @@ describe('Input Validation & Edge Cases', () => {
     expect(dupes.length).toBe(2); // Both products have same SKU
   });
 
-  it('discount larger than subtotal creates negative tax', () => {
+  it('discount larger than subtotal is clamped — total is 0', () => {
     const { result } = renderStore();
     const product = result.current.products[0];
 
@@ -309,8 +309,9 @@ describe('Input Validation & Edge Cases', () => {
       sale = result.current.completeSale('Cash', 99999); // Huge discount
     });
 
-    // BUG: Tax can go negative when discount > subtotal
-    expect(sale.tax).toBeLessThan(0);
+    // Tax is 0 (taxRate=0) and effectiveDiscount is clamped to subtotal+tax
+    expect(sale.tax).toBe(0);
+    expect(sale.totalAmount).toBe(0);
   });
 });
 

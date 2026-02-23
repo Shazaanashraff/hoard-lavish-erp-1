@@ -66,8 +66,8 @@ describe('POS â€” Product Grid', () => {
 
   it('displays product price', async () => {
     renderPOS();
-    // Midnight Velvet Gown = $1250 (rendered with .toFixed(2))
-    expect(screen.getByText('$1250.00')).toBeInTheDocument();
+    // Midnight Velvet Gown = 1250 (rendered with LKR locale formatting)
+    expect(screen.getByText('LKR 1,250.00')).toBeInTheDocument();
   });
 
   it('displays product SKU', async () => {
@@ -98,7 +98,7 @@ describe('POS â€” Search & Barcode', () => {
   it('search input filters products by name', async () => {
     renderPOS();
 
-    const searchInput = screen.getByPlaceholderText('Search products...');
+    const searchInput = screen.getByPlaceholderText('Search products... (Enter to add)');
     fireEvent.change(searchInput, { target: { value: 'Velvet' } });
 
     await waitFor(() => {
@@ -144,7 +144,7 @@ describe('POS â€” Cart Operations', () => {
     });
   });
 
-  it('shows subtotal, tax, and total in cart footer', async () => {
+  it('shows subtotal, discount, and total in cart footer', async () => {
     renderPOS();
     const user = userEvent.setup();
 
@@ -152,7 +152,7 @@ describe('POS â€” Cart Operations', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Subtotal')).toBeInTheDocument();
-      expect(screen.getByText('Tax (8%)')).toBeInTheDocument();
+      expect(screen.getByText('Discount')).toBeInTheDocument();
       expect(screen.getByText('Total')).toBeInTheDocument();
     });
   });
@@ -264,9 +264,9 @@ describe('POS â€” Checkout Buttons', () => {
 });
 
 describe('POS â€” Customer Selection', () => {
-  it('shows customer selector dropdown', async () => {
+  it('shows customer search input', async () => {
     renderPOS();
-    expect(screen.getByText('Select Customer')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search customer by name or phone...')).toBeInTheDocument();
   });
 
   it('Add New Customer button opens modal', async () => {
@@ -327,12 +327,13 @@ describe('POS â€” Customer Selection', () => {
 // CRITICAL BUG DETECTION TESTS
 // ============================================================================
 describe('POS â€” Critical Bug Detection', () => {
-  it('BUG: Tax is hardcoded at 8% instead of using settings.taxRate', async () => {
+  it('Tax has been removed from POS — total = subtotal - discount', async () => {
     renderPOS();
-    // The POS component has: const tax = (subtotal - discountAmount) * 0.08;
-    // This should use settings.taxRate instead
-    // This test DOCUMENTS the bug by checking the hardcoded "Tax (8%)" label
-    expect(screen.getByText('Tax (8%)')).toBeInTheDocument();
+    // Tax was removed from POS billing calculations.
+    // Total is now simply: subtotal - discount (no tax line).
+    expect(screen.queryByText(/Tax/)).not.toBeInTheDocument();
+    expect(screen.getByText('Subtotal')).toBeInTheDocument();
+    expect(screen.getByText('Total')).toBeInTheDocument();
   });
 
   it('BUG: No double-submit protection on checkout', async () => {

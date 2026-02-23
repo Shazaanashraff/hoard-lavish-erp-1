@@ -60,8 +60,8 @@ describe('Sidebar — Navigation', () => {
     expect(screen.getByText('Admin User')).toBeInTheDocument();
   });
 
-  it('BUG: No role-based menu filtering — cashier sees all nav items', () => {
-    // This test documents the security weakness: all roles see all menu items
+  it('role-based menu filtering — cashier cannot see admin-only items', () => {
+    // This test verifies that role-based filtering is correctly implemented
     const CashierSidebar = () => {
       const { login, users } = useStore();
       React.useEffect(() => {
@@ -77,10 +77,12 @@ describe('Sidebar — Navigation', () => {
       </StoreProvider>
     );
 
-    // SECURITY ISSUE: Cashier should NOT see Settings or Accounting
-    // but currently does — these should be filtered by role
-    expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByText('Accounting')).toBeInTheDocument();
+    // Cashier should NOT see Settings, Accounting, Branch Mgmt, or Suppliers
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.queryByText('Accounting')).not.toBeInTheDocument();
+    // Cashier should still see core POS nav items
+    expect(screen.getByText('Point of Sale')).toBeInTheDocument();
+    expect(screen.getByText('Inventory')).toBeInTheDocument();
   });
 
   it('clicking logout shows confirm dialog', async () => {

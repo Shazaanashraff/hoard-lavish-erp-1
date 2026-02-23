@@ -22,7 +22,7 @@ function createWindow() {
         minWidth: 1024,
         minHeight: 600,
         title: 'Hoard Lavish ERP',
-        icon: path.join(__dirname, '../public/icon.png'),
+        icon: path.join(__dirname, '../public/icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,

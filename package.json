@@ -1,7 +1,7 @@
 {
   "name": "hoard-lavish-erp",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Hoard Lavish",
@@ -46,6 +46,7 @@
     "electron-builder": "^25.1.8",
     "happy-dom": "^20.7.0",
     "jsdom": "^28.1.0",
+    "png-to-ico": "^3.0.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vitest": "^4.0.18",

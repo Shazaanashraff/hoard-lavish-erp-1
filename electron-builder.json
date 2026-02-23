@@ -18,14 +18,14 @@
                 ]
             }
         ],
-        "icon": "public/icon.png"
+        "icon": "public/icon.ico"
     },
     "nsis": {
         "oneClick": false,
         "perMachine": true,
         "allowToChangeInstallationDirectory": true,
-        "installerIcon": "public/icon.png",
-        "uninstallerIcon": "public/icon.png"
+        "installerIcon": "public/icon.ico",
+        "uninstallerIcon": "public/icon.ico"
     },
     "publish": [
         {

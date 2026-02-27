@@ -113,6 +113,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const useSupabase = isSupabaseConfigured();
 
@@ -132,6 +133,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (data.brands) setBrands(data.brands);
           if (data.stockHistory) setStockHistory(data.stockHistory);
           if (data.stockTransfers) setStockTransfers(data.stockTransfers);
+          if (data.exchangeHistory) setExchangeHistory(data.exchangeHistory);
           if (data.suppliers) setSuppliers(data.suppliers);
           if (data.supplierTransactions) setSupplierTransactions(data.supplierTransactions);
           if (data.expenses) setExpenses(data.expenses);
@@ -143,6 +145,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
       setIsLoading(false);
+      setHasLoaded(true);
       return;
     }
 
@@ -198,6 +201,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           } catch (_) { /* ignore parse errors */ }
         }
 
+        // Load exchange history from localStorage (no Supabase table yet)
+        let exchangeData: ExchangeRecord[] = [];
+        try {
+          const savedExchanges = localStorage.getItem('hoard_exchange_history');
+          if (savedExchanges) {
+            exchangeData = JSON.parse(savedExchanges);
+          }
+        } catch (_) { /* ignore parse errors */ }
+
         setBranches(branchesData);
         setProducts(productsData);
         setCustomers(customersData);
@@ -212,12 +224,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setBrands(brandsData);
         setDamagedGoods(damagedGoodsData);
         setStockTransfers(stockTransfersData);
+        setExchangeHistory(exchangeData);
         if (branchesData.length > 0) setCurrentBranch(branchesData[0]);
       } catch (err: unknown) {
         console.error('Failed to load data from Supabase', err);
         setDbError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         setIsLoading(false);
+        setHasLoaded(true);
       }
     };
     loadAll();
@@ -225,18 +239,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // ---- localStorage fallback persistence ----
   useEffect(() => {
+    if (!hasLoaded) return; // Don't save until initial data has been loaded
     if (useSupabase) {
-      // Even with Supabase, persist stockTransfers to localStorage as fallback
-      // (the stock_transfers table may not exist yet if migration wasn't applied)
+      // Even with Supabase, persist stockTransfers & exchangeHistory to localStorage as fallback
+      // (their tables may not exist yet if migrations weren't applied)
       localStorage.setItem('hoard_stock_transfers', JSON.stringify(stockTransfers));
+      localStorage.setItem('hoard_exchange_history', JSON.stringify(exchangeHistory));
       return;
     }
     const data = {
       branches, salesHistory, customers, products, categories, brands,
-      stockHistory, stockTransfers, suppliers, supplierTransactions, expenses, users, settings, damagedGoods
+      stockHistory, stockTransfers, exchangeHistory, suppliers, supplierTransactions, expenses, users, settings, damagedGoods
     };
     localStorage.setItem('hoard_data_v2', JSON.stringify(data));
-  }, [useSupabase, branches, salesHistory, customers, products, categories, brands, stockHistory, stockTransfers, suppliers, supplierTransactions, expenses, users, settings, damagedGoods]);
+  }, [hasLoaded, useSupabase, branches, salesHistory, customers, products, categories, brands, stockHistory, stockTransfers, exchangeHistory, suppliers, supplierTransactions, expenses, users, settings, damagedGoods]);
 
   // ---- Helper for async DB calls with error handling ----
   const dbCall = useCallback(async (fn: () => Promise<void>) => {
@@ -515,6 +531,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts(updatedProducts);
     setStockHistory(prev => [...newStockLogs, ...prev]);
     setExchangeHistory(prev => [exchange, ...prev]);
+
+    // Persist stock changes to Supabase
+    dbCall(async () => {
+      // Update branch stock for all affected products
+      const allItems = [...exchange.returnedItems, ...exchange.newItems];
+      for (const item of allItems) {
+        const product = updatedProducts.find(p => p.id === item.id);
+        if (!product) continue;
+        await db.upsertBranchStock(item.id, currentBranch.id, product.branchStock[currentBranch.id] || 0);
+      }
+      // Persist stock movement logs
+      for (const log of newStockLogs) {
+        await db.insertStockMovement(log);
+      }
+    });
 
     return exchange;
   };

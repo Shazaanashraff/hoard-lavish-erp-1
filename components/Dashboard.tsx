@@ -12,7 +12,7 @@ const CUR = 'LKR';
 const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, currentUser } = useStore();
+  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -37,11 +37,20 @@ const Dashboard: React.FC = () => {
     }
   }, [salesHistory, filterMode, selectedDate, selectedMonth]);
 
+  // --- Filtered Exchanges ---
+  const filteredExchanges = useMemo(() => {
+    const ex = exchangeHistory || [];
+    if (filterMode === 'daily') return ex.filter(e => matchesDate(e.date, selectedDate));
+    return ex.filter(e => matchesMonth(e.date, selectedMonth));
+  }, [exchangeHistory, filterMode, selectedDate, selectedMonth]);
+
   // --- Calculate Metrics ---
-  const revenue = filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
+  const salesRevenue = filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
+  const exchangeNetRevenue = filteredExchanges.reduce((sum, e) => sum + e.difference, 0);
+  const revenue = salesRevenue + exchangeNetRevenue;
   const cost = filteredSales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
   const profit = revenue - cost;
-  const txCount = filteredSales.length;
+  const txCount = filteredSales.length + filteredExchanges.length;
   const lowStockCount = products.filter(p => p.stock < 5).length;
 
   // --- Display Labels ---
@@ -142,10 +151,17 @@ const Dashboard: React.FC = () => {
       })),
       ...filteredTransfers.map(t => ({
         id: t.id, date: t.date, desc: `Transfer ${t.transferNumber}: ${t.fromBranchName} → ${t.toBranchName}`, amount: t.totalValue, type: 'TRANSFER' as const, category: 'Stock Transfer'
+      })),
+      ...filteredExchanges.map(e => ({
+        id: e.id, date: e.date,
+        desc: `Exchange #${e.exchangeNumber}${e.originalInvoiceNumber ? ` (Sale #${e.originalInvoiceNumber})` : ''}: ${e.description || 'Product exchange'}`,
+        amount: Math.abs(e.difference),
+        type: (e.difference >= 0 ? 'IN' : 'OUT') as 'IN' | 'OUT' | 'TRANSFER',
+        category: 'Exchange'
       }))
     ];
     return all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredTransfers]);
+  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredTransfers, filteredExchanges]);
 
   // --- Activity Feed ---
   const activityFeed = useMemo(() => {
@@ -383,31 +399,35 @@ const Dashboard: React.FC = () => {
       );
     }
     
-    // Generate blob URL for preview instead of auto-download
+    // Generate data URL for preview (blob URLs don't work in Electron iframes)
     const filename = filterMode === 'daily' ? `report_${selectedDate}.pdf` : `report_${selectedMonth}.pdf`;
+    const dataUri = doc.output('datauristring');
     const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    setPreviewUrl(url);
+    setPreviewDataUri(dataUri);
+    setPreviewBlob(blob);
     setPreviewFilename(filename);
   };
 
   // --- Preview State ---
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDataUri, setPreviewDataUri] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewFilename, setPreviewFilename] = useState('');
 
   const closePreview = useCallback(() => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
+    setPreviewDataUri(null);
+    setPreviewBlob(null);
     setPreviewFilename('');
-  }, [previewUrl]);
+  }, []);
 
   const downloadReport = useCallback(() => {
-    if (!previewUrl) return;
+    if (!previewBlob) return;
+    const url = URL.createObjectURL(previewBlob);
     const a = document.createElement('a');
-    a.href = previewUrl;
+    a.href = url;
     a.download = previewFilename;
     a.click();
-  }, [previewUrl, previewFilename]);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  }, [previewBlob, previewFilename]);
 
   // --- Reusable Components ---
   const StatCard = ({ title, value, subtext, icon: Icon, colorClass }: any) => (
@@ -456,7 +476,7 @@ const Dashboard: React.FC = () => {
     <div className="flex-1 bg-slate-50 p-6 md:p-8 overflow-y-auto">
 
       {/* PDF PREVIEW MODAL */}
-      {previewUrl && (
+      {previewDataUri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-[90vw] h-[90vh] max-w-5xl flex flex-col overflow-hidden">
             {/* Modal Header */}
@@ -481,7 +501,7 @@ const Dashboard: React.FC = () => {
             </div>
             {/* PDF Embed */}
             <div className="flex-1 bg-slate-200 p-2">
-              <iframe src={previewUrl} title="Report Preview" className="w-full h-full rounded-lg border-0" />
+              <iframe src={previewDataUri} title="Report Preview" className="w-full h-full rounded-lg border-0" />
             </div>
           </div>
         </div>

@@ -25,7 +25,8 @@
         "perMachine": true,
         "allowToChangeInstallationDirectory": true,
         "installerIcon": "public/icon.ico",
-        "uninstallerIcon": "public/icon.ico"
+        "uninstallerIcon": "public/icon.ico",
+        "artifactName": "Hoard-Lavish-ERP-Setup-${version}.${ext}"
     },
     "publish": [
         {

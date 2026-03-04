@@ -727,6 +727,31 @@ const Inventory: React.FC = () => {
                   );
                 })}
               </tbody>
+              {filteredProducts.length > 0 && (() => {
+                const totalQty = filteredProducts.reduce((sum, p) => sum + (p.branchStock[currentBranch.id] || 0), 0);
+                return (
+                  <tfoot>
+                    <tr className="bg-slate-50 border-t-2 border-slate-200">
+                      <td colSpan={6} className="p-4 text-right text-sm font-semibold text-slate-600">
+                        Total Quantity
+                        {filterCategory !== 'All' && (
+                          <span className="ml-1 text-xs font-normal text-slate-400">({filterCategory})</span>
+                        )}
+                        {searchTerm && (
+                          <span className="ml-1 text-xs font-normal text-slate-400">(filtered)</span>
+                        )}
+                        :
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
+                          {totalQty}
+                        </span>
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                );
+              })()}
             </table>
             {filteredProducts.length === 0 && (
               <div className="p-8 text-center text-slate-400">No products found matching your criteria.</div>

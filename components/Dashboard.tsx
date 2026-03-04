@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye, X, Download, ArrowRightLeft, Edit2, Printer, Plus, Minus, Trash2, CheckCircle } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye, X, Download, ArrowRightLeft, Edit2, Printer, Plus, Minus, Trash2, CheckCircle, ClipboardList } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -10,10 +10,13 @@ type FilterMode = 'daily' | 'monthly';
 
 const CUR = 'LKR';
 
+const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
+const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
+
 const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, customers } = useStore();
+  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, customers, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -25,6 +28,7 @@ const Dashboard: React.FC = () => {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   );
   const [detailModalType, setDetailModalType] = useState<'revenue' | 'expenses' | 'profit' | null>(null);
+  const [showLowStockModal, setShowLowStockModal] = useState(false);
 
   // --- Edit Sale State ---
   const [editingSale, setEditingSale] = useState<SalesRecord | null>(null);
@@ -38,21 +42,22 @@ const Dashboard: React.FC = () => {
   const matchesDate = (dateString: string, targetDate: string) => dateString.startsWith(targetDate);
   const matchesMonth = (dateString: string, targetMonth: string) => dateString.startsWith(targetMonth);
 
-  // --- Filtered Sales ---
+  // --- Filtered Sales (branch-scoped) ---
   const filteredSales = useMemo(() => {
+    const branchSales = salesHistory.filter(s => s.branchId === currentBranch.id);
     if (filterMode === 'daily') {
-      return salesHistory.filter(s => matchesDate(s.date, selectedDate));
+      return branchSales.filter(s => matchesDate(s.date, selectedDate));
     } else {
-      return salesHistory.filter(s => matchesMonth(s.date, selectedMonth));
+      return branchSales.filter(s => matchesMonth(s.date, selectedMonth));
     }
-  }, [salesHistory, filterMode, selectedDate, selectedMonth]);
+  }, [salesHistory, filterMode, selectedDate, selectedMonth, currentBranch.id]);
 
-  // --- Filtered Exchanges ---
+  // --- Filtered Exchanges (branch-scoped) ---
   const filteredExchanges = useMemo(() => {
-    const ex = exchangeHistory || [];
+    const ex = (exchangeHistory || []).filter(e => e.branchId === currentBranch.id);
     if (filterMode === 'daily') return ex.filter(e => matchesDate(e.date, selectedDate));
     return ex.filter(e => matchesMonth(e.date, selectedMonth));
-  }, [exchangeHistory, filterMode, selectedDate, selectedMonth]);
+  }, [exchangeHistory, filterMode, selectedDate, selectedMonth, currentBranch.id]);
 
   // --- Calculate Metrics ---
   const salesRevenue = filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
@@ -61,7 +66,8 @@ const Dashboard: React.FC = () => {
   const cost = filteredSales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
   const profit = revenue - cost;
   const txCount = filteredSales.length + filteredExchanges.length;
-  const lowStockCount = products.filter(p => p.stock < 5).length;
+  const lowStockProducts = products.filter(p => (p.branchStock?.[currentBranch?.id ?? ''] ?? p.stock) <= p.minStockLevel);
+  const lowStockCount = lowStockProducts.length;
 
   // --- Display Labels ---
   const periodLabel = useMemo(() => {
@@ -97,46 +103,55 @@ const Dashboard: React.FC = () => {
     return { bestRev, bestQty };
   }, [filteredSales]);
 
-  // Chart Data
+  // Chart Data — per branch
   const chartData = useMemo(() => {
     if (filterMode === 'daily') {
       const days = 7;
-      const data = [];
+      const data: Record<string, any>[] = [];
       const endDate = new Date(selectedDate + 'T00:00:00');
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(endDate);
         d.setDate(endDate.getDate() - i);
         const dateStr = d.toISOString().split('T')[0];
-        const daysSales = salesHistory.filter(s => s.date.startsWith(dateStr));
-        const rev = daysSales.reduce((sum, s) => sum + s.totalAmount, 0);
-        const cst = daysSales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
-        data.push({
+        const point: Record<string, any> = {
           name: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
-          revenue: rev,
-          profit: rev - cst
+        };
+        branches.forEach(br => {
+          const daySales = salesHistory.filter(s => s.branchId === br.id && s.date.startsWith(dateStr));
+          const rev = daySales.reduce((sum, s) => sum + s.totalAmount, 0);
+          const cst = daySales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+          point[`rev_${br.id}`] = rev;
+          point[`profit_${br.id}`] = rev - cst;
         });
+        data.push(point);
       }
       return data;
     } else {
       const [year, month] = selectedMonth.split('-').map(Number);
       const daysInMonth = new Date(year, month, 0).getDate();
-      const data = [];
+      const data: Record<string, any>[] = [];
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const daysSales = salesHistory.filter(s => s.date.startsWith(dateStr));
-        const rev = daysSales.reduce((sum, s) => sum + s.totalAmount, 0);
-        const cst = daysSales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
-        data.push({ name: `${day}`, revenue: rev, profit: rev - cst });
+        const point: Record<string, any> = { name: `${day}` };
+        branches.forEach(br => {
+          const daySales = salesHistory.filter(s => s.branchId === br.id && s.date.startsWith(dateStr));
+          const rev = daySales.reduce((sum, s) => sum + s.totalAmount, 0);
+          const cst = daySales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+          point[`rev_${br.id}`] = rev;
+          point[`profit_${br.id}`] = rev - cst;
+        });
+        data.push(point);
       }
       return data;
     }
-  }, [salesHistory, filterMode, selectedDate, selectedMonth]);
+  }, [salesHistory, filterMode, selectedDate, selectedMonth, branches]);
 
   // --- Unified Ledger ---
   const filteredExpenses = useMemo(() => {
-    if (filterMode === 'daily') return expenses.filter(e => matchesDate(e.date, selectedDate));
-    return expenses.filter(e => matchesMonth(e.date, selectedMonth));
-  }, [expenses, filterMode, selectedDate, selectedMonth]);
+    const branchExpenses = expenses.filter(e => e.branchId === currentBranch.id);
+    if (filterMode === 'daily') return branchExpenses.filter(e => matchesDate(e.date, selectedDate));
+    return branchExpenses.filter(e => matchesMonth(e.date, selectedMonth));
+  }, [expenses, filterMode, selectedDate, selectedMonth, currentBranch.id]);
 
   const filteredSupplierTx = useMemo(() => {
     if (filterMode === 'daily') return supplierTransactions.filter(t => t.type === 'PAYMENT' && matchesDate(t.date, selectedDate));
@@ -277,208 +292,257 @@ const Dashboard: React.FC = () => {
     return `${days}d ago`;
   };
 
-  // --- Report Generation (PDF) ---
-  const generateReport = (paymentFilter: 'all' | 'cash' | 'card' = 'all') => {
-    // Filter sales by payment method
-    const cardMethods = ['Card', 'PayHere', 'Online Transfer', 'MintPay'];
-    const paymentFilteredSales = paymentFilter === 'all' 
-      ? filteredSales 
-      : paymentFilter === 'cash'
-      ? filteredSales.filter(s => s.paymentMethod === 'Cash')
-      : filteredSales.filter(s => cardMethods.includes(s.paymentMethod));
-    
-    const paymentFilteredExchanges = paymentFilter === 'all'
-      ? filteredExchanges
-      : paymentFilter === 'cash'
-      ? filteredExchanges.filter(e => e.paymentMethod === 'Cash')
-      : filteredExchanges.filter(e => cardMethods.includes(e.paymentMethod));
-    
-    const paymentFilteredExpenses = paymentFilter === 'all'
-      ? filteredExpenses
-      : paymentFilter === 'cash'
-      ? filteredExpenses.filter(e => e.paymentMethod === 'Cash')
-      : filteredExpenses.filter(e => cardMethods.includes(e.paymentMethod));
-    
-    // Calculate filtered metrics
-    const filteredSalesRevenue = paymentFilteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const filteredExchangeRevenue = paymentFilteredExchanges.reduce((sum, e) => sum + e.difference, 0);
-    const filteredRevenue = filteredSalesRevenue + filteredExchangeRevenue;
-    const filteredCost = paymentFilteredSales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
-    const filteredExpensesTotal = paymentFilteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const filteredGrossProfit = filteredRevenue - filteredCost;
-    const filteredNetProfit = filteredGrossProfit - filteredExpensesTotal;
-    const filteredTxCount = paymentFilteredSales.length + paymentFilteredExchanges.length;
-    
+  // --- Day End Report (PDF) ---
+  const generateDayEndReport = (cashierName: string, note: string) => {
+    // Payment method breakdown
+    const cashSales    = filteredSales.filter(s => s.paymentMethod === 'Cash');
+    const cardSales    = filteredSales.filter(s => s.paymentMethod === 'Card');
+    const payhereS     = filteredSales.filter(s => s.paymentMethod === 'PayHere');
+    const onlineS      = filteredSales.filter(s => s.paymentMethod === 'Online Transfer');
+    const mintpayS     = filteredSales.filter(s => s.paymentMethod === 'MintPay');
+
+    const cashTotal    = cashSales.reduce((s, x) => s + x.totalAmount, 0);
+    const cardTotal    = cardSales.reduce((s, x) => s + x.totalAmount, 0);
+    const payhereTotal  = payhereS.reduce((s, x) => s + x.totalAmount, 0);
+    const onlineTotal  = onlineS.reduce((s, x) => s + x.totalAmount, 0);
+    const mintpayTotal = mintpayS.reduce((s, x) => s + x.totalAmount, 0);
+    const allCardTotal = cardTotal + payhereTotal + onlineTotal + mintpayTotal;
+
+    const totalSalesRevenue  = filteredSales.reduce((s, x) => s + x.totalAmount, 0);
+    const exchangeNet         = filteredExchanges.reduce((s, e) => s + e.difference, 0);
+    const grossSales          = totalSalesRevenue + exchangeNet;
+    const txCount             = filteredSales.length + filteredExchanges.length;
+    const totalItemsSold      = filteredSales.reduce((s, x) => s + x.items.reduce((a, i) => a + i.quantity, 0), 0);
+
+    // Expenses
+    const totalOperatingExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
+    const totalSupplierPayments  = filteredSupplierTx.reduce((s, t) => s + t.amount, 0);
+    const totalExpenses          = totalOperatingExpenses + totalSupplierPayments;
+    const netSales               = grossSales - totalExpenses;
+
+    const avgBill             = txCount > 0 ? grossSales / txCount : 0;
+    const avgItemSale         = totalItemsSold > 0 ? grossSales / totalItemsSold : 0;
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Header
-    doc.setFillColor(30, 41, 59); // slate-800
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    
+
+    // ── Header ──
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, pageWidth, 44, 'F');
+
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('HOARD LAVISH', pageWidth / 2, 18, { align: 'center' });
-    
+    doc.text('HOARD LAVISH', pageWidth / 2, 16, { align: 'center' });
+
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    const reportTitle = paymentFilter === 'cash' ? 'Cash Payments' : paymentFilter === 'card' ? 'Card Payments' : 'Analysis';
-    doc.text(`${filterMode === 'daily' ? 'Daily' : 'Monthly'} ${reportTitle} Report`, pageWidth / 2, 28, { align: 'center' });
-    doc.text(`Period: ${periodLabel}`, pageWidth / 2, 35, { align: 'center' });
-    
-    // Reset text color
+    doc.text(`${filterMode === 'daily' ? 'Daily' : 'Monthly'} Day End Report — ${periodLabel} — ${currentBranch.name}`, pageWidth / 2, 27, { align: 'center' });
+
+    if (cashierName.trim()) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Cashier: ${cashierName.trim()}`, pageWidth / 2, 38, { align: 'center' });
+    }
+
     doc.setTextColor(0, 0, 0);
-    
-    // Generated date
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 50, { align: 'right' });
-    
-    // Summary Section
+    doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 14, 54, { align: 'right' });
+
+    // ── Sales Breakdown ──
     doc.setTextColor(30, 41, 59);
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text('Summary', 14, 58);
-    
+    doc.text('Sales Summary', 14, 62);
     doc.setDrawColor(200, 200, 200);
-    doc.line(14, 61, pageWidth - 14, 61);
-    
-    const profitMargin = filteredRevenue ? ((filteredNetProfit / filteredRevenue) * 100).toFixed(1) : '0';
-    
-    const summaryData = [
-      ['Total Revenue', fmtCurrency(filteredRevenue)],
-      ['Total Cost (COGS)', fmtCurrency(filteredCost)],
-      ['Gross Profit', fmtCurrency(filteredGrossProfit)],
-      ['Operating Expenses', fmtCurrency(filteredExpensesTotal)],
-      ['Net Profit', fmtCurrency(filteredNetProfit)],
-      ['Net Profit Margin', `${profitMargin}%`],
-      ['Transactions', filteredTxCount.toString()]
-    ];
-    
+    doc.line(14, 65, pageWidth - 14, 65);
+
+    const salesBreakdown: (string | number)[][] = [];
+    salesBreakdown.push(['Cash Sales', fmtCurrency(cashTotal), `${cashSales.length} transaction${cashSales.length !== 1 ? 's' : ''}`]);
+
+    // Card total row
+    const cardSubParts: string[] = [];
+    if (cardTotal > 0)    cardSubParts.push(`Card: ${fmtCurrency(cardTotal)}`);
+    if (payhereTotal > 0) cardSubParts.push(`PayHere: ${fmtCurrency(payhereTotal)}`);
+    if (onlineTotal > 0)  cardSubParts.push(`Online Transfer: ${fmtCurrency(onlineTotal)}`);
+    if (mintpayTotal > 0) cardSubParts.push(`MintPay: ${fmtCurrency(mintpayTotal)}`);
+    const cardSubLabel = cardSubParts.length > 0 ? `(${cardSubParts.join('  |  ')})` : '—';
+    const allCardCount = cardSales.length + payhereS.length + onlineS.length + mintpayS.length;
+    salesBreakdown.push([`Card Sales  ${cardSubLabel}`, fmtCurrency(allCardTotal), `${allCardCount} transaction${allCardCount !== 1 ? 's' : ''}`]);
+
+    if (exchangeNet !== 0) {
+      salesBreakdown.push(['Exchange Adjustments', (exchangeNet >= 0 ? '+' : '') + fmtCurrency(exchangeNet), `${filteredExchanges.length} exchange${filteredExchanges.length !== 1 ? 's' : ''}`]);
+    }
+
     autoTable(doc, {
-      startY: 65,
+      startY: 69,
+      head: [['Payment Type', 'Amount', 'Count']],
+      body: salesBreakdown,
+      theme: 'striped',
+      styles: { fontSize: 10, cellPadding: 3.5 },
+      headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { halign: 'right', cellWidth: 38, fontStyle: 'bold' },
+        2: { halign: 'right', cellWidth: 32, textColor: [100, 116, 139] }
+      },
+      margin: { left: 14, right: 14 },
+      foot: [[{ content: 'TOTAL SALES', styles: { fontStyle: 'bold' } }, { content: fmtCurrency(grossSales), styles: { halign: 'right', fontStyle: 'bold', textColor: [22, 163, 74] } }, { content: `${txCount} total`, styles: { halign: 'right', textColor: [100, 116, 139] } }]],
+      footStyles: { fillColor: [241, 245, 249], fontStyle: 'bold', fontSize: 11 }
+    });
+
+    // ── Expenses Breakdown ──
+    const afterSalesY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Expenses', 14, afterSalesY);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, afterSalesY + 3, pageWidth - 14, afterSalesY + 3);
+
+    const expenseRows: (string | number)[][] = [];
+    filteredExpenses.forEach(e => {
+      expenseRows.push([new Date(e.date).toLocaleDateString(), e.category, e.description, fmtCurrency(e.amount)]);
+    });
+    filteredSupplierTx.forEach(t => {
+      expenseRows.push([new Date(t.date).toLocaleDateString(), 'Supplier Payment', t.supplierName + (t.reference ? ` — ${t.reference}` : ''), fmtCurrency(t.amount)]);
+    });
+
+    let afterExpensesY: number;
+    if (expenseRows.length > 0) {
+      autoTable(doc, {
+        startY: afterSalesY + 7,
+        head: [['Date', 'Category', 'Description', 'Amount']],
+        body: expenseRows,
+        theme: 'striped',
+        styles: { fontSize: 9.5, cellPadding: 3 },
+        headStyles: { fillColor: [127, 29, 29], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 36 },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 36, halign: 'right', fontStyle: 'bold' },
+        },
+        margin: { left: 14, right: 14 },
+        foot: [[{ content: 'TOTAL EXPENSES', colSpan: 3, styles: { fontStyle: 'bold' } }, { content: fmtCurrency(totalExpenses), styles: { halign: 'right', fontStyle: 'bold' } }]],
+        footStyles: { fillColor: [241, 245, 249], fontStyle: 'bold', fontSize: 11 },
+      });
+      afterExpensesY = (doc as any).lastAutoTable.finalY + 10;
+    } else {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('No expenses recorded for this period.', 14, afterSalesY + 12);
+      afterExpensesY = afterSalesY + 22;
+    }
+
+    // ── Summary ──
+    const afterBreakdownY = afterExpensesY;
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('Summary', 14, afterBreakdownY);
+    doc.line(14, afterBreakdownY + 3, pageWidth - 14, afterBreakdownY + 3);
+
+    const metricsData = [
+      ['Total Sales', fmtCurrency(grossSales)],
+      ['Less: Expenses', `- ${fmtCurrency(totalExpenses)}`],
+      ['Net Sales', fmtCurrency(netSales)],
+      ['', ''],
+      ['Total Transactions', txCount.toString()],
+      ['Total Items Sold', totalItemsSold.toString()],
+      ['Average Bill Amount', fmtCurrency(avgBill)],
+      ['Average Item Sale Amount', fmtCurrency(avgItemSale)],
+    ];
+
+    autoTable(doc, {
+      startY: afterBreakdownY + 7,
       head: [],
-      body: summaryData,
+      body: metricsData,
       theme: 'plain',
       styles: { fontSize: 11, cellPadding: 3 },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 60 },
-        1: { halign: 'right' }
-      },
-      margin: { left: 14, right: 14 }
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 80 }, 1: { halign: 'right' } },
+      margin: { left: 14, right: 14 },
     });
-    
-    // Top Performers Section
-    const afterSummaryY = (doc as any).lastAutoTable.finalY + 10;
-    
-    doc.setFontSize(14);
+
+    // ── Top Performers ──
+    const afterMetricsY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.text('Top Performers', 14, afterSummaryY);
-    doc.line(14, afterSummaryY + 3, pageWidth - 14, afterSummaryY + 3);
-    
+    doc.text('Top Performers', 14, afterMetricsY);
+    doc.line(14, afterMetricsY + 3, pageWidth - 14, afterMetricsY + 3);
+
     const performersData = [
       ['Top Revenue Product', `${topPerformers.bestRev.name} (${fmtCurrency(topPerformers.bestRev.value)})`],
       ['Most Sold Product', `${topPerformers.bestQty.name} (${topPerformers.bestQty.value} units)`]
     ];
-    
+
     autoTable(doc, {
-      startY: afterSummaryY + 7,
+      startY: afterMetricsY + 7,
       head: [],
       body: performersData,
       theme: 'plain',
       styles: { fontSize: 11, cellPadding: 3 },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 60 }
-      },
-      margin: { left: 14, right: 14 }
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 80 } },
+      margin: { left: 14, right: 14 },
     });
-    
-    // Transaction Ledger Section
-    // Create filtered ledger based on payment method
-    const filteredLedger = [
-      ...paymentFilteredSales.map(s => ({
-        id: s.id, date: s.date, desc: `Sale #${s.invoiceNumber}`, amount: s.totalAmount, 
-        type: 'IN' as const, category: 'Sales', paymentMethod: s.paymentMethod
-      })),
-      ...paymentFilteredExchanges.map(e => ({
-        id: e.id, date: e.date,
-        desc: `Exchange #${e.exchangeNumber}${e.originalInvoiceNumber ? ` (Sale #${e.originalInvoiceNumber})` : ''}: ${e.description || 'Product exchange'}`,
-        amount: Math.abs(e.difference),
-        type: (e.difference >= 0 ? 'IN' : 'OUT') as 'IN' | 'OUT',
-        category: 'Exchange',
-        paymentMethod: e.paymentMethod
-      })),
-      ...paymentFilteredExpenses.map(e => ({
-        id: e.id, date: e.date, desc: e.description, amount: e.amount, 
-        type: 'OUT' as const, category: e.category, paymentMethod: e.paymentMethod
-      }))
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    if (filteredLedger.length > 0) {
-      const afterPerformersY = (doc as any).lastAutoTable.finalY + 10;
-      
-      doc.setFontSize(14);
+
+    // ── Transaction Ledger ──
+    if (ledger.length > 0) {
+      const afterPerfY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
-      doc.text('Transaction Ledger', 14, afterPerformersY);
-      doc.line(14, afterPerformersY + 3, pageWidth - 14, afterPerformersY + 3);
-      
-      // Include payment method column for card reports
-      const includePaymentMethod = paymentFilter === 'card';
-      const ledgerTableData = filteredLedger.map(item => {
-        const date = new Date(item.date).toLocaleDateString();
-        const sign = item.type === 'OUT' ? '-' : '+';
-        const baseRow = [date, item.type, item.category, sign + fmtCurrency(item.amount), item.desc];
-        if (includePaymentMethod) {
-          baseRow.splice(4, 0, item.paymentMethod); // Insert payment method before description
-        }
-        return baseRow;
-      });
-      
-      const headers = includePaymentMethod 
-        ? [['Date', 'Type', 'Category', 'Amount', 'Payment', 'Description']]
-        : [['Date', 'Type', 'Category', 'Amount', 'Description']];
-      
-      const columnStyles = includePaymentMethod
-        ? {
-            0: { cellWidth: 22 },
-            1: { cellWidth: 13 },
-            2: { cellWidth: 24 },
-            3: { cellWidth: 30, halign: 'right' },
-            4: { cellWidth: 28 },
-            5: { cellWidth: 'auto' }
-          }
-        : {
-            0: { cellWidth: 25 },
-            1: { cellWidth: 15 },
-            2: { cellWidth: 28 },
-            3: { cellWidth: 35, halign: 'right' },
-            4: { cellWidth: 'auto' }
-          };
-      
+      doc.text('Transaction Ledger', 14, afterPerfY);
+      doc.line(14, afterPerfY + 3, pageWidth - 14, afterPerfY + 3);
+
+      const ledgerRows = ledger.map(item => [
+        new Date(item.date).toLocaleDateString(),
+        item.type === 'OUT' ? '-' + fmtCurrency(item.amount) : '+' + fmtCurrency(item.amount),
+        item.category,
+        item.desc,
+      ]);
+
       autoTable(doc, {
-        startY: afterPerformersY + 7,
-        head: headers,
-        body: ledgerTableData,
+        startY: afterPerfY + 7,
+        head: [['Date', 'Amount', 'Category', 'Description']],
+        body: ledgerRows,
         theme: 'striped',
-        styles: { fontSize: 9, cellPadding: 2 },
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
         headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
-        columnStyles: columnStyles as any,
+        columnStyles: {
+          0: { cellWidth: 22 },
+          1: { cellWidth: 34, halign: 'right' },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 'auto' },
+        },
         margin: { left: 14, right: 14 },
-        didParseCell: (data) => {
-          if (data.section === 'body' && data.column.index === 3) {
+        didParseCell: data => {
+          if (data.section === 'body' && data.column.index === 1) {
             const text = data.cell.raw as string;
-            if (text.startsWith('-')) {
-              data.cell.styles.textColor = [220, 38, 38]; // red-600
-            } else {
-              data.cell.styles.textColor = [22, 163, 74]; // green-600
-            }
+            data.cell.styles.textColor = text.startsWith('-') ? [220, 38, 38] : [22, 163, 74];
           }
         }
       });
     }
-    
-    // Footer
+
+    // ── Cashier Note ──
+    if (note.trim()) {
+      const afterLedgerY = (doc as any).lastAutoTable?.finalY ?? 200;
+      const noteY = afterLedgerY + 12;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('Notes', 14, noteY);
+      doc.line(14, noteY + 3, pageWidth - 14, noteY + 3);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      const noteLines = doc.splitTextToSize(note.trim(), pageWidth - 28);
+      doc.text(noteLines, 14, noteY + 9);
+    }
+
+    // ── Footer ──
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -491,9 +555,10 @@ const Dashboard: React.FC = () => {
         { align: 'center' }
       );
     }
-    
-    // Generate data URL for preview (blob URLs don't work in Electron iframes)
-    const filename = filterMode === 'daily' ? `report_${selectedDate}.pdf` : `report_${selectedMonth}.pdf`;
+
+    const filename = filterMode === 'daily'
+      ? `day_end_report_${selectedDate}.pdf`
+      : `day_end_report_${selectedMonth}.pdf`;
     const dataUri = doc.output('datauristring');
     const blob = doc.output('blob');
     setPreviewDataUri(dataUri);
@@ -521,6 +586,11 @@ const Dashboard: React.FC = () => {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 100);
   }, [previewBlob, previewFilename]);
+
+  // --- Day End Report Modal State ---
+  const [showDayEndModal, setShowDayEndModal] = useState(false);
+  const [dayEndCashier, setDayEndCashier] = useState('');
+  const [dayEndNote, setDayEndNote] = useState('');
 
   // --- Reusable Components ---
   const StatCard = ({ title, value, subtext, icon: Icon, colorClass, onClick }: any) => (
@@ -563,15 +633,10 @@ const Dashboard: React.FC = () => {
             className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-300 cursor-pointer" />
         )}
       </div>
-      <button onClick={() => generateReport('cash')}
-        className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors shadow-sm"
-        title="Generate cash payment report">
-        <Wallet size={14} /> Cash Report
-      </button>
-      <button onClick={() => generateReport('card')}
-        className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
-        title="Generate card payment report (includes PayHere, Online Transfer, MintPay)">
-        <CreditCard size={14} /> Card Report
+      <button onClick={() => setShowDayEndModal(true)}
+        className="flex items-center gap-1.5 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-900 transition-colors shadow-sm"
+        title="Generate Day End Report (cash, card breakdown + ledger)">
+        <ClipboardList size={14} /> Day End Report
       </button>
     </div>
   );
@@ -924,6 +989,88 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* LOW STOCK MODAL */}
+      {showLowStockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowLowStockModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                  <ShoppingBag size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">Low Stock — Restock Needed</h3>
+                  <p className="text-xs text-slate-400">{lowStockCount} product{lowStockCount !== 1 ? 's' : ''} at or below minimum stock level</p>
+                </div>
+              </div>
+              <button onClick={() => setShowLowStockModal(false)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(85vh-88px)]">
+              {lowStockProducts.length > 0 ? (
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs sticky top-0">
+                    <tr>
+                      <th className="p-4">Product</th>
+                      <th className="p-4">SKU</th>
+                      <th className="p-4">Category</th>
+                      <th className="p-4 text-center">Current Stock</th>
+                      <th className="p-4 text-center">Min Level</th>
+                      <th className="p-4 text-center">Shortage</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {lowStockProducts
+                      .slice()
+                      .sort((a, b) => {
+                        const aStock = a.branchStock?.[currentBranch?.id ?? ''] ?? a.stock;
+                        const bStock = b.branchStock?.[currentBranch?.id ?? ''] ?? b.stock;
+                        return aStock - bStock;
+                      })
+                      .map(p => {
+                        const currentStock = p.branchStock?.[currentBranch?.id ?? ''] ?? p.stock;
+                        const shortage = Math.max(0, p.minStockLevel - currentStock);
+                        const isOut = currentStock === 0;
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50">
+                            <td className="p-4">
+                              <div className="font-medium text-slate-900">{p.name}</div>
+                              {p.color && <div className="text-xs text-slate-400">{p.color}{p.size ? ` · ${p.size}` : ''}</div>}
+                            </td>
+                            <td className="p-4 font-mono text-xs text-slate-500">{p.sku}</td>
+                            <td className="p-4 text-slate-500">{p.category}</td>
+                            <td className="p-4 text-center">
+                              <span className={`inline-flex items-center justify-center w-10 h-7 rounded-full text-xs font-bold ${
+                                isOut ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {currentStock}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center text-slate-500 text-xs">{p.minStockLevel}</td>
+                            <td className="p-4 text-center">
+                              <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                                isOut ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                              }`}>
+                                {isOut ? 'Out of Stock' : `−${shortage} units`}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-12 text-center text-slate-400">
+                  <ShoppingBag size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-medium">All products are well stocked!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PDF PREVIEW MODAL */}
       {previewDataUri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -955,6 +1102,80 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {/* DAY END REPORT MODAL */}
+      {showDayEndModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-5 flex items-center gap-3 bg-slate-800 border-b border-slate-700">
+              <div className="p-2 rounded-lg bg-slate-700 text-white">
+                <ClipboardList size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-white">Day End Report</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{periodLabel}</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                  Cashier Name <span className="text-slate-400 font-normal">(printed at top)</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 text-sm"
+                  placeholder="e.g. Aisha Fernando"
+                  value={dayEndCashier}
+                  onChange={e => setDayEndCashier(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                  Notes <span className="text-slate-400 font-normal">(printed at bottom, optional)</span>
+                </label>
+                <textarea
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 text-sm resize-none"
+                  placeholder="e.g. All amounts verified. Cash drawer balanced."
+                  rows={3}
+                  value={dayEndNote}
+                  onChange={e => setDayEndNote(e.target.value)}
+                />
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-500 space-y-1 border border-slate-200">
+                <p className="font-bold text-slate-600">Report includes:</p>
+                <p>• Cash sales &amp; card sales (broken down by Card / PayHere / MintPay / Online Transfer)</p>
+                <p>• Expenses breakdown — Total Sales − Expenses = <strong className="text-blue-600">Net Sales</strong></p>
+                <p>• Avg Bill Amount, Avg Item Sale Amount</p>
+                <p>• Top Performers &amp; full Transaction Ledger</p>
+              </div>
+            </div>
+
+            <div className="p-4 flex justify-end gap-3 border-t border-slate-100">
+              <button
+                onClick={() => { setShowDayEndModal(false); setDayEndCashier(''); setDayEndNote(''); }}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  generateDayEndReport(dayEndCashier, dayEndNote);
+                  setShowDayEndModal(false);
+                  setDayEndCashier('');
+                  setDayEndNote('');
+                }}
+                className="flex items-center gap-2 px-5 py-2 bg-slate-800 text-white text-sm font-bold rounded-lg hover:bg-slate-900 transition-colors shadow-sm"
+              >
+                <FileDown size={16} /> Generate Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PAGE HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
@@ -980,7 +1201,7 @@ const Dashboard: React.FC = () => {
           <StatCard title="Revenue" value={fmtCurrency(revenue)} subtext={`${txCount} transactions`} icon={DollarSign} colorClass="bg-emerald-500" onClick={() => setDetailModalType('revenue')} />
           <StatCard title="Expenses (COGS)" value={fmtCurrency(cost)} subtext="Cost of Goods Sold" icon={CreditCard} colorClass="bg-rose-500" onClick={() => setDetailModalType('expenses')} />
           <StatCard title="Net Profit" value={fmtCurrency(profit)} subtext={`Margin: ${revenue ? ((profit / revenue) * 100).toFixed(1) : 0}%`} icon={Wallet} colorClass="bg-amber-500" onClick={() => setDetailModalType('profit')} />
-          <StatCard title="Pending Actions" value={lowStockCount} subtext="Low stock alerts" icon={ShoppingBag} colorClass="bg-blue-500" />
+          <StatCard title="Pending Actions" value={lowStockCount} subtext="Low stock alerts" icon={ShoppingBag} colorClass="bg-blue-500" onClick={() => setShowLowStockModal(true)} />
         </div>
       </div>
       )}
@@ -1072,9 +1293,9 @@ const Dashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h3 className="font-bold text-slate-800">Revenue vs Profit</h3>
+              <h3 className="font-bold text-slate-800">Revenue vs Profit — All Branches</h3>
               <p className="text-xs text-slate-400">
-                {filterMode === 'daily' ? 'Last 7 days performance' : `Daily breakdown for ${periodLabel}`}
+                {filterMode === 'daily' ? 'Last 7 days — per branch' : `Daily breakdown — per branch`}
               </p>
             </div>
           </div>
@@ -1082,14 +1303,16 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                  </linearGradient>
+                  {branches.flatMap((br, i) => [
+                    <linearGradient key={`rg-${br.id}`} id={`colorRev_${br.id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={BRANCH_COLORS[i % BRANCH_COLORS.length]} stopOpacity={0.12} />
+                      <stop offset="95%" stopColor={BRANCH_COLORS[i % BRANCH_COLORS.length]} stopOpacity={0} />
+                    </linearGradient>,
+                    <linearGradient key={`pg-${br.id}`} id={`colorProfit_${br.id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={BRANCH_PROFIT_COLORS[i % BRANCH_PROFIT_COLORS.length]} stopOpacity={0.12} />
+                      <stop offset="95%" stopColor={BRANCH_PROFIT_COLORS[i % BRANCH_PROFIT_COLORS.length]} stopOpacity={0} />
+                    </linearGradient>
+                  ])}
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -1099,8 +1322,11 @@ const Dashboard: React.FC = () => {
                   cursor={{ fill: '#f8fafc' }}
                   formatter={(value: number) => [fmtCurrency(value)]}
                 />
-                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Revenue" />
-                <Area type="monotone" dataKey="profit" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" name="Profit" />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                {branches.flatMap((br, i) => [
+                  <Area key={`rev-${br.id}`} type="monotone" dataKey={`rev_${br.id}`} stroke={BRANCH_COLORS[i % BRANCH_COLORS.length]} strokeWidth={2} fillOpacity={1} fill={`url(#colorRev_${br.id})`} name={`${br.name} Revenue`} />,
+                  <Area key={`profit-${br.id}`} type="monotone" dataKey={`profit_${br.id}`} stroke={BRANCH_PROFIT_COLORS[i % BRANCH_PROFIT_COLORS.length]} strokeWidth={2} strokeDasharray="4 3" fillOpacity={1} fill={`url(#colorProfit_${br.id})`} name={`${br.name} Profit`} />
+                ])}
               </AreaChart>
             </ResponsiveContainer>
           </div>

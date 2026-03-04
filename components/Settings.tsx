@@ -1,17 +1,36 @@
-import React, { useState, useRef } from 'react';
-import { Settings as SettingsIcon, Users, Database, Shield, Tag, Save, Upload, Download, Trash2, Plus, Edit2, CheckCircle, AlertTriangle, X, Lock } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Settings as SettingsIcon, Users, Database, Shield, Tag, Save, Upload, Download, Trash2, Plus, Edit2, CheckCircle, AlertTriangle, X, Lock, FileSpreadsheet, FileDown, PackagePlus } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { User, Role } from '../types';
+import { User, Role, Product } from '../types';
+
+// CSV template columns and sample row
+const CSV_COLUMNS = ['name','category','brand','sku','price','costPrice','initialStock','minStockLevel','description','color','size','barcode','barcode2'];
+const CSV_REQUIRED = ['name','category','brand','sku','price','costPrice'];
+const CSV_SAMPLE = ['White Polo Shirt','Shirts','Polo','SKU-001','1500','900','10','5','Classic white polo shirt','White','M','2001234567890',''];
+
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const values = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || [];
+    const vals = values.map(v => v.trim().replace(/^"|"$/g, ''));
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = vals[i] ?? ''; });
+    return row;
+  });
+}
 
 const Settings: React.FC = () => {
   const { 
     settings, updateSettings, 
     users, addUser, updateUser, deleteUser, 
-    branches,
+    branches, currentBranch,
+    addProduct,
     exportData, importData 
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'DATA'>('GENERAL');
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'DATA' | 'IMPORT'>('GENERAL');
   
   // User Management State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -21,6 +40,16 @@ const Settings: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showDevAccessPopup, setShowDevAccessPopup] = useState(false);
+
+  // Product Import State
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const [csvDragOver, setCsvDragOver] = useState(false);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [csvRows, setCsvRows] = useState<Record<string, string>[]>([]);
+  const [csvErrors, setCsvErrors] = useState<string[]>([]);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importDone, setImportDone] = useState<{ count: number } | null>(null);
 
   // Local state for General tab (with save button)
   const [generalForm, setGeneralForm] = useState({
@@ -84,6 +113,109 @@ const Settings: React.FC = () => {
     }
   };
 
+  // Product CSV import handlers
+  const handleDownloadTemplate = () => {
+    const header = CSV_COLUMNS.join(',');
+    const sample = CSV_SAMPLE.map(v => v.includes(',') ? `"${v}"` : v).join(',');
+    const notes = [
+      '# NOTES:',
+      '# Required fields: ' + CSV_REQUIRED.join(', '),
+      '# price and costPrice: numbers only (e.g. 1500)',
+      '# initialStock: quantity for ' + currentBranch.name + ' branch',
+      '# minStockLevel: alert threshold (default 5)',
+      '# color and size: optional (e.g. White / M)',
+      '# barcode and barcode2: optional EAN-13 barcodes',
+      '# Delete these comment lines before uploading',
+    ].join('\n');
+    const content = `${notes}\n${header}\n${sample}`;
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'product_import_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const processCSVFile = (file: File) => {
+    setCsvErrors([]);
+    setCsvRows([]);
+    setCsvFileName(file.name);
+    setImportDone(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      // Strip comment lines
+      const stripped = text.split(/\r?\n/).filter(l => !l.trim().startsWith('#')).join('\n');
+      const rows = parseCSV(stripped);
+      const errors: string[] = [];
+      if (rows.length === 0) {
+        errors.push('No data rows found. Make sure your file has a header row and at least one data row.');
+      } else {
+        rows.forEach((row, i) => {
+          CSV_REQUIRED.forEach(col => {
+            if (!row[col]?.trim()) errors.push(`Row ${i + 1}: "${col}" is required.`);
+          });
+          if (row.price && isNaN(Number(row.price))) errors.push(`Row ${i + 1}: "price" must be a number.`);
+          if (row.costPrice && isNaN(Number(row.costPrice))) errors.push(`Row ${i + 1}: "costPrice" must be a number.`);
+          if (row.initialStock && isNaN(Number(row.initialStock))) errors.push(`Row ${i + 1}: "initialStock" must be a number.`);
+        });
+      }
+      setCsvErrors(errors);
+      setCsvRows(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCSVFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processCSVFile(file);
+    e.target.value = '';
+  };
+
+  const handleCSVDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setCsvDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processCSVFile(file);
+  }, []);
+
+  const handleConfirmImport = async () => {
+    setImportLoading(true);
+    await new Promise(r => setTimeout(r, 30)); // allow UI repaint
+    let count = 0;
+    csvRows.forEach(row => {
+      const qty = parseInt(row.initialStock || '0') || 0;
+      const product: Product = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: row.name?.trim() || 'Unnamed',
+        category: row.category?.trim() || 'Uncategorized',
+        brand: row.brand?.trim() || 'Generic',
+        sku: row.sku?.trim() || `SKU-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        price: parseFloat(row.price) || 0,
+        costPrice: parseFloat(row.costPrice) || 0,
+        stock: qty,
+        branchStock: { [currentBranch.id]: qty },
+        minStockLevel: parseInt(row.minStockLevel) || 5,
+        description: row.description?.trim() || '',
+        color: row.color?.trim() || undefined,
+        size: row.size?.trim() || undefined,
+        barcode: row.barcode?.trim() || '',
+        barcode2: row.barcode2?.trim() || '',
+      };
+      addProduct(product);
+      count++;
+    });
+    setImportLoading(false);
+    setShowImportConfirm(false);
+    setImportDone({ count });
+    setCsvRows([]);
+    setCsvFileName(null);
+    setCsvErrors([]);
+  };
+
   const TabButton = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
     <button
       onClick={() => setActiveTab(id)}
@@ -110,6 +242,7 @@ const Settings: React.FC = () => {
         <div className="py-4">
            <TabButton id="GENERAL" label="General" icon={SettingsIcon} />
            <TabButton id="USERS" label="Users & Roles" icon={Users} />
+           <TabButton id="IMPORT" label="Import Products" icon={PackagePlus} />
            <TabButton id="DATA" label="Backup & Restore" icon={Database} />
         </div>
       </div>
@@ -241,6 +374,128 @@ const Settings: React.FC = () => {
           </div>
         )}
 
+        {/* IMPORT PRODUCTS TAB */}
+        {activeTab === 'IMPORT' && (
+          <div className="max-w-3xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Import Products</h3>
+                <p className="text-sm text-slate-500 mt-1">Bulk-upload products from a CSV file into <span className="font-semibold text-slate-700">{currentBranch.name}</span>.</p>
+              </div>
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium text-sm shadow-sm"
+              >
+                <FileDown size={16} /> Download CSV Template
+              </button>
+            </div>
+
+            {/* Template column guide */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <h4 className="text-sm font-bold text-blue-800 mb-2 flex items-center gap-1.5"><FileSpreadsheet size={15}/> CSV Column Reference</h4>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+                {CSV_COLUMNS.map(col => (
+                  <div key={col} className="flex items-center gap-2 text-xs text-blue-700">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${CSV_REQUIRED.includes(col) ? 'bg-red-500' : 'bg-blue-400'}`} />
+                    <span className="font-mono font-semibold">{col}</span>
+                    {CSV_REQUIRED.includes(col) && <span className="text-red-500 font-bold">*</span>}
+                    {col === 'initialStock' && <span className="text-blue-500">(qty for current branch)</span>}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-blue-500 mt-2"><span className="text-red-500 font-bold">*</span> Required fields. All others are optional.</p>
+            </div>
+
+            {/* Upload area */}
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer mb-4 ${csvDragOver ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-slate-50 hover:border-slate-400'}`}
+              onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
+              onDragLeave={() => setCsvDragOver(false)}
+              onDrop={handleCSVDrop}
+              onClick={() => csvFileInputRef.current?.click()}
+            >
+              <input ref={csvFileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleCSVFileChange} />
+              <Upload className={`mx-auto mb-3 ${csvDragOver ? 'text-blue-500' : 'text-slate-400'}`} size={32} />
+              {csvFileName ? (
+                <p className="font-semibold text-slate-700">{csvFileName}</p>
+              ) : (
+                <>
+                  <p className="font-semibold text-slate-700">Drag & drop a CSV file here</p>
+                  <p className="text-xs text-slate-400 mt-1">or click to browse — .csv files supported</p>
+                </>
+              )}
+            </div>
+
+            {/* Validation errors */}
+            {csvErrors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                <p className="text-sm font-bold text-red-700 mb-2 flex items-center gap-1.5"><AlertTriangle size={15}/> {csvErrors.length} validation error{csvErrors.length > 1 ? 's' : ''} found</p>
+                <ul className="list-disc list-inside space-y-0.5 max-h-36 overflow-y-auto">
+                  {csvErrors.map((e, i) => <li key={i} className="text-xs text-red-600">{e}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* Preview */}
+            {csvRows.length > 0 && csvErrors.length === 0 && (
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4 shadow-sm">
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
+                  <p className="text-sm font-bold text-slate-700">{csvRows.length} product{csvRows.length > 1 ? 's' : ''} ready to import</p>
+                  <span className="text-xs text-slate-400">Preview (first 5 rows)</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-100">
+                      <tr>
+                        {['name','category','brand','sku','price','costPrice','initialStock','color','size'].map(c => (
+                          <th key={c} className="px-3 py-2 font-semibold whitespace-nowrap">{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {csvRows.slice(0, 5).map((row, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          {['name','category','brand','sku','price','costPrice','initialStock','color','size'].map(c => (
+                            <td key={c} className="px-3 py-2 text-slate-700 whitespace-nowrap max-w-[200px] truncate">{row[c] || '—'}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {csvRows.length > 5 && (
+                  <p className="text-xs text-slate-400 text-center py-2 border-t border-slate-100">+{csvRows.length - 5} more rows</p>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+              {csvRows.length > 0 && csvErrors.length === 0 && (
+                <button
+                  onClick={() => setShowImportConfirm(true)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium text-sm shadow-sm"
+                >
+                  <Upload size={16} /> Import {csvRows.length} Product{csvRows.length > 1 ? 's' : ''}
+                </button>
+              )}
+              {csvFileName && (
+                <button
+                  onClick={() => { setCsvFileName(null); setCsvRows([]); setCsvErrors([]); setImportDone(null); }}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors text-sm"
+                >
+                  <X size={15}/> Clear
+                </button>
+              )}
+              {importDone && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm font-medium">
+                  <CheckCircle size={16}/> Successfully imported {importDone.count} product{importDone.count > 1 ? 's' : ''}!
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* DATA BACKUP TAB — Locked behind developer access */}
         {activeTab === 'DATA' && (
           <div className="max-w-2xl">
@@ -282,6 +537,51 @@ const Settings: React.FC = () => {
         )}
 
       </div>
+
+      {/* Import Confirmation Popup */}
+      {showImportConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-5 flex items-center gap-3 bg-blue-50 border-b border-blue-100">
+              <div className="p-2 rounded-full bg-blue-100 text-blue-600">
+                <PackagePlus size={20} />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-sm text-blue-800">Confirm Product Import</h4>
+                <p className="text-sm text-slate-600 mt-0.5">
+                  You are about to add <span className="font-bold text-slate-800">{csvRows.length} product{csvRows.length > 1 ? 's' : ''}</span> to the inventory for branch <span className="font-bold text-slate-800">{currentBranch.name}</span>. This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="p-4 flex justify-end gap-3 bg-white">
+              <button
+                onClick={() => setShowImportConfirm(false)}
+                disabled={importLoading}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmImport}
+                disabled={importLoading}
+                className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-blue-600 hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-70"
+              >
+                {importLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Importing…
+                  </>
+                ) : (
+                  <><Upload size={15} /> Yes, Import</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Developer Access Popup */}
       {showDevAccessPopup && (

@@ -8,13 +8,13 @@ export const CUR = 'LKR';
 export const INITIAL_BRANCHES: Branch[] = [
   {
     id: 'b1',
-    name: 'Main HQ Store',
+    name: 'Ethul Kotte',
     address: '123 Fashion Ave, New York, NY',
     phone: '212-555-0199'
   },
   {
     id: 'b2',
-    name: 'Downtown Boutique',
+    name: 'Mount-Lavinia',
     address: '456 Soho St, New York, NY',
     phone: '212-555-0200'
   }
@@ -73,7 +73,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'Rent',
     date: getTodayDateString(),
     branchId: 'b1',
-    branchName: 'Main HQ Store',
+    branchName: 'Ethul Kotte',
     paymentMethod: 'Online Transfer'
   },
   {
@@ -83,7 +83,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'Utilities',
     date: getTodayDateString(),
     branchId: 'b1',
-    branchName: 'Main HQ Store',
+    branchName: 'Ethul Kotte',
     paymentMethod: 'Cash'
   },
   {
@@ -93,7 +93,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'Marketing',
     date: getTodayDateString(),
     branchId: 'b2',
-    branchName: 'Downtown Boutique',
+    branchName: 'Mount-Lavinia',
     paymentMethod: 'Card'
   }
 ];

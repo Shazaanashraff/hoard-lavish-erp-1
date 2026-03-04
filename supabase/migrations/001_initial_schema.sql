@@ -323,8 +323,8 @@ CREATE POLICY "Allow all" ON expenses FOR ALL USING (true) WITH CHECK (true);
 
 -- Branches
 INSERT INTO branches (id, name, address, phone) VALUES
-  ('b0000000-0000-0000-0000-000000000001', 'Main HQ Store', '123 Fashion Ave, New York, NY', '212-555-0199'),
-  ('b0000000-0000-0000-0000-000000000002', 'Downtown Boutique', '456 Soho St, New York, NY', '212-555-0200');
+  ('b0000000-0000-0000-0000-000000000001', 'Ethul Kotte', '123 Fashion Ave, New York, NY', '212-555-0199'),
+  ('b0000000-0000-0000-0000-000000000002', 'Mount-Lavinia', '456 Soho St, New York, NY', '212-555-0200');
 
 -- Users
 INSERT INTO users (id, name, role, pin, branch_id) VALUES
@@ -382,7 +382,7 @@ INSERT INTO suppliers (id, name, contact_person, phone, email, address) VALUES
 
 -- Expenses
 INSERT INTO expenses (description, amount, category, branch_id, branch_name) VALUES
-  ('Monthly Store Rent', 4500, 'Rent', 'b0000000-0000-0000-0000-000000000001', 'Main HQ Store'),
-  ('Electricity Bill', 320, 'Utilities', 'b0000000-0000-0000-0000-000000000001', 'Main HQ Store'),
-  ('Instagram Ad Campaign', 500, 'Marketing', 'b0000000-0000-0000-0000-000000000002', 'Downtown Boutique');
+  ('Monthly Store Rent', 4500, 'Rent', 'b0000000-0000-0000-0000-000000000001', 'Ethul Kotte'),
+  ('Electricity Bill', 320, 'Utilities', 'b0000000-0000-0000-0000-000000000001', 'Ethul Kotte'),
+  ('Instagram Ad Campaign', 500, 'Marketing', 'b0000000-0000-0000-0000-000000000002', 'Mount-Lavinia');
 

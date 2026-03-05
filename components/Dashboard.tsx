@@ -16,7 +16,7 @@ const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5
 const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, customers, currentBranch, branches } = useStore();
+  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -37,6 +37,7 @@ const Dashboard: React.FC = () => {
   const [editCustomerId, setEditCustomerId] = useState<string | undefined>(undefined);
   const [isEditInvoiceOpen, setIsEditInvoiceOpen] = useState(false);
   const [lastEditedSale, setLastEditedSale] = useState<SalesRecord | null>(null);
+  const [deleteSaleConfirm, setDeleteSaleConfirm] = useState<SalesRecord | null>(null);
 
   // --- Helpers ---
   const matchesDate = (dateString: string, targetDate: string) => dateString.startsWith(targetDate);
@@ -188,14 +189,16 @@ const Dashboard: React.FC = () => {
     return all.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredTransfers, filteredExchanges]);
 
-  // --- Recent Sales (Last 10 minutes) ---
+  // --- Recent Sales (today, current branch — editable within 10 min) ---
+  const TEN_MIN = 10 * 60 * 1000;
+  const isSaleEditable = (sale: SalesRecord) => Date.now() - new Date(sale.date).getTime() <= TEN_MIN;
   const recentEditableSales = useMemo(() => {
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-    return salesHistory.filter(sale => {
-      const saleTime = new Date(sale.date).getTime();
-      return saleTime >= tenMinutesAgo;
-    }).slice(0, 10); // Show max 10 sales
-  }, [salesHistory]);
+    const todayStr = new Date().toISOString().split('T')[0];
+    return salesHistory
+      .filter(s => s.branchId === currentBranch.id && s.date.startsWith(todayStr))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 20);
+  }, [salesHistory, currentBranch.id]);
 
   // --- Activity Feed ---
   const activityFeed = useMemo(() => {
@@ -677,6 +680,12 @@ const Dashboard: React.FC = () => {
       window.print();
     }
     setTimeout(() => setIsEditInvoiceOpen(false), 500);
+  };
+
+  const handleDeleteSale = () => {
+    if (!deleteSaleConfirm) return;
+    deleteSale(deleteSaleConfirm.id);
+    setDeleteSaleConfirm(null);
   };
 
   const editCartSubtotal = editCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -1388,48 +1397,107 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* EDIT RECENT SALES */}
-      {recentEditableSales.length > 0 && (
-        <div className="mb-8">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-lg text-amber-600"><Edit2 size={18} /></div>
-                <div>
-                  <h3 className="font-bold text-slate-800">Edit Recent Sales</h3>
-                  <p className="text-xs text-slate-400">Sales from the last 10 minutes can be edited</p>
-                </div>
+      <div className="mb-8">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg text-amber-600"><Edit2 size={18} /></div>
+              <div>
+                <h3 className="font-bold text-slate-800">Edit / Void Bills</h3>
+                <p className="text-xs text-slate-400">Today's sales at {currentBranch.name} — edit or delete within 10 min of checkout</p>
               </div>
-              <span className="text-xs text-slate-400 font-medium bg-amber-50 px-3 py-1 rounded-full">{recentEditableSales.length} editable</span>
             </div>
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                <tr>
-                  <th className="p-4">Invoice</th>
-                  <th className="p-4">Customer</th>
-                  <th className="p-4">Items</th>
-                  <th className="p-4 text-right">Amount</th>
-                  <th className="p-4 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {recentEditableSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-slate-50">
+            <span className="text-xs text-slate-400 font-medium bg-amber-50 px-3 py-1 rounded-full">
+              {recentEditableSales.filter(isSaleEditable).length} editable
+            </span>
+          </div>
+          {recentEditableSales.length === 0 ? (
+            <div className="p-10 text-center text-slate-400">
+              <ClipboardList size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">No sales recorded today for this branch.</p>
+            </div>
+          ) : (
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+              <tr>
+                <th className="p-4">Invoice</th>
+                <th className="p-4">Time</th>
+                <th className="p-4">Customer</th>
+                <th className="p-4">Items</th>
+                <th className="p-4 text-right">Amount</th>
+                <th className="p-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {recentEditableSales.map((sale) => {
+                const editable = isSaleEditable(sale);
+                return (
+                  <tr key={sale.id} className={`hover:bg-slate-50 ${!editable ? 'opacity-50' : ''}`}>
                     <td className="p-4 font-medium text-slate-900">#{sale.invoiceNumber}</td>
+                    <td className="p-4 text-slate-500 text-xs">
+                      {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {!editable && <span className="ml-1.5 text-rose-400 font-medium">Expired</span>}
+                    </td>
                     <td className="p-4 text-slate-600">{sale.customerName || 'Walk-in'}</td>
                     <td className="p-4 text-slate-500">{sale.items.length} item(s)</td>
                     <td className="p-4 text-right font-bold text-slate-900">{fmtCurrency(sale.totalAmount)}</td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={() => handleEditSale(sale)}
-                        className="inline-flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors"
-                      >
-                        <Edit2 size={14} /> Edit
-                      </button>
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => editable && handleEditSale(sale)}
+                          disabled={!editable}
+                          className="inline-flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Edit2 size={12} /> Edit
+                        </button>
+                        <button
+                          onClick={() => editable && setDeleteSaleConfirm(sale)}
+                          disabled={!editable}
+                          className="inline-flex items-center gap-1.5 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 size={12} /> Void
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                );
+              })}
+            </tbody>
+          </table>
+          )}
+        </div>
+      </div>
+
+      {/* DELETE CONFIRM MODAL */}
+      {deleteSaleConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDeleteSaleConfirm(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full text-red-600"><Trash2 size={20} /></div>
+                <h3 className="font-bold text-slate-800 text-lg">Void Bill?</h3>
+              </div>
+              <p className="text-sm text-slate-600 mb-2">
+                You are about to void <span className="font-bold">Invoice #{deleteSaleConfirm.invoiceNumber}</span>.
+              </p>
+              <p className="text-sm text-slate-600 mb-6">
+                This will restore stock for all {deleteSaleConfirm.items.length} item(s) and remove the sale permanently.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteSaleConfirm(null)}
+                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 font-medium transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSale}
+                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 font-bold transition-colors text-sm"
+                >
+                  Void Bill
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

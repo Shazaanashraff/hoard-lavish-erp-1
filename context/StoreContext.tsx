@@ -49,6 +49,7 @@ interface StoreContextType {
 
   completeSale: (paymentMethod: SalesRecord['paymentMethod'], discount: number, customerId?: string) => SalesRecord;
   updateSale: (saleId: string, updatedItems: CartItem[], discount: number, customerId?: string) => SalesRecord;
+  deleteSale: (saleId: string) => void;
   completeExchange: (exchange: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'>) => ExchangeRecord;
   adjustStock: (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => void;
   transferStock: (toBranchId: string, items: StockTransferItem[], notes: string) => StockTransfer;
@@ -439,7 +440,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newSale: SalesRecord = {
       id: Math.random().toString(36).substr(2, 9),
       invoiceNumber: generateInvoiceNumber(),
-      date: `${localDate}T00:00:00.000Z`,
+      date: `${localDate}T${String(today.getHours()).padStart(2,'0')}:${String(today.getMinutes()).padStart(2,'0')}:${String(today.getSeconds()).padStart(2,'0')}.000`,
       items: [...cart],
       subtotal,
       discount: effDiscount,
@@ -524,7 +525,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       totalCost,
       customerId,
       customerName: customer ? customer.name : undefined,
-      date: `${localDate}T00:00:00.000Z`,
+      date: `${localDate}T${String(today.getHours()).padStart(2,'0')}:${String(today.getMinutes()).padStart(2,'0')}:${String(today.getSeconds()).padStart(2,'0')}.000`,
     };
 
     // Calculate stock adjustments
@@ -605,6 +606,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     dbCall(() => db.completeSaleRPC(updatedSale)); // Reuse the same RPC (it will update if exists)
 
     return updatedSale;
+  };
+
+  const deleteSale = (saleId: string): void => {
+    const sale = salesHistory.find(s => s.id === saleId);
+    if (!sale) return;
+
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // Restore stock for every item in the deleted sale
+    const newStockLogs: StockMovement[] = [];
+    const newProducts = products.map(p => {
+      const soldItem = sale.items.find(i => i.id === p.id);
+      if (soldItem) {
+        const currentBranchStock = p.branchStock[sale.branchId] || 0;
+        const newBranchStock = currentBranchStock + soldItem.quantity;
+        const updatedBranchStock = { ...p.branchStock, [sale.branchId]: newBranchStock };
+        const newTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
+        newStockLogs.push({
+          id: Math.random().toString(36).substr(2, 9),
+          productId: p.id,
+          productName: p.name,
+          branchId: sale.branchId,
+          branchName: sale.branchName,
+          type: 'IN',
+          quantity: soldItem.quantity,
+          reason: `Sale Voided #${sale.invoiceNumber}`,
+          date: `${localDate}T${String(today.getHours()).padStart(2,'0')}:${String(today.getMinutes()).padStart(2,'0')}:${String(today.getSeconds()).padStart(2,'0')}.000`
+        });
+        return { ...p, branchStock: updatedBranchStock, stock: newTotalStock };
+      }
+      return p;
+    });
+
+    // Reverse customer loyalty points
+    if (sale.customerId) {
+      setCustomers(prev => prev.map(c =>
+        c.id === sale.customerId
+          ? { ...c, totalSpent: Math.max(0, c.totalSpent - sale.totalAmount), loyaltyPoints: Math.max(0, c.loyaltyPoints - Math.floor(sale.totalAmount / 10)) }
+          : c
+      ));
+    }
+
+    setStockHistory(prev => [...newStockLogs, ...prev]);
+    setProducts(newProducts);
+    setSalesHistory(prev => prev.filter(s => s.id !== saleId));
   };
 
   // ============================================================
@@ -985,7 +1032,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addProduct, updateProduct, deleteProduct,
       addCustomer, updateCustomer, deleteCustomer,
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
-      completeSale, updateSale, completeExchange, adjustStock, transferStock,
+      completeSale, updateSale, deleteSale, completeExchange, adjustStock, transferStock,
       addCategory, removeCategory, addBrand, removeBrand,
       addSupplier, updateSupplier, deleteSupplier, addSupplierTransaction,
       addExpense, deleteExpense,

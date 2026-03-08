@@ -436,6 +436,7 @@ const Inventory: React.FC = () => {
     const name = editingProduct.name || 'Product';
     const price = Number(editingProduct.price) || 0;
     const size = editingProduct.size || '';
+    const color = editingProduct.color || '';
     if (!barcode) return;
 
     const isElectron = !!(window as any).electronAPI?.printReceipt;
@@ -464,45 +465,42 @@ const Inventory: React.FC = () => {
 <html><head>
 <meta charset="utf-8"/>
 <style>
-  @page { size: 50mm 30mm; margin: 0; }
+  /* Let the printer driver decide paper size — @page size:auto uses whatever
+     label is loaded in the barcode printer (e.g. XP-T451B configured in Windows). */
+  @page { size: auto; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    width: 50mm;
-    height: 30mm;
+  html, body {
+    width: 100%;
     font-family: Arial, Helvetica, sans-serif;
     background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
   }
   .label {
-    width: 50mm;
-    height: 30mm;
-    padding: 1.5mm 2mm;
+    width: 100%;
+    padding: 2mm 3mm;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 1.5mm;
   }
-  .logo { height: 6mm; width: auto; max-width: 28mm; object-fit: contain; }
+  .logo { height: 8mm; width: auto; max-width: 60%; object-fit: contain; }
   .name {
-    font-size: 7.5pt;
+    font-size: 10pt;
     font-weight: 700;
     text-align: center;
-    line-height: 1.15;
-    max-width: 46mm;
+    line-height: 1.2;
+    width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
-  .size { font-size: 6pt; color: #444; text-align: center; margin-top: 0.5mm; }
-  .price { font-size: 10.5pt; font-weight: 900; text-align: center; }
-  .barcode-wrap { display: flex; flex-direction: column; align-items: center; }
-  .barcode-num { font-family: 'Courier New', monospace; font-size: 5.5pt; letter-spacing: 1px; margin-top: 0.5mm; }
+  .size-tag { font-size: 8pt; color: #333; text-align: center; font-weight: 600; }
+  .price { font-size: 13pt; font-weight: 900; text-align: center; }
+  .barcode-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .barcode-num { font-family: 'Courier New', monospace; font-size: 7pt; letter-spacing: 1.5px; margin-top: 1mm; }
   @media print {
-    body { margin: 0; }
-    @page { size: 50mm 30mm; margin: 0; }
+    html, body { margin: 0; }
+    @page { size: auto; margin: 0; }
   }
 </style>
 </head><body>
@@ -510,7 +508,7 @@ const Inventory: React.FC = () => {
   <img class="logo" src="${logoSrc}" alt="Hoard Lavish"/>
   <div>
     <div class="name">${name}</div>
-    ${size ? `<div class="size">${size}</div>` : ''}
+    ${(size || color) ? `<div class="size-tag">${[color, size].filter(Boolean).join(' / ')}</div>` : ''}
   </div>
   <div class="price">LKR ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
   <div class="barcode-wrap">
@@ -523,7 +521,8 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
 
     if (isElectron) {
       const printerName = settings?.barcodePrinterName || '';
-      await (window as any).electronAPI.printReceipt(html, printerName);
+      // No pageWidthMm — printer uses its own configured label size from Windows
+      await (window as any).electronAPI.printReceipt(html, printerName, {});
     } else {
       const w = window.open('', '_blank', 'width=300,height=250');
       if (!w) return;

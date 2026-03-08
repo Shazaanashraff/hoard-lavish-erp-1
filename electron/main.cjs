@@ -137,7 +137,7 @@ ipcMain.handle('get-printers', async () => {
     return [];
 });
 
-ipcMain.handle('print-receipt', async (_event, html, printerName) => {
+ipcMain.handle('print-receipt', async (_event, html, printerName, options) => {
     return new Promise((resolve) => {
         // Create a hidden off-screen window to render & print the receipt
         const printWin = new BrowserWindow({
@@ -158,8 +158,17 @@ ipcMain.handle('print-receipt', async (_event, html, printerName) => {
                 printBackground: true,
                 color: false,
                 margins: { marginType: 'none' },
-                pageSize: { width: 80000, height: 297000 }, // 80mm wide, auto height in microns
             };
+
+            // Only set a fixed pageSize when a width is explicitly supplied (receipts = 80mm).
+            // For barcode labels, omit pageSize so the printer driver uses its own configured
+            // paper size (i.e. whatever label is loaded in the XP-T451B).
+            if (options && options.pageWidthMm) {
+                printOptions.pageSize = {
+                    width: Math.round(options.pageWidthMm * 1000),
+                    height: 2970000, // tall enough for any receipt
+                };
+            }
 
             // Attach printer name only when one is configured
             if (printerName && printerName.trim()) {

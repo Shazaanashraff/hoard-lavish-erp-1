@@ -303,7 +303,8 @@ const POS: React.FC = () => {
 <meta charset="utf-8"/>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:Arial,Helvetica,sans-serif; width:80mm; max-width:80mm; margin:0 auto; padding:3mm 4mm 10mm; background:#fff; color:#000; font-size:13px; }
+body { font-family:Arial,Helvetica,sans-serif; width:80mm; margin:0; padding:0; background:#fff; color:#000; font-size:13px; }
+.wrap { width:80mm; padding:3mm 3mm 10mm 3mm; }
 .meta { display:flex; justify-content:space-between; font-size:10px; color:#555; margin-bottom:4px; }
 .logo-wrap { text-align:center; margin:2px 0 4px; }
 .logo-wrap img { width:52mm; max-width:100%; height:auto; display:block; margin:0 auto; }
@@ -329,10 +330,10 @@ table.totals .val { text-align:right; white-space:nowrap; }
 .barcode-wrap { text-align:center; margin-top:6px; }
 .barcode-num { font-size:12px; letter-spacing:3px; margin-top:4px; font-family:'Courier New',monospace; }
 .credit { text-align:center; font-size:10px; color:#444; margin-top:7px; line-height:1.6; }
-@media print { body { margin:0; padding:2mm 3mm 8mm; } @page { size:80mm auto; margin:0; } }
+@media print { body { margin:0; padding:0; } .wrap { padding:2mm 3mm 8mm 3mm; } @page { size:80mm auto; margin:0; } }
 </style>
 </head><body>
-
+<div class="wrap">
 <div class="meta">
   <span>${metaDate}</span>
   <span>Sales Receipt ${sale.invoiceNumber}</span>
@@ -403,6 +404,7 @@ table.totals .val { text-align:right; white-space:nowrap; }
   ware By Snow Soft(pvt)Ltd .(0114341530)<br>
   ${footerDate}
 </div>
+</div>
 
 ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script>'}
 </body></html>`;
@@ -410,7 +412,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
     if (isElectron) {
       // Silent print directly to the configured thermal printer — no dialog
       const printerName = settings?.thermalPrinterName || '';
-      await (window as any).electronAPI.printReceipt(html, printerName);
+      await (window as any).electronAPI.printReceipt(html, printerName, { pageWidthMm: 80 });
       setTimeout(() => setIsInvoiceOpen(false), 300);
     } else {
       // Fallback for non-Electron environments

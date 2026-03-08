@@ -40,6 +40,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.send('silent-print');
     },
     getPrinters: () => ipcRenderer.invoke('get-printers'),
-    printReceipt: (html, printerName) => ipcRenderer.invoke('print-receipt', html, printerName),
+    printReceipt: (html, printerName, options) => ipcRenderer.invoke('print-receipt', html, printerName, options),
     getLogoBase64: () => ipcRenderer.invoke('get-logo-base64'),
 });

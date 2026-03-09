@@ -84,6 +84,7 @@ interface StoreContextType {
   dismissDbError: () => void;
   lastSyncTime: Date | null;
   isCloudConnected: boolean;
+  realtimeStatus: 'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR' | null;
 
   login: (user: User) => void;
   logout: () => void;
@@ -126,6 +127,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [hasLoaded, setHasLoaded] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR' | null>(null);
 
   const useSupabase = isSupabaseConfigured();
 
@@ -320,37 +322,78 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 1000);
   }, [refreshFromSupabase]);
 
+  // Keep stable refs so the realtime effect doesn't re-run on every render
+  const debouncedRefreshRef = useRef(debouncedRefresh);
+  useEffect(() => { debouncedRefreshRef.current = debouncedRefresh; }, [debouncedRefresh]);
+
   useEffect(() => {
     if (!useSupabase || !hasLoaded) return;
 
-    // Subscribe to Realtime changes on key tables for cross-device sync
-    const channel = supabase
-      .channel('db-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_branch_stock' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, () => debouncedRefresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => debouncedRefresh())
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-      });
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let channelRef: ReturnType<typeof supabase.channel> | null = null;
+    let retryCount = 0;
+    let unmounted = false;
+
+    const subscribe = () => {
+      if (channelRef) supabase.removeChannel(channelRef);
+
+      const onEvent = () => debouncedRefreshRef.current();
+      const channel = supabase
+        .channel(`db-sync-${Date.now()}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'product_branch_stock' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sale_items' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_transfers' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_transactions' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'damaged_goods' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'branches' }, onEvent)
+        .subscribe((status) => {
+          console.log('Realtime subscription status:', status);
+          if (unmounted) return;
+          setRealtimeStatus(status as 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR');
+          if (status === 'SUBSCRIBED') {
+            retryCount = 0;
+          }
+          if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+            retryCount++;
+            const delay = Math.min(5000 * retryCount, 30000);
+            console.log(`Realtime: retrying in ${delay / 1000}s (attempt ${retryCount})...`);
+            retryTimeout = setTimeout(() => {
+              if (!unmounted) {
+                setRealtimeStatus('CONNECTING');
+                subscribe();
+              }
+            }, delay);
+          }
+        });
+      channelRef = channel;
+    };
+
+    setRealtimeStatus('CONNECTING');
+    subscribe();
 
     // Also set up periodic polling as fallback (every 30 seconds)
     const pollInterval = setInterval(() => {
-      refreshFromSupabase();
+      debouncedRefreshRef.current();
     }, 30000);
     pollingRef.current = pollInterval;
 
     return () => {
+      unmounted = true;
       if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
       if (pollingRef.current) clearInterval(pollingRef.current);
-      supabase.removeChannel(channel);
+      if (retryTimeout) clearTimeout(retryTimeout);
+      if (channelRef) supabase.removeChannel(channelRef);
+      setRealtimeStatus('CLOSED');
     };
-  }, [useSupabase, hasLoaded, debouncedRefresh, refreshFromSupabase]);
+  }, [useSupabase, hasLoaded]);
 
   // ---- localStorage fallback persistence ----
   useEffect(() => {
@@ -370,7 +413,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [hasLoaded, useSupabase, branches, salesHistory, customers, products, categories, brands, stockHistory, stockTransfers, exchangeHistory, suppliers, supplierTransactions, expenses, users, settings, damagedGoods]);
 
   // ---- Helper for async DB calls with error handling ----
-  const dbCall = useCallback(async (fn: () => Promise<void>) => {
+  const dbCall = useCallback(async (fn: () => Promise<unknown>) => {
     if (!useSupabase) return;
     try {
       await fn();
@@ -1144,7 +1187,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <StoreContext.Provider value={{
       products, customers, cart, salesHistory, stockHistory, stockTransfers, exchangeHistory, categories, brands, branches, suppliers, supplierTransactions, expenses, damagedGoods, users, settings,
-      currentBranch, currentUser, currentView, isLoading, dbError, lastSyncTime, isCloudConnected,
+      currentBranch, currentUser, currentView, isLoading, dbError, lastSyncTime, isCloudConnected, realtimeStatus,
       setBranch, addBranch, updateBranch,
       addProduct, updateProduct, deleteProduct,
       addCustomer, updateCustomer, deleteCustomer,

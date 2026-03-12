@@ -1,7 +1,7 @@
 {
   "name": "hoard-lavish-erp",
   "private": true,
-  "version": "1.1.13",
+  "version": "1.1.16",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Hoard Lavish",
@@ -24,12 +24,14 @@
     "@supabase/supabase-js": "^2.95.3",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
+    "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "recharts": "^3.7.0"
+    "recharts": "^3.7.0",
+    "supabase": "^2.77.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

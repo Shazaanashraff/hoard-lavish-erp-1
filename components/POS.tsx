@@ -38,6 +38,9 @@ const POS: React.FC = () => {
   const { products, customers, cart, salesHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
+  // Keep a ref in sync with barcodeInput so the submit handler always reads
+  // the latest value even if React state hasn't flushed yet (fast scanners).
+  const barcodeValueRef = useRef('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   // Billing States
@@ -71,13 +74,257 @@ const POS: React.FC = () => {
   const [noSaleReturnItems, setNoSaleReturnItems] = useState<CartItem[]>([]); // manual stock return without sale
   const [noSaleProductSearch, setNoSaleProductSearch] = useState('');
 
+  // Scan mode — overlay that listens for scanner input
+  const [isScanMode, setIsScanMode] = useState(false);
+  const [scanModeBuffer, setScanModeBuffer] = useState('');
+  const scanModeBufferRef = useRef('');
+  const scanModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const customerSearchRef = useRef<HTMLInputElement>(null);
 
+  // --- Global barcode scanner listener ---
+  // USB barcode scanners (like PM-BSD234) act as keyboard HID devices: they
+  // "type" characters extremely fast (< 30ms between keystrokes) and finish
+  // with Enter. React controlled inputs often DROP characters at scanner speed
+  // because React can't re-render fast enough. This listener captures rapid
+  // keystrokes globally (even when the barcode input has focus), buffers them,
+  // and processes the complete barcode when Enter arrives — completely bypassing
+  // React's controlled input for scanner input.
+  const scanBufferRef = useRef('');
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanLastKeyTimeRef = useRef(0);
+
+  useEffect(() => {
+    const SCAN_CHAR_INTERVAL = 100; // max ms between chars to treat as scanner input
+    const SCAN_MIN_LENGTH = 3;     // minimum chars to treat as a barcode scan
+
+    const processBarcodeValue = (val: string) => {
+      console.log('[BARCODE SCANNER] Processing barcode value:', val);
+      const exact = products.find(p =>
+        p.sku.toLowerCase() === val.toLowerCase() ||
+        (p.barcode && p.barcode.toLowerCase() === val.toLowerCase()) ||
+        (p.barcode2 && p.barcode2.toLowerCase() === val.toLowerCase())
+      );
+      console.log('[BARCODE SCANNER] Product lookup result:', exact ? `Found: ${exact.name} (SKU: ${exact.sku}, barcode: ${exact.barcode}, barcode2: ${exact.barcode2})` : 'NOT FOUND');
+      if (exact) {
+        const branchStock = exact.branchStock[currentBranch.id] || 0;
+        console.log('[BARCODE SCANNER] Branch stock:', branchStock);
+        if (branchStock > 0) {
+          const result = addToCart(exact);
+          console.log('[BARCODE SCANNER] addToCart result:', result);
+          if (result !== 'ok') {
+            setAlertPopup({ message: result, type: 'error' });
+          }
+        } else {
+          setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+        }
+      } else {
+        // Log all products' barcodes for debugging
+        console.log('[BARCODE SCANNER] Available products barcode list:');
+        products.forEach(p => {
+          if (p.barcode || p.barcode2) {
+            console.log(`  - ${p.name}: sku="${p.sku}", barcode="${p.barcode}", barcode2="${p.barcode2}"`);
+          }
+        });
+        setAlertPopup({ message: `No product found matching "${val}"`, type: 'error' });
+      }
+      setBarcodeInput('');
+      barcodeValueRef.current = '';
+      setTimeout(() => barcodeInputRef.current?.focus(), 30);
+    };
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Skip if scan mode overlay is open — its own listener handles everything
+      if (isScanMode) return;
+
+      const now = Date.now();
+      const timeSinceLastKey = now - scanLastKeyTimeRef.current;
+
+      // --- Enter key: process scan buffer if we have one ---
+      if (e.key === 'Enter') {
+        if (scanBufferRef.current.length >= SCAN_MIN_LENGTH) {
+          e.preventDefault();
+          e.stopPropagation();
+          const scannedValue = scanBufferRef.current;
+          scanBufferRef.current = '';
+          scanLastKeyTimeRef.current = 0;
+          if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+          console.log('[BARCODE SCANNER] Global listener — Enter received, buffer:', scannedValue);
+          processBarcodeValue(scannedValue.trim());
+        }
+        return;
+      }
+
+      // Only buffer printable single characters (not Shift, Ctrl, Alt, etc.)
+      if (e.key.length !== 1) return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      // Determine if this keystroke is "scanner speed" (very fast after previous key)
+      const isScannerSpeed = scanBufferRef.current.length > 0 && timeSinceLastKey < SCAN_CHAR_INTERVAL;
+      const isFirstChar = scanBufferRef.current.length === 0;
+
+      if (isFirstChar) {
+        scanBufferRef.current = e.key;
+        scanLastKeyTimeRef.current = now;
+        if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+        scanTimerRef.current = setTimeout(() => {
+          scanBufferRef.current = '';
+          scanLastKeyTimeRef.current = 0;
+        }, SCAN_CHAR_INTERVAL);
+        return;
+      }
+
+      if (isScannerSpeed) {
+        e.preventDefault();
+        e.stopPropagation();
+        scanBufferRef.current += e.key;
+        scanLastKeyTimeRef.current = now;
+        console.log('[BARCODE SCANNER] Global listener — buffering fast char, buffer now:', scanBufferRef.current);
+
+        if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+        scanTimerRef.current = setTimeout(() => {
+          if (scanBufferRef.current.length >= SCAN_MIN_LENGTH) {
+            console.log('[BARCODE SCANNER] Global listener — timeout, processing buffer:', scanBufferRef.current);
+            processBarcodeValue(scanBufferRef.current.trim());
+          }
+          scanBufferRef.current = '';
+          scanLastKeyTimeRef.current = 0;
+        }, SCAN_CHAR_INTERVAL * 2);
+      } else {
+        scanBufferRef.current = '';
+        scanLastKeyTimeRef.current = 0;
+        if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, currentBranch, isScanMode]);
+
   useEffect(() => {
     barcodeInputRef.current?.focus();
   }, []);
+
+  // --- Scan Mode: dedicated listener that captures ALL keystrokes when scan overlay is open ---
+  useEffect(() => {
+    if (!isScanMode) return;
+    scanModeBufferRef.current = '';
+    setScanModeBuffer('');
+    console.log('[SCAN MODE] Overlay opened — listening for ALL keystrokes');
+
+    const handleScanModeKey = (e: KeyboardEvent) => {
+      console.log('[SCAN MODE] Key event:', e.key, '| type:', e.type, '| code:', e.code, '| buffer so far:', scanModeBufferRef.current);
+
+      // Escape — close scan mode
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        console.log('[SCAN MODE] Escape pressed, closing overlay');
+        setIsScanMode(false);
+        return;
+      }
+
+      // Enter — process whatever is in the buffer
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        const val = scanModeBufferRef.current.trim();
+        console.log('[SCAN MODE] Enter pressed — buffer:', val);
+        if (val.length >= 1) {
+          console.log('[SCAN MODE] Looking up barcode:', val);
+          const exact = products.find(p =>
+            p.sku.toLowerCase() === val.toLowerCase() ||
+            (p.barcode && p.barcode.toLowerCase() === val.toLowerCase()) ||
+            (p.barcode2 && p.barcode2.toLowerCase() === val.toLowerCase())
+          );
+          console.log('[SCAN MODE] Product match:', exact ? `${exact.name} (SKU: ${exact.sku})` : 'NOT FOUND');
+          if (exact) {
+            const branchStock = exact.branchStock[currentBranch.id] || 0;
+            console.log('[SCAN MODE] Branch stock:', branchStock);
+            if (branchStock > 0) {
+              const result = addToCart(exact);
+              console.log('[SCAN MODE] addToCart result:', result);
+              if (result !== 'ok') {
+                setAlertPopup({ message: result, type: 'error' });
+              }
+            } else {
+              setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+            }
+          } else {
+            console.log('[SCAN MODE] Products with barcodes:');
+            products.forEach(p => {
+              if (p.barcode || p.barcode2) {
+                console.log(`  - ${p.name}: sku="${p.sku}", barcode="${p.barcode}", barcode2="${p.barcode2}"`);
+              }
+            });
+            setAlertPopup({ message: `No product found matching "${val}"`, type: 'error' });
+          }
+          setBarcodeInput('');
+          barcodeValueRef.current = '';
+          setIsScanMode(false);
+          setTimeout(() => barcodeInputRef.current?.focus(), 30);
+        }
+        scanModeBufferRef.current = '';
+        setScanModeBuffer('');
+        return;
+      }
+
+      // Buffer printable characters
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        scanModeBufferRef.current += e.key;
+        setScanModeBuffer(scanModeBufferRef.current);
+        console.log('[SCAN MODE] Buffered char, buffer now:', scanModeBufferRef.current);
+
+        // Auto-process timeout if scanner doesn't send Enter
+        if (scanModeTimerRef.current) clearTimeout(scanModeTimerRef.current);
+        scanModeTimerRef.current = setTimeout(() => {
+          const v = scanModeBufferRef.current.trim();
+          console.log('[SCAN MODE] Timeout — auto-processing buffer:', v);
+          if (v.length >= 3) {
+            const exact = products.find(p =>
+              p.sku.toLowerCase() === v.toLowerCase() ||
+              (p.barcode && p.barcode.toLowerCase() === v.toLowerCase()) ||
+              (p.barcode2 && p.barcode2.toLowerCase() === v.toLowerCase())
+            );
+            console.log('[SCAN MODE] Timeout product match:', exact ? `${exact.name}` : 'NOT FOUND');
+            if (exact) {
+              const branchStock = exact.branchStock[currentBranch.id] || 0;
+              if (branchStock > 0) {
+                const result = addToCart(exact);
+                if (result !== 'ok') {
+                  setAlertPopup({ message: result, type: 'error' });
+                }
+              } else {
+                setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+              }
+            } else {
+              setAlertPopup({ message: `No product found matching "${v}"`, type: 'error' });
+            }
+            setBarcodeInput('');
+            barcodeValueRef.current = '';
+            setIsScanMode(false);
+            setTimeout(() => barcodeInputRef.current?.focus(), 30);
+          }
+          scanModeBufferRef.current = '';
+          setScanModeBuffer('');
+        }, 500);
+      }
+    };
+
+    window.addEventListener('keydown', handleScanModeKey, true);
+    return () => {
+      window.removeEventListener('keydown', handleScanModeKey, true);
+      if (scanModeTimerRef.current) clearTimeout(scanModeTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScanMode, products, currentBranch]);
 
   const categories = ['All', ...Array.from(new Set(products.map(p => p.category)))];
 
@@ -95,12 +342,37 @@ const POS: React.FC = () => {
   const skuSuggestions = useMemo(() => {
     if (!barcodeInput.trim()) return [];
     return products.filter(p =>
-      p.sku.toLowerCase().includes(barcodeInput.toLowerCase()) ||
-      p.name.toLowerCase().includes(barcodeInput.toLowerCase()) ||
-      (p.barcode && p.barcode.toLowerCase().includes(barcodeInput.toLowerCase())) ||
-      (p.barcode2 && p.barcode2.toLowerCase().includes(barcodeInput.toLowerCase()))
+      p.sku.toLowerCase().includes(barcodeInput.trim().toLowerCase()) ||
+      p.name.toLowerCase().includes(barcodeInput.trim().toLowerCase()) ||
+      (p.barcode && p.barcode.toLowerCase().includes(barcodeInput.trim().toLowerCase())) ||
+      (p.barcode2 && p.barcode2.toLowerCase().includes(barcodeInput.trim().toLowerCase()))
     ).slice(0, 5);
   }, [products, barcodeInput]);
+
+  // Auto-add when an exact barcode/SKU match is found while typing (handles
+  // scanners that don't send Enter and makes scanning feel instant).
+  useEffect(() => {
+    const val = barcodeInput.trim();
+    if (!val) return;
+    const exact = products.find(p =>
+      p.sku.toLowerCase() === val.toLowerCase() ||
+      (p.barcode && p.barcode.toLowerCase() === val.toLowerCase()) ||
+      (p.barcode2 && p.barcode2.toLowerCase() === val.toLowerCase())
+    );
+    if (!exact) return;
+    const branchStock = exact.branchStock[currentBranch.id] || 0;
+    if (branchStock > 0) {
+      handleAddToCart(exact);
+      setBarcodeInput('');
+      barcodeValueRef.current = '';
+      setTimeout(() => barcodeInputRef.current?.focus(), 50);
+    } else {
+      setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+      setBarcodeInput('');
+      barcodeValueRef.current = '';
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barcodeInput]);
 
   // 10. Customer search filtering
   const filteredCustomers = useMemo(() => {
@@ -134,11 +406,14 @@ const POS: React.FC = () => {
   // 1b. Handle barcode submit — exact match first, then top suggestion
   const handleBarcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Read from ref for latest value — React state may lag behind fast scanners.
+    const val = (barcodeValueRef.current || barcodeInput).trim();
+    if (!val) return;
     // Try exact SKU or barcode match first (for real barcode scanners)
     const exact = products.find(p =>
-      p.sku.toLowerCase() === barcodeInput.toLowerCase() ||
-      (p.barcode && p.barcode.toLowerCase() === barcodeInput.toLowerCase()) ||
-      (p.barcode2 && p.barcode2.toLowerCase() === barcodeInput.toLowerCase())
+      p.sku.toLowerCase() === val.toLowerCase() ||
+      (p.barcode && p.barcode.toLowerCase() === val.toLowerCase()) ||
+      (p.barcode2 && p.barcode2.toLowerCase() === val.toLowerCase())
     );
     const product = exact || skuSuggestions[0];
     if (product) {
@@ -146,11 +421,17 @@ const POS: React.FC = () => {
       if (branchStock > 0) {
         handleAddToCart(product);
         setBarcodeInput('');
+        barcodeValueRef.current = '';
+        setTimeout(() => barcodeInputRef.current?.focus(), 50);
       } else {
         setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+        setBarcodeInput('');
+        barcodeValueRef.current = '';
       }
     } else {
-      setAlertPopup({ message: `No product found matching "${barcodeInput}"`, type: 'error' });
+      setAlertPopup({ message: `No product found matching "${val}"`, type: 'error' });
+      setBarcodeInput('');
+      barcodeValueRef.current = '';
     }
   };
 
@@ -411,7 +692,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
 
     if (isElectron) {
       // Silent print directly to the configured thermal printer — no dialog
-      const printerName = settings?.thermalPrinterName || '';
+      const printerName = currentBranch?.thermalPrinterName || settings?.thermalPrinterName || '';
       await (window as any).electronAPI.printReceipt(html, printerName, { pageWidthMm: 80 });
       setTimeout(() => setIsInvoiceOpen(false), 300);
     } else {
@@ -550,7 +831,7 @@ ${exchange.description ? `<div style="margin-top:16px;padding:8px 12px;backgroun
 <div class="footer">Thank you — Hoard Lavish ERP</div>
 ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>'}</body></html>`;
     if (isElectron) {
-      const printerName = settings?.thermalPrinterName || '';
+      const printerName = currentBranch?.thermalPrinterName || settings?.thermalPrinterName || '';
       await (window as any).electronAPI.printReceipt(html, printerName);
     } else {
       const printWindow = window.open('', '_blank');
@@ -589,7 +870,10 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                     placeholder="Scan Barcode / SKU"
                     className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-slate-50 font-mono"
                     value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
+                    onChange={(e) => {
+                      barcodeValueRef.current = e.target.value;
+                      setBarcodeInput(e.target.value);
+                    }}
                     onFocus={() => { }}
                     onBlur={() => setTimeout(() => { }, 200)}
                   />
@@ -618,6 +902,16 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                   </div>
                 )}
               </div>
+
+              {/* Scan button */}
+              <button
+                type="button"
+                onClick={() => setIsScanMode(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors whitespace-nowrap shadow-sm"
+              >
+                <ScanBarcode size={18} />
+                Scan
+              </button>
 
               {/* 2. Search input with ENTER to add */}
               <div className="relative flex-1 w-full">
@@ -1054,6 +1348,37 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                 className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl hover:bg-slate-800 transition-colors font-medium"
               >
                 <Printer size={18} /> Print Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scan Mode Overlay */}
+      {isScanMode && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setIsScanMode(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                <ScanBarcode size={32} className="text-amber-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Ready to Scan</h3>
+              <p className="text-sm text-slate-500 mb-4">Point your barcode scanner at the product barcode now.<br/>The product will be added to checkout automatically.</p>
+              <div className="min-h-[48px] bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center px-4 py-3 font-mono text-lg">
+                {scanModeBuffer ? (
+                  <span className="text-slate-800 font-bold">{scanModeBuffer}</span>
+                ) : (
+                  <span className="text-slate-400 text-sm">Waiting for scanner input...</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-3">Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 text-slate-500 font-mono">Esc</kbd> or click outside to cancel</p>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-center">
+              <button
+                onClick={() => setIsScanMode(false)}
+                className="px-6 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

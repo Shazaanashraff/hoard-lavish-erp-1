@@ -74,48 +74,38 @@ const Sidebar: React.FC = () => {
           </div>
         )}
 
-        {/* Cloud Status */}
-        <div className="flex items-center gap-2 px-4 py-1.5 mb-1">
+        {/* Cloud + Realtime Status — compact single row */}
+        <div className="flex items-center gap-1.5 px-3 py-1 mb-1">
           {isCloudConnected ? (
-            <Cloud size={14} className="text-green-500" />
+            <Cloud size={11} className="text-green-500 flex-shrink-0" />
           ) : (
-            <CloudOff size={14} className="text-red-400" />
+            <CloudOff size={11} className="text-red-400 flex-shrink-0" />
           )}
-          <span className={`text-[11px] font-medium ${isCloudConnected ? 'text-green-600' : 'text-red-400'}`}>
-            {isCloudConnected ? 'Cloud Connected' : 'Offline / Local Only'}
+          <span className={`text-[10px] font-medium truncate ${isCloudConnected ? 'text-green-600' : 'text-red-400'}`}>
+            {isCloudConnected ? 'Connected' : 'Offline'}
           </span>
+          {lastSyncTime && (
+            <span className="text-[10px] text-slate-400 truncate">· {lastSyncTime.toLocaleTimeString()}</span>
+          )}
+          {realtimeStatus && (
+            <>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ml-0.5 ${
+                realtimeStatus === 'SUBSCRIBED' ? 'bg-green-500 animate-pulse' :
+                realtimeStatus === 'CONNECTING' ? 'bg-blue-400 animate-pulse' :
+                'bg-red-400'
+              }`} />
+              <span className={`text-[10px] font-medium truncate ${
+                realtimeStatus === 'SUBSCRIBED' ? 'text-green-700' :
+                realtimeStatus === 'CONNECTING' ? 'text-blue-600' :
+                'text-red-500'
+              }`}>
+                {realtimeStatus === 'SUBSCRIBED' ? 'Live' :
+                 realtimeStatus === 'CONNECTING' ? 'Sync…' :
+                 'Offline'}
+              </span>
+            </>
+          )}
         </div>
-        {lastSyncTime && (
-          <p className="text-[10px] text-slate-400 px-4 mb-2">
-            Updated: {lastSyncTime.toLocaleTimeString()}
-          </p>
-        )}
-
-        {/* Realtime Status */}
-        {realtimeStatus && (
-          <div className={`mx-2 mb-2 px-3 py-2 rounded-lg flex items-center gap-2 ${
-            realtimeStatus === 'SUBSCRIBED' ? 'bg-green-50' :
-            realtimeStatus === 'CONNECTING' ? 'bg-blue-50' :
-            'bg-red-50'
-          }`}>
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-              realtimeStatus === 'SUBSCRIBED' ? 'bg-green-500 animate-pulse' :
-              realtimeStatus === 'CONNECTING' ? 'bg-blue-400 animate-pulse' :
-              'bg-red-400'
-            }`} />
-            <span className={`text-xs font-medium ${
-              realtimeStatus === 'SUBSCRIBED' ? 'text-green-700' :
-              realtimeStatus === 'CONNECTING' ? 'text-blue-700' :
-              'text-red-600'
-            }`}>
-              {realtimeStatus === 'SUBSCRIBED' && 'Realtime: Live'}
-              {realtimeStatus === 'CONNECTING' && 'Realtime: Connecting…'}
-              {realtimeStatus === 'TIMED_OUT' && 'Realtime: Timed Out'}
-              {realtimeStatus === 'CHANNEL_ERROR' && 'Realtime: Error'}
-              {realtimeStatus === 'CLOSED' && 'Realtime: Disconnected'}
-            </span>
-          </div>
-        )}
         <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
           <LogOut size={20} />
           <span className="font-medium">Logout</span>

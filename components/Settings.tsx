@@ -25,7 +25,7 @@ const Settings: React.FC = () => {
   const { 
     settings, updateSettings, 
     users, addUser, updateUser, deleteUser, 
-    branches, currentBranch,
+    branches, currentBranch, updateBranch,
     addProduct,
     exportData, importData 
   } = useStore();
@@ -57,10 +57,19 @@ const Settings: React.FC = () => {
     currencySymbol: settings.currencySymbol,
     taxRate: settings.taxRate * 100,
     enableLowStockAlerts: settings.enableLowStockAlerts,
-    thermalPrinterName: settings.thermalPrinterName || '',
-    barcodePrinterName: settings.barcodePrinterName || '',
+    thermalPrinterName: currentBranch.thermalPrinterName || '',
+    barcodePrinterName: currentBranch.barcodePrinterName || '',
   });
   const [generalSaved, setGeneralSaved] = useState(false);
+
+  // Update printer fields when branch changes
+  useEffect(() => {
+    setGeneralForm(prev => ({
+      ...prev,
+      thermalPrinterName: currentBranch.thermalPrinterName || '',
+      barcodePrinterName: currentBranch.barcodePrinterName || '',
+    }));
+  }, [currentBranch.id]);
 
   // Thermal printer list from Electron
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -79,6 +88,9 @@ const Settings: React.FC = () => {
       currencySymbol: generalForm.currencySymbol,
       taxRate: generalForm.taxRate * 0.01,
       enableLowStockAlerts: generalForm.enableLowStockAlerts,
+    });
+    // Save printer names per-branch
+    updateBranch(currentBranch.id, {
       thermalPrinterName: generalForm.thermalPrinterName,
       barcodePrinterName: generalForm.barcodePrinterName,
     });
@@ -324,8 +336,9 @@ const Settings: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <Printer size={16} className="text-slate-500" />
                   <p className="font-medium text-slate-900">Thermal Receipt Printer</p>
+                  <span className="ml-auto text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{currentBranch.name}</span>
                 </div>
-                <p className="text-sm text-slate-500">Select your thermal printer to skip the print dialog. Receipts will print silently.</p>
+                <p className="text-sm text-slate-500">Select your thermal printer for <strong>{currentBranch.name}</strong>. Receipts will print silently.</p>
                 {availablePrinters.length > 0 ? (
                   <select
                     className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 bg-white"
@@ -356,8 +369,9 @@ const Settings: React.FC = () => {
                 <div className="flex items-center gap-2 mb-1">
                   <Printer size={16} className="text-slate-500" />
                   <p className="font-medium text-slate-900">Barcode Label Printer</p>
+                  <span className="ml-auto text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{currentBranch.name}</span>
                 </div>
-                <p className="text-sm text-slate-500">Select your barcode / sticker printer (e.g. XP-T451B). Used when printing product labels from Inventory.</p>
+                <p className="text-sm text-slate-500">Select your barcode / sticker printer for <strong>{currentBranch.name}</strong>. Used when printing product labels from Inventory.</p>
                 {availablePrinters.length > 0 ? (
                   <select
                     className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 bg-white"

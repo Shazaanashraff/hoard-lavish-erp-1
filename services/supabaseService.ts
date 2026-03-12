@@ -12,6 +12,8 @@ export async function fetchBranches(): Promise<Branch[]> {
         name: r.name,
         address: r.address,
         phone: r.phone,
+        thermalPrinterName: r.thermal_printer_name || '',
+        barcodePrinterName: r.barcode_printer_name || '',
     }));
 }
 
@@ -21,9 +23,11 @@ export async function insertBranch(branch: Omit<Branch, 'id'> & { id?: string })
         name: branch.name,
         address: branch.address,
         phone: branch.phone,
+        thermal_printer_name: branch.thermalPrinterName || '',
+        barcode_printer_name: branch.barcodePrinterName || '',
     }).select().single();
     if (error) throw error;
-    return { id: data.id, name: data.name, address: data.address, phone: data.phone };
+    return { id: data.id, name: data.name, address: data.address, phone: data.phone, thermalPrinterName: data.thermal_printer_name || '', barcodePrinterName: data.barcode_printer_name || '' };
 }
 
 export async function updateBranch(id: string, updates: Partial<Branch>): Promise<void> {
@@ -31,22 +35,24 @@ export async function updateBranch(id: string, updates: Partial<Branch>): Promis
         ...(updates.name !== undefined && { name: updates.name }),
         ...(updates.address !== undefined && { address: updates.address }),
         ...(updates.phone !== undefined && { phone: updates.phone }),
+        ...(updates.thermalPrinterName !== undefined && { thermal_printer_name: updates.thermalPrinterName }),
+        ...(updates.barcodePrinterName !== undefined && { barcode_printer_name: updates.barcodePrinterName }),
     }).eq('id', id);
     if (error) throw error;
 }
 
 // ============================================================
-// PRODUCTS (with branch stock via the view)
+// PRODUCTS (with branch stock — fetched directly from tables)
 // ============================================================
-export const mapProduct = (r: any): Product => ({
+export const mapProduct = (r: any, branchStock: Record<string, number> = {}): Product => ({
     id: r.id,
     name: r.name,
     category: r.category,
     brand: r.brand,
     price: Number(r.price),
     costPrice: Number(r.cost_price),
-    stock: r.total_stock || 0,
-    branchStock: r.branch_stock as Record<string, number> || {},
+    stock: Object.values(branchStock).reduce((a, b) => a + b, 0),
+    branchStock,
     minStockLevel: r.min_stock_level,
     sku: r.sku,
     description: r.description,
@@ -58,9 +64,30 @@ export const mapProduct = (r: any): Product => ({
 });
 
 export async function fetchProductsWithStock(): Promise<Product[]> {
-    const { data, error } = await supabase.from('v_products_with_stock').select('*').order('created_at');
-    if (error) throw error;
-    return (data ?? []).map(mapProduct);
+    // Fetch products and branch stock separately with explicit column names.
+    // This avoids relying on the v_products_with_stock view's column list,
+    // which is frozen at view-creation time and may miss later-added columns
+    // (e.g. barcode, barcode2) if the view was not recreated after the migration.
+    const [productsRes, stockRes] = await Promise.all([
+        supabase
+            .from('products')
+            .select('id, name, category, brand, price, cost_price, min_stock_level, sku, description, image_url, color, size, barcode, barcode2, created_at')
+            .order('created_at'),
+        supabase
+            .from('product_branch_stock')
+            .select('product_id, branch_id, quantity'),
+    ]);
+    if (productsRes.error) throw productsRes.error;
+    if (stockRes.error) throw stockRes.error;
+
+    // Build a map: product_id → { branch_id: quantity }
+    const stockMap: Record<string, Record<string, number>> = {};
+    for (const row of (stockRes.data ?? [])) {
+        if (!stockMap[row.product_id]) stockMap[row.product_id] = {};
+        stockMap[row.product_id][row.branch_id] = row.quantity;
+    }
+
+    return (productsRes.data ?? []).map(r => mapProduct(r, stockMap[r.id] || {}));
 }
 
 export async function insertProduct(product: Product, branches: Branch[]): Promise<void> {

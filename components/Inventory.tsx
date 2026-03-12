@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Edit2, AlertCircle, Trash2, Search, Filter, History, Box, Tag, ArrowUpRight, ArrowDownRight, Save, X, Building2, AlertTriangle, Palette, Ruler, ArrowRightLeft, FileText, Printer, ChevronDown, ChevronUp, Minus, Barcode } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Product, StockTransferItem, StockTransfer } from '../types';
+import JsBarcode from 'jsbarcode';
 
 type InventoryTab = 'ALL' | 'LOW_STOCK' | 'ADJUSTMENTS' | 'CATEGORIES' | 'TRANSFERS';
 
@@ -71,6 +72,7 @@ const Inventory: React.FC = () => {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+  const [labelPrintQty, setLabelPrintQty] = useState<number>(1);
 
   // Variation builder state (for new products)
   const [useVariations, setUseVariations] = useState(false);
@@ -439,20 +441,27 @@ const Inventory: React.FC = () => {
     const color = editingProduct.color || '';
     if (!barcode) return;
 
+    const qty = Math.max(1, labelPrintQty || 1);
     const isElectron = !!(window as any).electronAPI?.printReceipt;
 
-    // Build barcode bars from the barcode string
-    let barsHtml = '<div style="display:flex;align-items:flex-end;justify-content:center;gap:0;">';
-    barsHtml += '<div style="width:1px;height:16px;background:#000;"></div><div style="width:1px;height:16px;background:#fff;"></div><div style="width:1px;height:16px;background:#000;"></div><div style="width:1px;height:16px;background:#fff;"></div>';
-    for (let i = 0; i < barcode.length; i++) {
-      const d = parseInt(barcode[i]) || 0;
-      barsHtml += '<div style="width:' + ((d % 3) + 1) + 'px;height:14px;background:#000;"></div>';
-      barsHtml += '<div style="width:' + ((d % 2) + 1) + 'px;height:14px;background:#fff;"></div>';
-      barsHtml += '<div style="width:' + (((d + 1) % 3) + 1) + 'px;height:14px;background:#000;"></div>';
-      barsHtml += '<div style="width:1px;height:14px;background:#fff;"></div>';
+    // Generate a real barcode SVG using JsBarcode (Code128 format — universally scannable)
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svgEl = document.createElementNS(svgNs, 'svg');
+    try {
+      JsBarcode(svgEl, barcode, {
+        format: 'CODE128',
+        width: 1.5,
+        height: 30,
+        displayValue: false, // we'll show the number separately for styling
+        margin: 0,
+        background: '#ffffff',
+        lineColor: '#000000',
+      });
+    } catch (err) {
+      console.error('[BARCODE] JsBarcode error:', err);
+      return;
     }
-    barsHtml += '<div style="width:1px;height:16px;background:#000;"></div><div style="width:1px;height:16px;background:#fff;"></div><div style="width:1px;height:16px;background:#000;"></div>';
-    barsHtml += '</div>';
+    const barcodeSvg = svgEl.outerHTML;
 
     // Single label cell HTML (reused for left & right sticker)
     const labelCell = `
@@ -462,10 +471,22 @@ const Inventory: React.FC = () => {
         ${(size || color) ? `<div class="size-tag">${[color, size].filter(Boolean).join(' / ')}</div>` : ''}
         <div class="price">LKR ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         <div class="barcode-wrap">
-          ${barsHtml}
+          ${barcodeSvg}
           <div class="barcode-num">${barcode}</div>
         </div>
       </div>`;
+
+    // Build rows: 2 labels per row, qty total labels
+    const totalRows = Math.ceil(qty / 2);
+    let rowsHtml = '';
+    for (let r = 0; r < totalRows; r++) {
+      const labelsInRow = (r === totalRows - 1 && qty % 2 === 1) ? 1 : 2;
+      rowsHtml += '<div class="row">';
+      rowsHtml += labelCell;
+      rowsHtml += '<div class="gap"></div>';
+      rowsHtml += labelsInRow === 2 ? labelCell : '<div class="label"></div>';
+      rowsHtml += '</div>';
+    }
 
     const html = `<!DOCTYPE html>
 <html><head>
@@ -473,33 +494,38 @@ const Inventory: React.FC = () => {
 <title> </title>
 <style>
   /* 2-column label roll: each sticker 38x25mm, total roll width ~80mm */
-  @page { size: 80mm 25mm; margin: 0; }
+  /* Use 24.5mm page height (slightly short) to prevent the printer from
+     over-feeding past the inter-label gap between consecutive print jobs. */
+  @page { size: 80mm 24.5mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     width: 80mm;
-    height: 25mm;
     font-family: Arial, Helvetica, sans-serif;
     background: #fff;
     margin: 0;
     padding: 0;
-    overflow: hidden;
   }
   .row {
     width: 80mm;
-    height: 25mm;
+    height: 24.5mm;
     display: flex;
     flex-direction: row;
     align-items: stretch;
+    page-break-after: always;
+    overflow: hidden;
+  }
+  .row:last-child {
+    page-break-after: avoid;
   }
   .label {
     width: 38mm;
-    height: 25mm;
-    padding: 0.5mm 1mm;
+    height: 24.5mm;
+    padding: 0.3mm 1mm;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.2mm;
+    gap: 0.15mm;
     overflow: hidden;
   }
   .gap {
@@ -520,25 +546,22 @@ const Inventory: React.FC = () => {
   .size-tag { font-size: 5pt; color: #333; text-align: center; font-weight: 600; }
   .price { font-size: 8pt; font-weight: 900; text-align: center; }
   .barcode-wrap { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .barcode-wrap svg { width: 90%; height: 14mm; max-height: 14mm; }
   .barcode-num { font-family: 'Courier New', monospace; font-size: 6pt; font-weight: 700; letter-spacing: 0.8px; margin-top: 0.2mm; color: #000; }
   @media print {
     html, body { margin: 0; padding: 0; }
-    @page { size: 80mm 25mm; margin: 0; }
+    @page { size: 80mm 24.5mm; margin: 0; }
   }
 </style>
 </head><body>
-<div class="row">
-  ${labelCell}
-  <div class="gap"></div>
-  ${labelCell}
-</div>
+${rowsHtml}
 ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>'}
 </body></html>`;
 
     if (isElectron) {
-      const printerName = settings?.barcodePrinterName || '';
+      const printerName = currentBranch?.barcodePrinterName || settings?.barcodePrinterName || '';
       // No pageWidthMm — printer uses its own configured label size from Windows
-      await (window as any).electronAPI.printReceipt(html, printerName, { pageWidthMm: 80, pageHeightMm: 25 });
+      await (window as any).electronAPI.printReceipt(html, printerName, { pageWidthMm: 80, pageHeightMm: 24.5 });
     } else {
       const w = window.open('', '_blank', 'width=300,height=250');
       if (!w) return;
@@ -1314,6 +1337,15 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                       >
                         <Printer size={14} /> Print Tag
                       </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={labelPrintQty}
+                        onChange={e => setLabelPrintQty(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-16 px-2 py-2 border border-slate-200 rounded-lg text-xs text-center font-bold"
+                        title="Number of labels to print"
+                      />
                     </div>
                   </div>
                   {/* Barcode 2 Section */}
@@ -1457,6 +1489,15 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                             >
                               <Printer size={14} /> Print Tag
                             </button>
+                            <input
+                              type="number"
+                              min="1"
+                              max="500"
+                              value={labelPrintQty}
+                              onChange={e => setLabelPrintQty(Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-16 px-2 py-2 border border-slate-200 rounded-lg text-xs text-center font-bold"
+                              title="Number of labels to print"
+                            />
                           </div>
                         </div>
                         {/* Barcode 2 Section */}

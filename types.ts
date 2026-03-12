@@ -3,6 +3,8 @@ export interface Branch {
   name: string;
   address: string;
   phone: string;
+  thermalPrinterName?: string;
+  barcodePrinterName?: string;
 }
 
 export interface Product {

@@ -95,12 +95,21 @@ const POS: React.FC = () => {
   const scanBufferRef = useRef('');
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanLastKeyTimeRef = useRef(0);
+  const scanCooldownRef = useRef(0); // timestamp of last successful scan — used to ignore duplicates
 
   useEffect(() => {
     const SCAN_CHAR_INTERVAL = 100; // max ms between chars to treat as scanner input
     const SCAN_MIN_LENGTH = 3;     // minimum chars to treat as a barcode scan
+    const SCAN_COOLDOWN = 1500;    // ms to ignore duplicate scans after a successful one
 
     const processBarcodeValue = (val: string) => {
+      // Cooldown: ignore if we just processed a scan recently
+      const now = Date.now();
+      if (now - scanCooldownRef.current < SCAN_COOLDOWN) {
+        console.log('[BARCODE SCANNER] Ignoring duplicate scan (cooldown active):', val);
+        return;
+      }
+
       console.log('[BARCODE SCANNER] Processing barcode value:', val);
       const exact = products.find(p =>
         p.sku.toLowerCase() === val.toLowerCase() ||
@@ -130,6 +139,8 @@ const POS: React.FC = () => {
         });
         setAlertPopup({ message: `No product found matching "${val}"`, type: 'error' });
       }
+      // Mark cooldown timestamp so duplicate scans are ignored
+      scanCooldownRef.current = Date.now();
       setBarcodeInput('');
       barcodeValueRef.current = '';
       setTimeout(() => barcodeInputRef.current?.focus(), 30);
@@ -354,6 +365,8 @@ const POS: React.FC = () => {
   useEffect(() => {
     const val = barcodeInput.trim();
     if (!val) return;
+    // Cooldown: skip if a scan was just processed
+    if (Date.now() - scanCooldownRef.current < 1500) return;
     const exact = products.find(p =>
       p.sku.toLowerCase() === val.toLowerCase() ||
       (p.barcode && p.barcode.toLowerCase() === val.toLowerCase()) ||
@@ -363,11 +376,13 @@ const POS: React.FC = () => {
     const branchStock = exact.branchStock[currentBranch.id] || 0;
     if (branchStock > 0) {
       handleAddToCart(exact);
+      scanCooldownRef.current = Date.now();
       setBarcodeInput('');
       barcodeValueRef.current = '';
       setTimeout(() => barcodeInputRef.current?.focus(), 50);
     } else {
       setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+      scanCooldownRef.current = Date.now();
       setBarcodeInput('');
       barcodeValueRef.current = '';
     }

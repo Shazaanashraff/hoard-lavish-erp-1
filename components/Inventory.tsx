@@ -60,9 +60,9 @@ interface VariationRow {
 const Inventory: React.FC = () => {
   const {
     products, categories, brands, stockHistory, currentBranch, branches,
-    addProduct, updateProduct, deleteProduct, getProductSalesUsage, adjustStock, transferStock,
+    addProduct, updateProduct, deleteProduct, getProductSalesUsage, adjustStock, transferStock, refreshTransfers,
     addCategory, removeCategory, addBrand, removeBrand,
-    currentUser, stockTransfers, settings
+    currentUser, stockTransfers, settings, isLoading
   } = useStore();
   const isCashier = currentUser?.role === 'CASHIER';
 
@@ -106,6 +106,7 @@ const Inventory: React.FC = () => {
   const [transferSearchTerm, setTransferSearchTerm] = useState('');
   const [completedTransfer, setCompletedTransfer] = useState<StockTransfer | null>(null);
   const [showTransferHistory, setShowTransferHistory] = useState(true);
+  const [isRefreshingTransfers, setIsRefreshingTransfers] = useState(false);
 
   // Custom color state
   const [customColors, setCustomColors] = useState<string[]>([]);
@@ -1118,18 +1119,38 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
 
             {/* Transfer History */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div
-                className="p-5 border-b border-slate-100 flex justify-between items-center cursor-pointer hover:bg-slate-50"
-                onClick={() => setShowTransferHistory(!showTransferHistory)}
-              >
-                <div>
+              <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                <div
+                  className="flex-1 cursor-pointer hover:opacity-75 transition-opacity"
+                  onClick={() => setShowTransferHistory(!showTransferHistory)}
+                >
                   <h3 className="font-bold text-slate-800 flex items-center gap-2">
                     <History size={18} className="text-slate-500" />
                     Transfer History
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">{stockTransfers.length} transfers recorded</p>
                 </div>
-                {showTransferHistory ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setIsRefreshingTransfers(true);
+                      await refreshTransfers();
+                      setIsRefreshingTransfers(false);
+                    }}
+                    disabled={isRefreshingTransfers || isLoading}
+                    className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh transfer history"
+                  >
+                    <History size={16} className={isRefreshingTransfers ? 'animate-spin' : ''} />
+                  </button>
+                  <button
+                    onClick={() => setShowTransferHistory(!showTransferHistory)}
+                    className="p-1 text-slate-400 hover:text-slate-600"
+                  >
+                    {showTransferHistory ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </div>
               </div>
 
               {showTransferHistory && (
@@ -1673,6 +1694,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                                   value={v.color}
                                   onChange={e => { if (e.target.value === '__NEW__') { setAddingColorFor(`var-${idx}`); setNewColorName(''); } else { handleUpdateVariation(idx, 'color', e.target.value); } }}
                                 >
+                                  <option value="">No Color</option>
                                   {allColors.map(c => <option key={c} value={c}>{c}</option>)}
                                   <option value="__NEW__">+ New Color...</option>
                                 </select>

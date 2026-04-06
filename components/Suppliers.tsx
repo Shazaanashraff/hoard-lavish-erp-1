@@ -17,33 +17,49 @@ const renderTransactionNotes = (notes: string) => {
     .map(line => line.trim())
     .filter(Boolean);
 
+  const renderLine = (line: string, index: number) => {
+    if (/^Items Added:/i.test(line) || /^Items:/i.test(line)) {
+      return (
+        <div key={`${line}-${index}`} className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+          {line}
+        </div>
+      );
+    }
+
+    const [label, ...rest] = line.split(':');
+    if (rest.length > 0 && label.length < 24 && !line.includes(' @ ') && !line.includes(' = ')) {
+      return (
+        <div key={`${line}-${index}`} className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-semibold text-slate-500">{label}:</span>
+          <span className="text-slate-600">{rest.join(':').trim()}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div key={`${line}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs leading-5 text-slate-600">
+        {line}
+      </div>
+    );
+  };
+
+  const previewLines = detailLines.slice(0, 2);
+  const hiddenLines = detailLines.slice(2);
+
   return (
     <div className="space-y-1.5 text-slate-600">
-      {detailLines.map((line, index) => {
-        if (/^Items Added:/i.test(line) || /^Items:/i.test(line)) {
-          return (
-            <div key={`${line}-${index}`} className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-              {line}
-            </div>
-          );
-        }
-
-        const [label, ...rest] = line.split(':');
-        if (rest.length > 0 && label.length < 24 && !line.includes(' @ ') && !line.includes(' = ')) {
-          return (
-            <div key={`${line}-${index}`} className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="font-semibold text-slate-500">{label}:</span>
-              <span className="text-slate-600">{rest.join(':').trim()}</span>
-            </div>
-          );
-        }
-
-        return (
-          <div key={`${line}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs leading-5 text-slate-600">
-            {line}
+      {previewLines.map((line, index) => renderLine(line, index))}
+      {hiddenLines.length > 0 && (
+        <details className="group rounded-lg border border-slate-200 bg-white p-2">
+          <summary className="cursor-pointer list-none text-xs font-medium text-slate-500">
+            <span className="group-open:hidden">More details ({hiddenLines.length})</span>
+            <span className="hidden group-open:inline">Hide details</span>
+          </summary>
+          <div className="mt-2 space-y-1.5 text-slate-600">
+            {hiddenLines.map((line, index) => renderLine(line, previewLines.length + index))}
           </div>
-        );
-      })}
+        </details>
+      )}
     </div>
   );
 };
@@ -86,7 +102,7 @@ const ConfirmDialog: React.FC<{
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
 const Suppliers: React.FC = () => {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction, adjustStock, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser } = useStore();
+  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser } = useStore();
   const isAdmin = currentUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');
   const [searchTerm, setSearchTerm] = useState('');
@@ -263,7 +279,7 @@ const Suppliers: React.FC = () => {
         notesWithInventory = notesWithInventory ? `${notesWithInventory}\n${detailsBlock}` : detailsBlock;
       }
 
-      addSupplierTransaction({
+      const transaction: SupplierTransaction = {
         id: Math.random().toString(36).substr(2, 9),
         supplierId: supplier.id,
         supplierName: supplier.name,
@@ -271,19 +287,19 @@ const Suppliers: React.FC = () => {
         date: new Date(expenseForm.date).toISOString(),
         type: 'PAYMENT',
         reference: expenseForm.reference,
-        notes: notesWithInventory
-      });
+        notes: notesWithInventory,
+        affectsAccounting: false // Supplier expenses are notes only, don't reduce profits
+      };
 
-      inventoryItems
+      const stockAdjustments = inventoryItems
         .filter(item => item.productId && item.quantity > 0)
-        .forEach(item => {
-          adjustStock(
-            item.productId,
-            item.quantity,
-            'IN',
-            `Supplier purchase${expenseForm.reference ? ` #${expenseForm.reference}` : ''}${item.size || item.color ? ` (${[item.size ? `Size: ${item.size}` : '', item.color ? `Color: ${item.color}` : ''].filter(Boolean).join(', ')})` : ''}`
-          );
-        });
+        .map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          reason: `Supplier purchase${expenseForm.reference ? ` #${expenseForm.reference}` : ''}${item.size || item.color ? ` (${[item.size ? `Size: ${item.size}` : '', item.color ? `Color: ${item.color}` : ''].filter(Boolean).join(', ')})` : ''}`,
+        }));
+
+      recordSupplierExpense(transaction, stockAdjustments);
 
       setExpenseForm({
         supplierId: '',

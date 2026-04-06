@@ -12,6 +12,7 @@ import Customers from './components/Customers';
 import Settings from './components/Settings';
 import LoginPage from './components/LoginPage';
 import UpdateNotification from './components/UpdateNotification';
+import OfflineQueue from './components/OfflineQueue';
 
 // Database Error Banner
 const DbErrorBanner: React.FC = () => {
@@ -42,6 +43,36 @@ const DbErrorBanner: React.FC = () => {
           ✕
         </button>
       </div>
+    </div>
+  );
+};
+
+const OfflinePopupBanner: React.FC = () => {
+  const { offlinePopup, dismissOfflinePopup, setView } = useStore();
+  if (!offlinePopup) return null;
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[120] w-full max-w-sm bg-white border border-slate-200 shadow-xl rounded-xl p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className={`text-sm font-bold ${offlinePopup.variant === 'queued' ? 'text-amber-700' : 'text-green-700'}`}>
+            {offlinePopup.title}
+          </p>
+          <p className="text-sm text-slate-600 mt-1">{offlinePopup.message}</p>
+        </div>
+        <button onClick={dismissOfflinePopup} className="text-slate-400 hover:text-slate-700 text-sm">✕</button>
+      </div>
+      {offlinePopup.variant === 'queued' && (
+        <button
+          onClick={() => {
+            setView('OFFLINE');
+            dismissOfflinePopup();
+          }}
+          className="mt-3 px-3 py-1.5 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200"
+        >
+          Open Offline Queue
+        </button>
+      )}
     </div>
   );
 };
@@ -77,6 +108,8 @@ const Layout: React.FC = () => {
         return <Branches />;
       case 'SETTINGS':
         return <Settings />;
+      case 'OFFLINE':
+        return <OfflineQueue />;
       default:
         return <Dashboard />;
     }
@@ -117,6 +150,7 @@ const App: React.FC = () => {
   return (
     <StoreProvider>
       <DbErrorBanner />
+      <OfflinePopupBanner />
       <AppContent />
       <UpdateNotification />
     </StoreProvider>

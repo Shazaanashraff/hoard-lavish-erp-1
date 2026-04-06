@@ -81,7 +81,7 @@ const Accounting: React.FC = () => {
   const totalOperatingExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // 3. COGS / Inventory Costs (Supplier Payments)
-  const filteredSupplierTx = supplierTransactions.filter(t => t.type === 'PAYMENT' && isInPeriod(t.date));
+  const filteredSupplierTx = supplierTransactions.filter(t => t.type === 'PAYMENT' && isInPeriod(t.date) && t.affectsAccounting === true);
   const totalSupplierPayments = filteredSupplierTx.reduce((sum, t) => sum + t.amount, 0);
 
   // 4. Stock Transfer Costs (cost price of transferred items)
@@ -181,8 +181,8 @@ const Accounting: React.FC = () => {
       ...filteredExpenses.map(e => ({ 
         id: e.id, date: e.date, desc: e.description, amount: e.amount, type: 'OUT' as const, category: e.category 
       })),
-      ...filteredSupplierTx.map(t => ({ 
-        id: t.id, date: t.date, desc: `Supplier Payment: ${t.supplierName}`, amount: t.amount, type: 'OUT' as const, category: 'Inventory' 
+      ...filteredSupplierTx.map(t => ({
+        id: t.id, date: t.date, desc: `Supplier: ${t.supplierName}`, amount: t.amount, type: 'OUT' as const, category: 'Inventory'
       })),
       ...filteredTransfers.map(t => ({
         id: t.id, date: t.date, desc: `Stock Transfer ${t.transferNumber}: ${t.fromBranchName} → ${t.toBranchName} (${t.totalItems} items)`, amount: t.items.reduce((s, i) => s + i.costPrice * i.quantity, 0), type: 'OUT' as const, category: 'Stock Transfer'

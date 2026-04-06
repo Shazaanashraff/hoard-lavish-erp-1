@@ -1,10 +1,10 @@
 import React from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Settings, LogOut, History, Store, ChevronDown, Truck, PieChart, Users, Cloud, CloudOff } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Settings, LogOut, History, Store, ChevronDown, Truck, PieChart, Users, Cloud, CloudOff, WifiOff } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ViewState, Role } from '../types';
 
 const Sidebar: React.FC = () => {
-  const { currentView, setView, branches, currentBranch, setBranch, currentUser, logout, lastSyncTime, isCloudConnected, realtimeStatus } = useStore();
+  const { currentView, setView, branches, currentBranch, setBranch, currentUser, logout, lastSyncTime, isCloudConnected, realtimeStatus, offlineQueue } = useStore();
   const role: Role = currentUser?.role || 'CASHIER';
 
   const NavItem = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
@@ -57,6 +57,7 @@ const Sidebar: React.FC = () => {
         {role !== 'CASHIER' && <NavItem view="SUPPLIERS" icon={Truck} label="Suppliers" />}
         {role !== 'CASHIER' && <NavItem view="ACCOUNTING" icon={PieChart} label="Accounting" />}
         <NavItem view="HISTORY" icon={History} label="Sales History" />
+        <NavItem view="OFFLINE" icon={WifiOff} label={`Offline (${offlineQueue.length})`} />
         {role === 'ADMIN' && <NavItem view="BRANCHES" icon={Store} label="Branch Mgmt" />}
         {role === 'ADMIN' && <NavItem view="SETTINGS" icon={Settings} label="Settings" />}
       </nav>

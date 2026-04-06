@@ -127,6 +127,7 @@ export interface SupplierTransaction {
   type: 'PAYMENT' | 'REFUND';
   reference: string; // e.g., Invoice #
   notes: string;
+  affectsAccounting?: boolean; // if false, it's just a note and won't reduce profits
 }
 
 export interface DamagedGood {
@@ -194,4 +195,59 @@ export interface ExchangeRecord {
   description: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'CUSTOMERS' | 'HISTORY' | 'BRANCHES' | 'SUPPLIERS' | 'ACCOUNTING' | 'SETTINGS';
+export type OfflineOperationType =
+  | 'ADD_BRANCH'
+  | 'UPDATE_BRANCH'
+  | 'ADD_PRODUCT'
+  | 'UPDATE_PRODUCT'
+  | 'DELETE_PRODUCT'
+  | 'ADD_CUSTOMER'
+  | 'UPDATE_CUSTOMER'
+  | 'DELETE_CUSTOMER'
+  | 'COMPLETE_SALE'
+  | 'UPDATE_SALE'
+  | 'DELETE_SALE'
+  | 'COMPLETE_EXCHANGE'
+  | 'ADJUST_STOCK'
+  | 'TRANSFER_STOCK'
+  | 'ADD_CATEGORY'
+  | 'REMOVE_CATEGORY'
+  | 'ADD_BRAND'
+  | 'REMOVE_BRAND'
+  | 'ADD_SUPPLIER'
+  | 'UPDATE_SUPPLIER'
+  | 'DELETE_SUPPLIER'
+  | 'RECORD_SUPPLIER_EXPENSE'
+  | 'ADD_SUPPLIER_TRANSACTION'
+  | 'UPDATE_SUPPLIER_TRANSACTION'
+  | 'DELETE_SUPPLIER_TRANSACTION'
+  | 'ADD_EXPENSE'
+  | 'DELETE_EXPENSE'
+  | 'ADD_DAMAGED_GOOD'
+  | 'DELETE_DAMAGED_GOOD'
+  | 'ADD_USER'
+  | 'UPDATE_USER'
+  | 'DELETE_USER'
+  | 'UPDATE_SETTINGS';
+
+export type OfflineOperationStatus = 'PENDING' | 'SYNCING' | 'FAILED';
+
+export interface OfflineQueueItem {
+  id: string;
+  operation: OfflineOperationType;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  retryCount: number;
+  status: OfflineOperationStatus;
+  errorMessage?: string;
+}
+
+export interface OfflinePopupState {
+  id: string;
+  title: string;
+  message: string;
+  operation: OfflineOperationType;
+  variant: 'queued' | 'synced';
+}
+
+export type ViewState = 'DASHBOARD' | 'POS' | 'INVENTORY' | 'CUSTOMERS' | 'HISTORY' | 'BRANCHES' | 'SUPPLIERS' | 'ACCOUNTING' | 'SETTINGS' | 'OFFLINE';

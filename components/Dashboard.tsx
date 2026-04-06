@@ -156,8 +156,8 @@ const Dashboard: React.FC = () => {
   }, [expenses, filterMode, selectedDate, selectedMonth, currentBranch.id]);
 
   const filteredSupplierTx = useMemo(() => {
-    if (filterMode === 'daily') return supplierTransactions.filter(t => t.type === 'PAYMENT' && matchesDate(t.date, selectedDate));
-    return supplierTransactions.filter(t => t.type === 'PAYMENT' && matchesMonth(t.date, selectedMonth));
+    if (filterMode === 'daily') return supplierTransactions.filter(t => t.type === 'PAYMENT' && t.affectsAccounting === true && matchesDate(t.date, selectedDate));
+    return supplierTransactions.filter(t => t.type === 'PAYMENT' && t.affectsAccounting === true && matchesMonth(t.date, selectedMonth));
   }, [supplierTransactions, filterMode, selectedDate, selectedMonth]);
 
   const filteredTransfers = useMemo(() => {

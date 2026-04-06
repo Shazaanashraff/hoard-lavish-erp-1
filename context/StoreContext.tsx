@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord } from '../types';
+import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType } from '../types';
 import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_SUPPLIERS, INITIAL_EXPENSES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
 import { supabase } from '../services/supabaseClient';
@@ -28,6 +28,8 @@ interface StoreContextType {
   currentView: ViewState;
   isLoading: boolean;
   dbError: string | null;
+  offlineQueue: OfflineQueueItem[];
+  offlinePopup: OfflinePopupState | null;
 
   // Actions
   setBranch: (branchId: string) => void;
@@ -60,6 +62,7 @@ interface StoreContextType {
   completeExchange: (exchange: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'>) => ExchangeRecord;
   adjustStock: (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => void;
   transferStock: (toBranchId: string, items: StockTransferItem[], notes: string) => StockTransfer;
+  refreshTransfers: () => Promise<void>;
 
   addCategory: (category: string) => void;
   removeCategory: (category: string) => void;
@@ -69,6 +72,7 @@ interface StoreContextType {
   addSupplier: (supplier: Supplier) => void;
   updateSupplier: (id: string, updates: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
+  recordSupplierExpense: (transaction: SupplierTransaction, stockAdjustments: Array<{ productId: string; quantity: number; reason: string }>) => void;
   addSupplierTransaction: (transaction: SupplierTransaction) => void;
   updateSupplierTransaction: (id: string, updates: Partial<SupplierTransaction>) => void;
   deleteSupplierTransaction: (id: string) => void;
@@ -89,6 +93,10 @@ interface StoreContextType {
   importData: (jsonData: string) => boolean;
 
   syncData: () => Promise<{ success: boolean; productCount?: number; error?: string }>;
+  syncOfflineQueue: () => Promise<void>;
+  retryOfflineItem: (id: string) => Promise<boolean>;
+  removeOfflineItem: (id: string) => void;
+  dismissOfflinePopup: () => void;
   dismissDbError: () => void;
   lastSyncTime: Date | null;
   isCloudConnected: boolean;
@@ -171,6 +179,19 @@ const extractDbErrorMessage = (
     const message = dbErr.message || dbErr.error_description || '';
     const details = dbErr.details || '';
     const hint = dbErr.hint || '';
+    const combined = `${message} ${details} ${hint}`.toLowerCase();
+
+    if (combined.includes('<!doctype html') || combined.includes('cloudflare') || combined.includes('error code 502') || combined.includes('bad gateway')) {
+      return operation === 'checkout'
+        ? 'Checkout could not reach the backend service right now. Please try again.'
+        : 'The backend service returned an error response. Please try again.';
+    }
+
+    if (combined.includes('affects_accounting') && combined.includes('schema cache')) {
+      return operation === 'checkout'
+        ? 'Checkout failed because the database schema is out of date. Refresh the Supabase schema cache or apply the latest migration.'
+        : 'The database schema is out of date for supplier transactions. Refresh the Supabase schema cache or apply the latest migration.';
+    }
 
     if (code === '23503') {
       if ((message + details).toLowerCase().includes('product_branch_stock')) {
@@ -208,6 +229,13 @@ const extractDbErrorMessage = (
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
+const makeUuid = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+const OFFLINE_QUEUE_STORAGE_KEY = 'hoard_offline_queue_v1';
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
@@ -237,8 +265,268 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR' | null>(null);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineQueueItem[]>([]);
+  const [offlinePopup, setOfflinePopup] = useState<OfflinePopupState | null>(null);
+  const [isSyncingOfflineQueue, setIsSyncingOfflineQueue] = useState(false);
 
   const useSupabase = isSupabaseConfigured();
+
+  const operationLabel = useCallback((operation: OfflineOperationType): string => {
+    switch (operation) {
+      case 'ADD_BRANCH': return 'Add Branch';
+      case 'UPDATE_BRANCH': return 'Update Branch';
+      case 'ADD_PRODUCT': return 'Add Product';
+      case 'UPDATE_PRODUCT': return 'Update Product';
+      case 'DELETE_PRODUCT': return 'Delete Product';
+      case 'ADD_CUSTOMER': return 'Add Customer';
+      case 'UPDATE_CUSTOMER': return 'Update Customer';
+      case 'DELETE_CUSTOMER': return 'Delete Customer';
+      case 'COMPLETE_SALE': return 'Complete Sale';
+      case 'UPDATE_SALE': return 'Update Sale';
+      case 'DELETE_SALE': return 'Delete Sale';
+      case 'COMPLETE_EXCHANGE': return 'Complete Exchange';
+      case 'ADJUST_STOCK': return 'Adjust Stock';
+      case 'TRANSFER_STOCK': return 'Transfer Stock';
+      case 'ADD_CATEGORY': return 'Add Category';
+      case 'REMOVE_CATEGORY': return 'Remove Category';
+      case 'ADD_BRAND': return 'Add Brand';
+      case 'REMOVE_BRAND': return 'Remove Brand';
+      case 'ADD_SUPPLIER': return 'Add Supplier';
+      case 'UPDATE_SUPPLIER': return 'Update Supplier';
+      case 'DELETE_SUPPLIER': return 'Delete Supplier';
+      case 'RECORD_SUPPLIER_EXPENSE': return 'Record Supplier Expense';
+      case 'ADD_SUPPLIER_TRANSACTION': return 'Add Supplier Transaction';
+      case 'UPDATE_SUPPLIER_TRANSACTION': return 'Update Supplier Transaction';
+      case 'DELETE_SUPPLIER_TRANSACTION': return 'Delete Supplier Transaction';
+      case 'ADD_EXPENSE': return 'Add Expense';
+      case 'DELETE_EXPENSE': return 'Delete Expense';
+      case 'ADD_DAMAGED_GOOD': return 'Add Damaged Good';
+      case 'DELETE_DAMAGED_GOOD': return 'Delete Damaged Good';
+      case 'ADD_USER': return 'Add User';
+      case 'UPDATE_USER': return 'Update User';
+      case 'DELETE_USER': return 'Delete User';
+      case 'UPDATE_SETTINGS': return 'Update Settings';
+      default: return operation;
+    }
+  }, []);
+
+  const enqueueOfflineOperation = useCallback((operation: OfflineOperationType, payload: Record<string, unknown>, reason?: string) => {
+    const item: OfflineQueueItem = {
+      id: `${operation}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      operation,
+      payload,
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+      status: 'PENDING',
+      errorMessage: reason,
+    };
+    setOfflineQueue(prev => [item, ...prev]);
+    setOfflinePopup({
+      id: item.id,
+      operation,
+      title: 'Saved Offline',
+      message: `${operationLabel(operation)} was saved locally and queued for sync.`,
+      variant: 'queued',
+    });
+  }, [operationLabel]);
+
+  const isQueueableError = useCallback((err: unknown): boolean => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+    if (isLikelyConnectivityIssue(err)) return true;
+    if (err && typeof err === 'object') {
+      const dbErr = err as DbLikeError;
+      const code = (dbErr.code || '').toUpperCase();
+      if (code === 'PGRST301' || code === 'PGRST302' || code === '57014') return true;
+    }
+    return false;
+  }, []);
+
+  const runOfflineOperation = useCallback(async (item: OfflineQueueItem) => {
+    const p = item.payload;
+    switch (item.operation) {
+      case 'ADD_BRANCH':
+        await db.insertBranch(p.branch as Omit<Branch, 'id'> & { id?: string });
+        await db.initializeBranchStock(p.branchId as string, p.productIds as string[]);
+        return;
+      case 'UPDATE_BRANCH':
+        await db.updateBranch(p.id as string, p.updates as Partial<Branch>);
+        return;
+      case 'ADD_PRODUCT':
+        await db.insertProduct(p.product as Product, p.branches as Branch[]);
+        return;
+      case 'UPDATE_PRODUCT':
+        await db.updateProduct(p.id as string, p.updates as Partial<Product>);
+        return;
+      case 'DELETE_PRODUCT':
+        await db.deleteProduct(p.id as string, p.mode as 'BLOCK_IF_LINKED' | 'KEEP_SALES_SNAPSHOT' | 'DELETE_LINKED_SALES');
+        return;
+      case 'ADD_CUSTOMER':
+        await db.insertCustomer(p.customer as Customer);
+        return;
+      case 'UPDATE_CUSTOMER':
+        await db.updateCustomer(p.id as string, p.updates as Partial<Customer>);
+        return;
+      case 'DELETE_CUSTOMER':
+        await db.deleteCustomer(p.id as string);
+        return;
+      case 'COMPLETE_SALE':
+      case 'UPDATE_SALE':
+        await db.completeSaleRPC(p.sale as SalesRecord);
+        return;
+      case 'DELETE_SALE':
+        await db.voidSaleRPC(p.saleId as string);
+        return;
+      case 'COMPLETE_EXCHANGE': {
+        const stockRows = p.stockRows as Array<{ productId: string; branchId: string; quantity: number }>;
+        const stockMovements = p.stockMovements as StockMovement[];
+        for (const row of stockRows) {
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        for (const movement of stockMovements) {
+          await db.insertStockMovement(movement);
+        }
+        if (p.customerUpdate) {
+          const cu = p.customerUpdate as { id: string; updates: Partial<Customer> };
+          await db.updateCustomer(cu.id, cu.updates);
+        }
+        await db.insertExchange(p.exchange as ExchangeRecord);
+        return;
+      }
+      case 'ADJUST_STOCK':
+        await db.upsertBranchStock(p.productId as string, p.branchId as string, p.quantity as number);
+        await db.insertStockMovement(p.movement as StockMovement);
+        return;
+      case 'TRANSFER_STOCK': {
+        const stockRows = p.stockRows as Array<{ productId: string; branchId: string; quantity: number }>;
+        const stockMovements = p.stockMovements as StockMovement[];
+        for (const row of stockRows) {
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        for (const movement of stockMovements) {
+          await db.insertStockMovement(movement);
+        }
+        await db.insertStockTransfer(p.transfer as StockTransfer);
+        return;
+      }
+      case 'ADD_CATEGORY':
+        await db.insertCategory(p.category as string);
+        return;
+      case 'REMOVE_CATEGORY':
+        await db.deleteCategory(p.category as string);
+        return;
+      case 'ADD_BRAND':
+        await db.insertBrand(p.brand as string);
+        return;
+      case 'REMOVE_BRAND':
+        await db.deleteBrand(p.brand as string);
+        return;
+      case 'ADD_SUPPLIER':
+        await db.insertSupplier(p.supplier as Supplier);
+        return;
+      case 'UPDATE_SUPPLIER':
+        await db.updateSupplier(p.id as string, p.updates as Partial<Supplier>);
+        return;
+      case 'DELETE_SUPPLIER':
+        await db.deleteSupplier(p.id as string);
+        return;
+      case 'RECORD_SUPPLIER_EXPENSE': {
+        await db.insertSupplierTransaction(p.transaction as SupplierTransaction);
+
+        const stockRows = p.stockRows as Array<{ productId: string; branchId: string; quantity: number }>;
+        const stockMovements = p.stockMovements as StockMovement[];
+        for (const row of stockRows) {
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        for (const movement of stockMovements) {
+          await db.insertStockMovement(movement);
+        }
+        return;
+      }
+      case 'ADD_SUPPLIER_TRANSACTION':
+        await db.insertSupplierTransaction(p.transaction as SupplierTransaction);
+        return;
+      case 'UPDATE_SUPPLIER_TRANSACTION':
+        await db.updateSupplierTransaction(p.id as string, p.updates as Partial<SupplierTransaction>);
+        return;
+      case 'DELETE_SUPPLIER_TRANSACTION':
+        await db.deleteSupplierTransaction(p.id as string);
+        return;
+      case 'ADD_EXPENSE':
+        await db.insertExpense(p.expense as Expense);
+        return;
+      case 'DELETE_EXPENSE':
+        await db.deleteExpense(p.id as string);
+        return;
+      case 'ADD_DAMAGED_GOOD':
+        await db.insertDamagedGood(p.record as DamagedGood);
+        return;
+      case 'DELETE_DAMAGED_GOOD':
+        await db.deleteDamagedGood(p.id as string);
+        return;
+      case 'ADD_USER':
+        await db.insertUser(p.user as User);
+        return;
+      case 'UPDATE_USER':
+        await db.updateUser(p.id as string, p.updates as Partial<User>);
+        return;
+      case 'DELETE_USER':
+        await db.deleteUser(p.id as string);
+        return;
+      case 'UPDATE_SETTINGS':
+        await db.updateSettings(p.updates as Partial<AppSettings>);
+        return;
+      default:
+        return;
+    }
+  }, []);
+
+  const executeWithOfflineQueue = useCallback(async (
+    operation: OfflineOperationType,
+    payload: Record<string, unknown>,
+    fn: () => Promise<unknown>,
+    options?: { fallback?: string; operationType?: 'checkout' | 'general'; forceQueueOnError?: boolean }
+  ): Promise<boolean> => {
+    if (!useSupabase) return true;
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      enqueueOfflineOperation(operation, payload, 'No internet connection.');
+      return false;
+    }
+
+    try {
+      await fn();
+      return true;
+    } catch (err: unknown) {
+      if (isQueueableError(err) || options?.forceQueueOnError) {
+        enqueueOfflineOperation(operation, payload, extractDbErrorMessage(err, options?.fallback, options?.operationType || 'general'));
+        return false;
+      }
+      console.error('Supabase operation failed:', err);
+      setDbError(extractDbErrorMessage(err, options?.fallback, options?.operationType || 'general'));
+      return false;
+    }
+  }, [enqueueOfflineOperation, isQueueableError, useSupabase]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setOfflineQueue(parsed.filter((item): item is OfflineQueueItem => !!item && typeof item === 'object' && !!item.id && !!item.operation));
+      }
+    } catch (err) {
+      console.error('Failed to load offline queue', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(offlineQueue));
+    } catch (err) {
+      console.error('Failed to persist offline queue', err);
+    }
+  }, [offlineQueue]);
 
   // ---- Data loading ----
   useEffect(() => {
@@ -527,20 +815,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('hoard_data_v2', JSON.stringify(data));
   }, [hasLoaded, useSupabase, branches, salesHistory, customers, products, categories, brands, stockHistory, stockTransfers, exchangeHistory, suppliers, supplierTransactions, expenses, users, settings, damagedGoods]);
 
-  // ---- Helper for async DB calls with error handling ----
-  const dbCall = useCallback(async (
-    fn: () => Promise<unknown>,
-    options?: { fallback?: string; operation?: 'checkout' | 'general' }
-  ) => {
-    if (!useSupabase) return;
-    try {
-      await fn();
-    } catch (err: unknown) {
-      console.error('Supabase operation failed:', err);
-      setDbError(extractDbErrorMessage(err, options?.fallback, options?.operation || 'general'));
-    }
-  }, [useSupabase]);
-
   // ============================================================
   // BRANCH ACTIONS
   // ============================================================
@@ -556,7 +830,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!useSupabase) {
       const localBranch: Branch = {
         ...branchInput,
-        id: branchInput.id || Math.random().toString(36).substr(2, 9),
+        id: isUuid(branchInput.id || '') ? (branchInput.id as string) : makeUuid(),
       };
       setBranches(prev => [...prev, localBranch]);
       setProducts(prev => prev.map(p => ({
@@ -567,18 +841,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     void (async () => {
-      try {
-        const savedBranch = await db.insertBranch(branchInput);
-        setBranches(prev => [...prev, savedBranch]);
-        setProducts(prev => prev.map(p => ({
-          ...p,
-          branchStock: { ...p.branchStock, [savedBranch.id]: 0 }
-        })));
-        await db.initializeBranchStock(savedBranch.id, products.map(p => p.id));
-      } catch (err: unknown) {
-        console.error('Failed to add branch:', err);
-        setDbError(extractDbErrorMessage(err, 'Failed to add branch'));
-      }
+      const localBranch: Branch = {
+        ...branchInput,
+        id: isUuid(branchInput.id || '') ? (branchInput.id as string) : makeUuid(),
+      };
+      const branchForSave: Omit<Branch, 'id'> & { id?: string } = { ...branchInput, id: localBranch.id };
+      setBranches(prev => [...prev, localBranch]);
+      setProducts(prev => prev.map(p => ({
+        ...p,
+        branchStock: { ...p.branchStock, [localBranch.id]: 0 }
+      })));
+
+      const ok = await executeWithOfflineQueue(
+        'ADD_BRANCH',
+        { branch: branchForSave, branchId: localBranch.id, productIds: products.map(p => p.id) },
+        async () => {
+          const savedBranch = await db.insertBranch(branchForSave);
+          setBranches(prev => prev.map(b => b.id === localBranch.id ? savedBranch : b));
+          await db.initializeBranchStock(savedBranch.id, products.map(p => p.id));
+        },
+        { fallback: 'Failed to add branch' }
+      );
+
+      if (!ok) return;
     })();
   };
 
@@ -587,7 +872,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (currentBranch.id === id) {
       setCurrentBranch(prev => ({ ...prev, ...updates }));
     }
-    dbCall(() => db.updateBranch(id, updates));
+    void executeWithOfflineQueue(
+      'UPDATE_BRANCH',
+      { id, updates },
+      () => db.updateBranch(id, updates),
+      { fallback: 'Failed to update branch' }
+    );
   };
 
   // ============================================================
@@ -599,7 +889,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (branchStock[b.id] === undefined) branchStock[b.id] = 0;
     });
     const totalStock = Object.values(branchStock).reduce((a, b) => a + b, 0);
-    const fullProduct = { ...product, branchStock, stock: totalStock };
+    const fullProduct = { ...product, id: isUuid(product.id) ? product.id : makeUuid(), branchStock, stock: totalStock };
 
     if (!useSupabase) {
       setProducts(prev => [...prev, fullProduct]);
@@ -607,13 +897,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     void (async () => {
-      try {
-        const savedProduct = await db.insertProduct(fullProduct, branches);
-        setProducts(prev => [...prev, savedProduct]);
-      } catch (err: unknown) {
-        console.error('Failed to add product:', err);
-        setDbError(extractDbErrorMessage(err, 'Failed to add product'));
-      }
+      const ok = await executeWithOfflineQueue(
+        'ADD_PRODUCT',
+        { product: fullProduct, branches },
+        async () => {
+          const savedProduct = await db.insertProduct(fullProduct, branches);
+          setProducts(prev => prev.map(p => p.id === fullProduct.id ? savedProduct : p));
+        },
+        { fallback: 'Failed to add product' }
+      );
+      if (ok) return;
+      setProducts(prev => [...prev, fullProduct]);
     })();
   };
 
@@ -629,14 +923,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return p;
     }));
-    dbCall(() => db.updateProduct(id, updates));
+    void executeWithOfflineQueue(
+      'UPDATE_PRODUCT',
+      { id, updates },
+      () => db.updateProduct(id, updates),
+      { fallback: 'Failed to update product' }
+    );
 
     // Log edit event so it appears in dashboard activity feed
     if (existing) {
       const today = new Date();
       const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const editLog: StockMovement = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: makeUuid(),
         productId: id,
         productName: existing.name,
         branchId: currentBranch.id,
@@ -668,7 +967,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
-      await db.deleteProduct(id, mode);
+      const ok = await executeWithOfflineQueue(
+        'DELETE_PRODUCT',
+        { id, mode },
+        () => db.deleteProduct(id, mode),
+        { fallback: 'Failed to delete product' }
+      );
+      if (!ok) {
+        setProducts(prev => prev.filter(p => p.id !== id));
+        return true;
+      }
       const syncResult = await refreshFromSupabase();
       if (!syncResult.success) {
         setProducts(prev => prev.filter(p => p.id !== id));
@@ -685,22 +993,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // CUSTOMER ACTIONS
   // ============================================================
   const addCustomer = (customer: Customer) => {
-    const tempId = customer.id;
-    setCustomers(prev => [...prev, customer]);
-    dbCall(async () => {
-      const savedCustomer = await db.insertCustomer(customer);
-      setCustomers(prev => prev.map(c => c.id === tempId ? savedCustomer : c));
-    });
+    const tempId = isUuid(customer.id) ? customer.id : makeUuid();
+    const normalizedCustomer = { ...customer, id: tempId };
+    setCustomers(prev => [...prev, normalizedCustomer]);
+    void executeWithOfflineQueue(
+      'ADD_CUSTOMER',
+      { customer: normalizedCustomer },
+      async () => {
+        const savedCustomer = await db.insertCustomer(normalizedCustomer);
+        setCustomers(prev => prev.map(c => c.id === tempId ? savedCustomer : c));
+      },
+      { fallback: 'Failed to add customer' }
+    );
   };
 
   const updateCustomer = (id: string, updates: Partial<Customer>) => {
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-    dbCall(() => db.updateCustomer(id, updates));
+    void executeWithOfflineQueue(
+      'UPDATE_CUSTOMER',
+      { id, updates },
+      () => db.updateCustomer(id, updates),
+      { fallback: 'Failed to update customer' }
+    );
   };
 
   const deleteCustomer = (id: string) => {
     setCustomers(prev => prev.filter(c => c.id !== id));
-    dbCall(() => db.deleteCustomer(id));
+    void executeWithOfflineQueue(
+      'DELETE_CUSTOMER',
+      { id },
+      () => db.deleteCustomer(id),
+      { fallback: 'Failed to delete customer' }
+    );
   };
 
   // ============================================================
@@ -833,7 +1157,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearCart();
 
     // Persist to Supabase (the RPC handles everything atomically)
-    dbCall(() => db.completeSaleRPC(newSale), { fallback: 'Checkout failed', operation: 'checkout' });
+    void executeWithOfflineQueue(
+      'COMPLETE_SALE',
+      { sale: newSale },
+      () => db.completeSaleRPC(newSale),
+      { fallback: 'Checkout failed', operationType: 'checkout' }
+    );
 
     return newSale;
   };
@@ -941,7 +1270,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSalesHistory(prev => prev.map(s => s.id === saleId ? updatedSale : s));
 
     // Persist to Supabase
-    dbCall(() => db.completeSaleRPC(updatedSale), { fallback: 'Checkout update failed', operation: 'checkout' }); // Reuse the same RPC (it will update if exists)
+    void executeWithOfflineQueue(
+      'UPDATE_SALE',
+      { sale: updatedSale },
+      () => db.completeSaleRPC(updatedSale),
+      { fallback: 'Checkout update failed', operationType: 'checkout' }
+    ); // Reuse the same RPC (it will update if exists)
 
     return updatedSale;
   };
@@ -992,10 +1326,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSalesHistory(prev => prev.filter(s => s.id !== saleId));
 
     if (useSupabase) {
-      dbCall(async () => {
-        await db.voidSaleRPC(saleId);
-        await refreshFromSupabase();
-      });
+      void executeWithOfflineQueue(
+        'DELETE_SALE',
+        { saleId },
+        async () => {
+          await db.voidSaleRPC(saleId);
+          await refreshFromSupabase();
+        },
+        { fallback: 'Failed to void sale' }
+      );
     }
   };
 
@@ -1122,10 +1461,45 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStockHistory(prev => [...newStockLogs, ...prev]);
     setExchangeHistory(prev => [exchange, ...prev]);
 
+    const allItems = [...exchange.returnedItems, ...exchange.newItems];
+    const stockRows = allItems
+      .map(item => {
+        const product = updatedProducts.find(p => p.id === item.id);
+        if (!product) return null;
+        return {
+          productId: item.id,
+          branchId: currentBranch.id,
+          quantity: product.branchStock[currentBranch.id] || 0,
+        };
+      })
+      .filter((row): row is { productId: string; branchId: string; quantity: number } => !!row);
+
+    const customerUpdate = exchange.customerId
+      ? (() => {
+        const customer = customers.find(c => c.id === exchange.customerId);
+        if (!customer) return null;
+        const returnedValue = Math.max(0, exchange.returnedTotal);
+        const newValue = Math.max(0, exchange.newTotal);
+        const loyaltyDelta = Math.floor(newValue / 10) - Math.floor(returnedValue / 10);
+        const spentDelta = newValue - returnedValue;
+        return {
+          id: customer.id,
+          updates: {
+            totalSpent: Math.max(0, customer.totalSpent + spentDelta),
+            loyaltyPoints: Math.max(0, customer.loyaltyPoints + loyaltyDelta),
+          },
+        };
+      })()
+      : null;
+
     // Persist stock changes to Supabase
-    dbCall(async () => {
+    void executeWithOfflineQueue('COMPLETE_EXCHANGE', {
+      exchange,
+      stockRows,
+      stockMovements: newStockLogs,
+      customerUpdate,
+    }, async () => {
       // Update branch stock for all affected products
-      const allItems = [...exchange.returnedItems, ...exchange.newItems];
       for (const item of allItems) {
         const product = updatedProducts.find(p => p.id === item.id);
         if (!product) continue;
@@ -1151,7 +1525,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       await db.insertExchange(exchange);
-    });
+    }, { fallback: 'Failed to save exchange' });
 
     return exchange;
   };
@@ -1199,10 +1573,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setStockHistory(prev => [movement, ...prev]);
 
-    dbCall(async () => {
-      await db.upsertBranchStock(productId, currentBranch.id, newBranchStock);
-      await db.insertStockMovement(movement);
-    });
+    void executeWithOfflineQueue(
+      'ADJUST_STOCK',
+      { productId, branchId: currentBranch.id, quantity: newBranchStock, movement },
+      async () => {
+        await db.upsertBranchStock(productId, currentBranch.id, newBranchStock);
+        await db.insertStockMovement(movement);
+      },
+      { fallback: 'Failed to adjust stock' }
+    );
   };
 
   // ============================================================
@@ -1277,19 +1656,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStockHistory(prev => [...newStockLogs, ...prev]);
     setStockTransfers(prev => [transfer, ...prev]);
 
-    // Persist to Supabase
-    dbCall(async () => {
-      for (const item of items) {
+    // Persist to Supabase with error handling
+    if (useSupabase) {
+      const stockRows = items.flatMap(item => {
         const product = newProducts.find(p => p.id === item.productId);
-        if (!product) continue;
-        await db.upsertBranchStock(item.productId, currentBranch.id, product.branchStock[currentBranch.id] || 0);
-        await db.upsertBranchStock(item.productId, toBranchId, product.branchStock[toBranchId] || 0);
-      }
-      for (const log of newStockLogs) {
-        await db.insertStockMovement(log);
-      }
-      await db.insertStockTransfer(transfer);
-    });
+        if (!product) return [];
+        return [
+          { productId: item.productId, branchId: currentBranch.id, quantity: product.branchStock[currentBranch.id] || 0 },
+          { productId: item.productId, branchId: toBranchId, quantity: product.branchStock[toBranchId] || 0 },
+        ];
+      });
+
+      void executeWithOfflineQueue('TRANSFER_STOCK', {
+        transfer,
+        stockRows,
+        stockMovements: newStockLogs,
+      }, async () => {
+        try {
+          for (const item of items) {
+            const product = newProducts.find(p => p.id === item.productId);
+            if (!product) continue;
+            await db.upsertBranchStock(item.productId, currentBranch.id, product.branchStock[currentBranch.id] || 0);
+            await db.upsertBranchStock(item.productId, toBranchId, product.branchStock[toBranchId] || 0);
+          }
+          for (const log of newStockLogs) {
+            await db.insertStockMovement(log);
+          }
+          await db.insertStockTransfer(transfer);
+        } catch (err) {
+          // Re-throw so dbCall catches it and sets dbError
+          console.error('Transfer persistence failed:', err);
+          throw new Error(`Failed to save transfer ${transfer.transferNumber} to database. The transfer was created locally but not synced. Click refresh to retry.`);
+        }
+      }, { fallback: `Transfer ${transfer.transferNumber} saved locally but failed to sync with database` });
+    }
 
     return transfer;
   };
@@ -1299,19 +1699,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   const addCategory = (category: string) => {
     if (!categories.includes(category)) setCategories([...categories, category]);
-    dbCall(() => db.insertCategory(category));
+    void executeWithOfflineQueue('ADD_CATEGORY', { category }, () => db.insertCategory(category), { fallback: 'Failed to add category' });
   };
   const removeCategory = (category: string) => {
     setCategories(categories.filter(c => c !== category));
-    dbCall(() => db.deleteCategory(category));
+    void executeWithOfflineQueue('REMOVE_CATEGORY', { category }, () => db.deleteCategory(category), { fallback: 'Failed to remove category' });
   };
   const addBrand = (brand: string) => {
     if (!brands.includes(brand)) setBrands([...brands, brand]);
-    dbCall(() => db.insertBrand(brand));
+    void executeWithOfflineQueue('ADD_BRAND', { brand }, () => db.insertBrand(brand), { fallback: 'Failed to add brand' });
   };
   const removeBrand = (brand: string) => {
     setBrands(brands.filter(b => b !== brand));
-    dbCall(() => db.deleteBrand(brand));
+    void executeWithOfflineQueue('REMOVE_BRAND', { brand }, () => db.deleteBrand(brand), { fallback: 'Failed to remove brand' });
   };
 
   // ============================================================
@@ -1319,22 +1719,93 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   const addSupplier = (supplier: Supplier) => {
     setSuppliers(prev => [...prev, supplier]);
-    dbCall(() => db.insertSupplier(supplier));
+    void executeWithOfflineQueue('ADD_SUPPLIER', { supplier }, () => db.insertSupplier(supplier), { fallback: 'Failed to add supplier' });
   };
 
   const updateSupplier = (id: string, updates: Partial<Supplier>) => {
     setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
-    dbCall(() => db.updateSupplier(id, updates));
+    void executeWithOfflineQueue('UPDATE_SUPPLIER', { id, updates }, () => db.updateSupplier(id, updates), { fallback: 'Failed to update supplier' });
   };
 
   const deleteSupplier = (id: string) => {
     setSuppliers(prev => prev.filter(s => s.id !== id));
-    dbCall(() => db.deleteSupplier(id));
+    void executeWithOfflineQueue('DELETE_SUPPLIER', { id }, () => db.deleteSupplier(id), { fallback: 'Failed to delete supplier' });
+  };
+
+  const recordSupplierExpense = (
+    transaction: SupplierTransaction,
+    stockAdjustments: Array<{ productId: string; quantity: number; reason: string }>
+  ) => {
+    setSupplierTransactions(prev => [transaction, ...prev]);
+
+    const aggregatedAdjustments = stockAdjustments.reduce<Record<string, { quantity: number; reason: string }>>((acc, item) => {
+      if (!item.productId || item.quantity <= 0) return acc;
+      const existing = acc[item.productId];
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        acc[item.productId] = { quantity: item.quantity, reason: item.reason };
+      }
+      return acc;
+    }, {});
+
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const stockRows: Array<{ productId: string; branchId: string; quantity: number }> = [];
+    const stockMovements: StockMovement[] = [];
+
+    setProducts(prev => prev.map(product => {
+      const adjustment = aggregatedAdjustments[product.id];
+      if (!adjustment) return product;
+
+      const currentBranchStock = product.branchStock[currentBranch.id] || 0;
+      const nextBranchStock = Math.max(0, currentBranchStock + adjustment.quantity);
+      const updatedBranchStock = { ...product.branchStock, [currentBranch.id]: nextBranchStock };
+      const nextTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
+
+      stockRows.push({ productId: product.id, branchId: currentBranch.id, quantity: nextBranchStock });
+      stockMovements.push({
+        id: Math.random().toString(36).substr(2, 9),
+        productId: product.id,
+        productName: product.name,
+        branchId: currentBranch.id,
+        branchName: currentBranch.name,
+        type: 'IN',
+        quantity: adjustment.quantity,
+        reason: `${adjustment.reason} (${currentBranch.name})`,
+        date: `${localDate}T00:00:00.000Z`
+      });
+
+      return {
+        ...product,
+        branchStock: updatedBranchStock,
+        stock: nextTotalStock,
+      };
+    }));
+
+    if (stockMovements.length > 0) {
+      setStockHistory(prev => [...stockMovements, ...prev]);
+    }
+
+    void executeWithOfflineQueue(
+      'RECORD_SUPPLIER_EXPENSE',
+      { transaction, stockRows, stockMovements },
+      async () => {
+        await db.insertSupplierTransaction(transaction);
+        for (const row of stockRows) {
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        for (const movement of stockMovements) {
+          await db.insertStockMovement(movement);
+        }
+      },
+      { fallback: 'Failed to record supplier expense', forceQueueOnError: true }
+    );
   };
 
   const addSupplierTransaction = (transaction: SupplierTransaction) => {
     setSupplierTransactions(prev => [transaction, ...prev]);
-    dbCall(() => db.insertSupplierTransaction(transaction));
+    void executeWithOfflineQueue('ADD_SUPPLIER_TRANSACTION', { transaction }, () => db.insertSupplierTransaction(transaction), { fallback: 'Failed to add supplier transaction' });
   };
 
   const updateSupplierTransaction = (id: string, updates: Partial<SupplierTransaction>) => {
@@ -1344,7 +1815,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Skip remote update for those to avoid PostgreSQL UUID format errors.
     if (!isUuid(id)) return;
 
-    dbCall(() => db.updateSupplierTransaction(id, updates));
+    void executeWithOfflineQueue('UPDATE_SUPPLIER_TRANSACTION', { id, updates }, () => db.updateSupplierTransaction(id, updates), { fallback: 'Failed to update supplier transaction' });
   };
 
   const deleteSupplierTransaction = (id: string) => {
@@ -1354,21 +1825,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Skip remote delete for those to avoid PostgreSQL UUID format errors.
     if (!isUuid(id)) return;
 
-    dbCall(() => db.deleteSupplierTransaction(id));
+    void executeWithOfflineQueue('DELETE_SUPPLIER_TRANSACTION', { id }, () => db.deleteSupplierTransaction(id), { fallback: 'Failed to delete supplier transaction' });
   };
 
   // ============================================================
   // EXPENSE ACTIONS
   // ============================================================
   const addExpense = (expense: Expense) => {
-    const tempId = expense.id || `tmp-${Date.now()}`;
+    const tempId = isUuid(expense.id || '') ? expense.id : makeUuid();
     const optimisticExpense: Expense = { ...expense, id: tempId };
     setExpenses(prev => [optimisticExpense, ...prev]);
 
-    dbCall(async () => {
-      const inserted = await db.insertExpense(expense);
-      setExpenses(prev => prev.map(e => (e.id === tempId ? inserted : e)));
-    });
+    void executeWithOfflineQueue(
+      'ADD_EXPENSE',
+      { expense: optimisticExpense },
+      async () => {
+        const inserted = await db.insertExpense(optimisticExpense);
+        setExpenses(prev => prev.map(e => (e.id === tempId ? inserted : e)));
+      },
+      { fallback: 'Failed to add expense' }
+    );
   };
 
   const deleteExpense = (id: string) => {
@@ -1378,7 +1854,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Skip remote delete for those to avoid PostgreSQL UUID format errors.
     if (!isUuid(id)) return;
 
-    dbCall(() => db.deleteExpense(id));
+    void executeWithOfflineQueue('DELETE_EXPENSE', { id }, () => db.deleteExpense(id), { fallback: 'Failed to delete expense' });
   };
 
   // ============================================================
@@ -1386,11 +1862,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   const addDamagedGood = (record: DamagedGood) => {
     setDamagedGoods(prev => [record, ...prev]);
-    dbCall(() => db.insertDamagedGood(record));
+    void executeWithOfflineQueue('ADD_DAMAGED_GOOD', { record }, () => db.insertDamagedGood(record), { fallback: 'Failed to add damaged good' });
   };
   const deleteDamagedGood = (id: string) => {
     setDamagedGoods(prev => prev.filter(d => d.id !== id));
-    dbCall(() => db.deleteDamagedGood(id));
+    void executeWithOfflineQueue('DELETE_DAMAGED_GOOD', { id }, () => db.deleteDamagedGood(id), { fallback: 'Failed to delete damaged good' });
   };
 
   // ============================================================
@@ -1398,15 +1874,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   const addUser = (user: User) => {
     setUsers(prev => [...prev, user]);
-    dbCall(() => db.insertUser(user));
+    void executeWithOfflineQueue('ADD_USER', { user }, () => db.insertUser(user), { fallback: 'Failed to add user' });
   };
   const updateUser = (id: string, updates: Partial<User>) => {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
-    dbCall(() => db.updateUser(id, updates));
+    void executeWithOfflineQueue('UPDATE_USER', { id, updates }, () => db.updateUser(id, updates), { fallback: 'Failed to update user' });
   };
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    dbCall(() => db.deleteUser(id));
+    void executeWithOfflineQueue('DELETE_USER', { id }, () => db.deleteUser(id), { fallback: 'Failed to delete user' });
   };
 
   // ============================================================
@@ -1414,7 +1890,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   const updateSettings = (updates: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
-    dbCall(() => db.updateSettings(updates));
+    void executeWithOfflineQueue('UPDATE_SETTINGS', { updates }, () => db.updateSettings(updates), { fallback: 'Failed to update settings' });
   };
 
   // ============================================================
@@ -1453,11 +1929,95 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const removeOfflineItem = (id: string) => {
+    setOfflineQueue(prev => prev.filter(item => item.id !== id));
+  };
+
+  const retryOfflineItem = async (id: string): Promise<boolean> => {
+    const item = offlineQueue.find(entry => entry.id === id);
+    if (!item || !useSupabase) return false;
+
+    setOfflineQueue(prev => prev.map(entry => entry.id === id ? { ...entry, status: 'SYNCING' } : entry));
+    try {
+      await runOfflineOperation(item);
+      setOfflineQueue(prev => prev.filter(entry => entry.id !== id));
+      setOfflinePopup({
+        id,
+        operation: item.operation,
+        title: 'Synced',
+        message: `${operationLabel(item.operation)} synced successfully.`,
+        variant: 'synced',
+      });
+      setLastSyncTime(new Date());
+      return true;
+    } catch (err) {
+      const message = extractDbErrorMessage(err, 'Sync failed');
+      setOfflineQueue(prev => prev.map(entry => entry.id === id ? {
+        ...entry,
+        status: 'FAILED',
+        retryCount: entry.retryCount + 1,
+        errorMessage: message,
+      } : entry));
+      return false;
+    }
+  };
+
+  const syncOfflineQueue = async (): Promise<void> => {
+    if (!useSupabase || isSyncingOfflineQueue) return;
+    setIsSyncingOfflineQueue(true);
+    try {
+      const pending = [...offlineQueue]
+        .filter(item => item.status === 'PENDING' || item.status === 'FAILED')
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      let allSucceeded = true;
+
+      for (const item of pending) {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await retryOfflineItem(item.id);
+        allSucceeded = allSucceeded && result;
+      }
+
+      if (allSucceeded && pending.length > 0) {
+        await refreshFromSupabase();
+      }
+    } finally {
+      setIsSyncingOfflineQueue(false);
+    }
+  };
+
+  const dismissOfflinePopup = () => setOfflinePopup(null);
+
+  useEffect(() => {
+    if (!useSupabase) return;
+    if (isSyncingOfflineQueue) return;
+    if (offlineQueue.length === 0) return;
+    if (!isCloudConnected) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    void syncOfflineQueue();
+  }, [useSupabase, isSyncingOfflineQueue, offlineQueue.length, isCloudConnected]);
+
   const syncData = async (): Promise<{ success: boolean; productCount?: number; error?: string }> => {
     return await refreshFromSupabase();
   };
 
   const dismissDbError = () => setDbError(null);
+
+  // Manually refresh transfers from Supabase
+  const refreshTransfers = async () => {
+    if (!useSupabase) return;
+    try {
+      setIsLoading(true);
+      const transfers = await db.fetchStockTransfers();
+      setStockTransfers(transfers);
+      dismissDbError();
+    } catch (err: unknown) {
+      console.error('Failed to refresh transfers:', err);
+      setDbError(extractDbErrorMessage(err, 'Failed to refresh transfer history'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const setView = (view: ViewState) => setCurrentView(view);
 
@@ -1479,19 +2039,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <StoreContext.Provider value={{
       products, customers, cart, salesHistory, stockHistory, stockTransfers, exchangeHistory, categories, brands, branches, suppliers, supplierTransactions, expenses, damagedGoods, users, settings,
-      currentBranch, currentUser, currentView, isLoading, dbError, lastSyncTime, isCloudConnected, realtimeStatus,
+      currentBranch, currentUser, currentView, isLoading, dbError, offlineQueue, offlinePopup, lastSyncTime, isCloudConnected, realtimeStatus,
       setBranch, addBranch, updateBranch,
       addProduct, updateProduct, deleteProduct, getProductSalesUsage,
       addCustomer, updateCustomer, deleteCustomer,
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
-      completeSale, updateSale, deleteSale, completeExchange, adjustStock, transferStock,
+      completeSale, updateSale, deleteSale, completeExchange, adjustStock, transferStock, refreshTransfers,
       addCategory, removeCategory, addBrand, removeBrand,
-      addSupplier, updateSupplier, deleteSupplier, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
+      addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,
       addUser, updateUser, deleteUser,
       updateSettings, exportData, importData,
-      syncData, dismissDbError,
+      syncData, syncOfflineQueue, retryOfflineItem, removeOfflineItem, dismissOfflinePopup, dismissDbError,
       login, logout, setView
     }}>
       {children}

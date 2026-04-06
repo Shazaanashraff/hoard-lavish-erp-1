@@ -2,12 +2,34 @@ import { supabase } from './supabaseClient';
 import type { Branch, Product, Customer, SalesRecord, StockMovement, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, ExchangeRecord } from '../types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isUuid = (value?: string): boolean => !!value && UUID_PATTERN.test(value);
 const asUuidOrNull = (value?: string): string | null => (value && UUID_PATTERN.test(value) ? value : null);
+const SUPPLIER_TX_ACCOUNTING_COLUMN = 'affects_accounting';
+let supplierTxAccountingColumnAvailable: boolean | null = null;
 const normalizeBranchName = (name?: string): string => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const getDefaultThermalPrinterForBranch = (name?: string): string => normalizeBranchName(name) === 'mountlavinia' ? 'XP - Q80B' : '';
 const resolveThermalPrinterName = (name?: string, configured?: string): string => {
     const normalized = (configured || '').trim();
     return normalized || getDefaultThermalPrinterForBranch(name);
+};
+
+type SupabaseErrorLike = {
+    code?: string;
+    status?: number;
+    message?: string;
+    details?: string;
+    hint?: string;
+};
+
+const isMissingSupplierAccountingColumnError = (error: unknown): boolean => {
+    const dbError = error as SupabaseErrorLike | null;
+    if (!dbError) return false;
+
+    const code = (dbError.code || '').toUpperCase();
+    if (code === 'PGRST204' || code === '42703') return true;
+
+    const message = `${dbError.message || ''} ${dbError.details || ''} ${dbError.hint || ''}`.toLowerCase();
+    return message.includes(SUPPLIER_TX_ACCOUNTING_COLUMN) && (message.includes('schema cache') || message.includes('does not exist') || message.includes('unknown'));
 };
 
 // ============================================================
@@ -109,6 +131,7 @@ export async function fetchProductsWithStock(): Promise<Product[]> {
 
 export async function insertProduct(product: Product, branches: Branch[]): Promise<Product> {
     const { data, error } = await supabase.from('products').insert({
+        ...(product.id && isUuid(product.id) ? { id: product.id } : {}),
         name: product.name,
         category: product.category,
         brand: product.brand,
@@ -248,6 +271,7 @@ export async function fetchCustomers(): Promise<Customer[]> {
 
 export async function insertCustomer(customer: Customer): Promise<Customer> {
     const { data, error } = await supabase.from('customers').insert({
+        ...(customer.id && isUuid(customer.id) ? { id: customer.id } : {}),
         name: customer.name,
         phone: customer.phone,
         email: customer.email,
@@ -626,6 +650,7 @@ export async function fetchSuppliers(): Promise<Supplier[]> {
 
 export async function insertSupplier(supplier: Supplier): Promise<Supplier> {
     const { data, error } = await supabase.from('suppliers').insert({
+        ...(supplier.id && isUuid(supplier.id) ? { id: supplier.id } : {}),
         name: supplier.name,
         contact_person: supplier.contactPerson,
         phone: supplier.phone,
@@ -672,19 +697,40 @@ export const mapSupplierTransaction = (r: any): SupplierTransaction => ({
     type: r.type,
     reference: r.reference,
     notes: r.notes,
+    affectsAccounting: r.affects_accounting ?? false,
 });
 
 export async function fetchSupplierTransactions(): Promise<SupplierTransaction[]> {
-    const { data, error } = await supabase
+    const query = () => supabase
         .from('supplier_transactions')
         .select('*')
         .order('date', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapSupplierTransaction);
+
+    const { data, error } = await query();
+    if (!error) {
+        if (data && data.length > 0 && supplierTxAccountingColumnAvailable !== false) {
+            supplierTxAccountingColumnAvailable = Object.prototype.hasOwnProperty.call(data[0], SUPPLIER_TX_ACCOUNTING_COLUMN);
+        }
+        return (data ?? []).map(mapSupplierTransaction);
+    }
+
+    if (isMissingSupplierAccountingColumnError(error)) {
+        supplierTxAccountingColumnAvailable = false;
+
+        const { data: fallbackData, error: fallbackError } = await supabase
+            .from('supplier_transactions')
+            .select('id, supplier_id, supplier_name, date, amount, type, reference, notes')
+            .order('date', { ascending: false });
+
+        if (fallbackError) throw fallbackError;
+        return (fallbackData ?? []).map(mapSupplierTransaction);
+    }
+
+    throw error;
 }
 
 export async function insertSupplierTransaction(txn: SupplierTransaction): Promise<void> {
-    const { error } = await supabase.from('supplier_transactions').insert({
+    const basePayload = {
         supplier_id: txn.supplierId,
         supplier_name: txn.supplierName,
         date: txn.date,
@@ -692,8 +738,26 @@ export async function insertSupplierTransaction(txn: SupplierTransaction): Promi
         type: txn.type,
         reference: txn.reference,
         notes: txn.notes,
-    });
-    if (error) throw error;
+    };
+
+    const withAccounting = supplierTxAccountingColumnAvailable !== false
+        ? { ...basePayload, affects_accounting: txn.affectsAccounting ?? false }
+        : basePayload;
+
+    const { error } = await supabase.from('supplier_transactions').insert(withAccounting);
+    if (!error) {
+        if (supplierTxAccountingColumnAvailable !== false) supplierTxAccountingColumnAvailable = true;
+        return;
+    }
+
+    if (supplierTxAccountingColumnAvailable !== false && isMissingSupplierAccountingColumnError(error)) {
+        supplierTxAccountingColumnAvailable = false;
+        const { error: retryError } = await supabase.from('supplier_transactions').insert(basePayload);
+        if (!retryError) return;
+        throw retryError;
+    }
+
+    throw error;
 }
 
 export async function updateSupplierTransaction(id: string, updates: Partial<SupplierTransaction>): Promise<void> {
@@ -705,9 +769,28 @@ export async function updateSupplierTransaction(id: string, updates: Partial<Sup
     if (updates.type !== undefined) dbUpdates.type = updates.type;
     if (updates.reference !== undefined) dbUpdates.reference = updates.reference;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.affectsAccounting !== undefined && supplierTxAccountingColumnAvailable !== false) dbUpdates.affects_accounting = updates.affectsAccounting;
+
+    if (Object.keys(dbUpdates).length === 0) return;
 
     const { error } = await supabase.from('supplier_transactions').update(dbUpdates).eq('id', id);
-    if (error) throw error;
+    if (!error) {
+        if (Object.prototype.hasOwnProperty.call(dbUpdates, 'affects_accounting') && supplierTxAccountingColumnAvailable !== false) {
+            supplierTxAccountingColumnAvailable = true;
+        }
+        return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(dbUpdates, 'affects_accounting') && supplierTxAccountingColumnAvailable !== false && isMissingSupplierAccountingColumnError(error)) {
+        supplierTxAccountingColumnAvailable = false;
+        delete dbUpdates.affects_accounting;
+        if (Object.keys(dbUpdates).length === 0) return;
+        const { error: retryError } = await supabase.from('supplier_transactions').update(dbUpdates).eq('id', id);
+        if (!retryError) return;
+        throw retryError;
+    }
+
+    throw error;
 }
 
 export async function deleteSupplierTransaction(id: string): Promise<void> {
@@ -740,6 +823,7 @@ export async function fetchExpenses(): Promise<Expense[]> {
 
 export async function insertExpense(expense: Expense): Promise<Expense> {
     const { data, error } = await supabase.from('expenses').insert({
+        ...(expense.id && isUuid(expense.id) ? { id: expense.id } : {}),
         description: expense.description,
         amount: expense.amount,
         category: expense.category,
@@ -785,6 +869,7 @@ export async function fetchUsers(): Promise<User[]> {
 
 export async function insertUser(user: User): Promise<User> {
     const { data, error } = await supabase.from('users').insert({
+        ...(user.id && isUuid(user.id) ? { id: user.id } : {}),
         name: user.name,
         role: user.role,
         pin: user.pin,
@@ -924,6 +1009,7 @@ export async function fetchDamagedGoods(): Promise<DamagedGood[]> {
 
 export async function insertDamagedGood(record: DamagedGood): Promise<void> {
     const { error } = await supabase.from('damaged_goods').insert({
+        ...(record.id && isUuid(record.id) ? { id: record.id } : {}),
         product_id: record.productId,
         product_name: record.productName,
         supplier_id: record.supplierId,
@@ -942,10 +1028,29 @@ export async function deleteDamagedGood(id: string): Promise<void> {
     if (error) throw error;
 }
 
+type SupabaseTableErrorLike = {
+    code?: string;
+    status?: number;
+    message?: string;
+};
+
+let stockTransfersTableAvailable: boolean | null = null;
+
+const isMissingTableError = (error: unknown): boolean => {
+    const e = error as SupabaseTableErrorLike | null;
+    if (!e) return false;
+    if (e.status === 404) return true;
+    if (e.code === '42P01' || e.code === 'PGRST205') return true;
+    const msg = (e.message || '').toLowerCase();
+    return msg.includes('stock_transfers') && (msg.includes('does not exist') || msg.includes('not found'));
+};
+
 // ============================================================
 // STOCK TRANSFERS
 // ============================================================
 export async function insertStockTransfer(transfer: StockTransfer): Promise<void> {
+    if (stockTransfersTableAvailable === false) return;
+
     const { error } = await supabase.from('stock_transfers').insert({
         transfer_number: transfer.transferNumber,
         date: transfer.date,
@@ -959,15 +1064,33 @@ export async function insertStockTransfer(transfer: StockTransfer): Promise<void
         status: transfer.status,
         notes: transfer.notes,
     });
-    if (error) throw error;
+    if (error) {
+        if (isMissingTableError(error)) {
+            stockTransfersTableAvailable = false;
+            return;
+        }
+        throw error;
+    }
+    stockTransfersTableAvailable = true;
 }
 
 export async function fetchStockTransfers(): Promise<StockTransfer[]> {
+    if (stockTransfersTableAvailable === false) return [];
+
     const { data, error } = await supabase
         .from('stock_transfers')
         .select('*')
         .order('date', { ascending: false });
-    if (error) throw error;
+    if (error) {
+        if (isMissingTableError(error)) {
+            stockTransfersTableAvailable = false;
+            return [];
+        }
+        throw error;
+    }
+
+    stockTransfersTableAvailable = true;
+
     return (data ?? []).map(r => ({
         id: r.id,
         transferNumber: r.transfer_number,

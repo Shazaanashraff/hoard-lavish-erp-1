@@ -64,7 +64,7 @@ export interface SalesRecord {
   tax: number;
   totalAmount: number;
   totalCost: number;
-  paymentMethod: 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
+  paymentMethod: 'Cash' | 'Card' | 'COD' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
   cashAmount?: number;
   cardAmount?: number;
   customerId?: string;
@@ -151,7 +151,7 @@ export interface Expense {
   date: string;
   branchId: string;
   branchName: string;
-  paymentMethod: 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
+  paymentMethod: 'Cash' | 'Card' | 'COD' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
 }
 
 export type Role = 'ADMIN' | 'MANAGER' | 'CASHIER';
@@ -184,8 +184,8 @@ export interface ExchangeRecord {
   returnedTotal: number;
   newTotal: number;
   difference: number; // positive = customer pays more, negative = store refunds/credit
-  paymentMethod: 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
-  refundMethod?: 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
+  paymentMethod: 'Cash' | 'Card' | 'COD' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
+  refundMethod?: 'Cash' | 'Card' | 'COD' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
   settlementType?: 'CUSTOMER_PAYS' | 'STORE_REFUND' | 'EVEN';
   exchangeBillDiscount?: number;
   customerId?: string;

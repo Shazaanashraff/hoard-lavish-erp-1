@@ -301,6 +301,7 @@ const Dashboard: React.FC = () => {
     // Payment method breakdown
     const cashSales    = filteredSales.filter(s => s.paymentMethod === 'Cash');
     const cardSales    = filteredSales.filter(s => s.paymentMethod === 'Card');
+    const codSales     = filteredSales.filter(s => s.paymentMethod === 'COD');
     const splitSales   = filteredSales.filter(s => s.paymentMethod === 'Cash+Card');
     const payhereS     = filteredSales.filter(s => s.paymentMethod === 'PayHere');
     const onlineS      = filteredSales.filter(s => s.paymentMethod === 'Online Transfer');
@@ -308,7 +309,8 @@ const Dashboard: React.FC = () => {
 
     const splitCashTotal = splitSales.reduce((s, x) => s + (x.cashAmount || 0), 0);
     const splitCardTotal = splitSales.reduce((s, x) => s + (x.cardAmount || 0), 0);
-    const cashTotal    = cashSales.reduce((s, x) => s + x.totalAmount, 0) + splitCashTotal;
+    const codTotal     = codSales.reduce((s, x) => s + x.totalAmount, 0);
+    const cashTotal    = cashSales.reduce((s, x) => s + x.totalAmount, 0) + splitCashTotal + codTotal;
     const cardTotal    = cardSales.reduce((s, x) => s + x.totalAmount, 0) + splitCardTotal;
     const payhereTotal  = payhereS.reduce((s, x) => s + x.totalAmount, 0);
     const onlineTotal  = onlineS.reduce((s, x) => s + x.totalAmount, 0);
@@ -366,8 +368,12 @@ const Dashboard: React.FC = () => {
     doc.line(14, 65, pageWidth - 14, 65);
 
     const salesBreakdown: (string | number)[][] = [];
-    const cashSubLabel = splitCashTotal > 0 ? `(${fmtCurrency(cashSales.reduce((s, x) => s + x.totalAmount, 0))} direct + ${fmtCurrency(splitCashTotal)} from split)` : '—';
-    const cashCount = cashSales.length + splitSales.length;
+    const cashSubParts: string[] = [];
+    if (cashSales.length > 0) cashSubParts.push(`${fmtCurrency(cashSales.reduce((s, x) => s + x.totalAmount, 0))} direct`);
+    if (splitCashTotal > 0) cashSubParts.push(`${fmtCurrency(splitCashTotal)} from split`);
+    if (codTotal > 0) cashSubParts.push(`${fmtCurrency(codTotal)} COD`);
+    const cashSubLabel = cashSubParts.length > 0 ? `(${cashSubParts.join('  |  ')})` : '—';
+    const cashCount = cashSales.length + splitSales.length + codSales.length;
     salesBreakdown.push([`Cash Sales ${cashSubLabel}`, fmtCurrency(cashTotal), `${cashCount} transaction${cashCount !== 1 ? 's' : ''}`]);
 
     // Card total row

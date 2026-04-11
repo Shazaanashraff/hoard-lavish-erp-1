@@ -118,6 +118,21 @@ Run these categories for each relevant operation:
 14. Branch isolation: branch-specific stock/sales should stay scoped.
 15. Date/time handling: no timezone drift for business dates.
 
+## 5.1 Non-Negotiable Rule Per Operation
+
+For every operation ID in CRUD_Operations_Index.md, QA must execute all of the following:
+
+1. Happy-path mock-data test.
+2. Edge-case mock-data test A (validation/constraint failure).
+3. Edge-case mock-data test B (connectivity/offline or transient failure where applicable).
+4. Friendly-error assertion: verify the exact user-facing message (or approved pattern) is shown.
+5. Evidence capture: payload used, expected result, actual result, and proof (log/screenshot).
+
+Notes:
+- This rule applies to C, R, U, and D operations, including local-only operations.
+- For read operations, use mock query input and at least one forced-failure condition.
+- For local-only operations, use mocked localStorage/context state and verify fallback/error messaging behavior.
+
 ## 6. Operation Test Cards (Runtime CRUD)
 
 Use operation IDs from CRUD_Operations_Index.md.
@@ -700,6 +715,17 @@ Use this quick checklist per operation ID:
 6. Trigger offline scenario and validate queue/retry behavior.
 7. Record result with screenshot/log and pass/fail reason.
 
+## 9.1 Mandatory Evidence Matrix (Use For Every CRUD Operation)
+
+Use one row per operation ID.
+
+| Operation ID | Happy-path mock payload/data | Edge-case mock payload/data A | Edge-case mock payload/data B | Expected friendly error message | Actual message observed | Pass/Fail | Evidence link/path |
+|---|---|---|---|---|---|---|---|
+| Example: PR-C1 | Valid product payload with branchStock | Duplicate SKU payload | Offline network during create | Failed to add product OR queued-offline message | <actual captured message> | Pass | <screenshot/log path> |
+
+Minimum acceptance rule:
+- No operation can be marked complete unless all three data variants (happy path + two edge cases) are executed and the friendly error expectation is verified.
+
 ## 10. Final QA Readiness Checklist
 
 - [x] Separate test project strategy documented.
@@ -709,5 +735,6 @@ Use this quick checklist per operation ID:
 - [x] Local/offline operations documented.
 - [x] Recovery/migration appendix operations documented.
 - [x] Friendly error validation coverage documented.
+- [x] Mandatory per-operation rule added: mock data + edge-case mock data + friendly-error verification for every CRUD operation.
 
 This guide should be used together with CRUD_Operations_Index.md for complete traceability and execution planning.

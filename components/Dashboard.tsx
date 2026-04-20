@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CartItem, SalesRecord } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
+import { getTopRevenueAndQuantityProducts } from '../utils/revenue';
 
 type FilterMode = 'daily' | 'monthly';
 
@@ -85,24 +86,7 @@ const Dashboard: React.FC = () => {
 
   // Top Performers
   const topPerformers = useMemo(() => {
-    const stats = new Map<string, { name: string, revenue: number, quantity: number }>();
-    filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
-        const current = stats.get(item.id) || { name: item.name, revenue: 0, quantity: 0 };
-        stats.set(item.id, {
-          name: item.name,
-          revenue: current.revenue + (item.price * item.quantity),
-          quantity: current.quantity + item.quantity
-        });
-      });
-    });
-    let bestRev = { name: 'No Sales Yet', value: 0 };
-    let bestQty = { name: 'No Sales Yet', value: 0 };
-    stats.forEach(val => {
-      if (val.revenue > bestRev.value) bestRev = { name: val.name, value: val.revenue };
-      if (val.quantity > bestQty.value) bestQty = { name: val.name, value: val.quantity };
-    });
-    return { bestRev, bestQty };
+    return getTopRevenueAndQuantityProducts(filteredSales);
   }, [filteredSales]);
 
   // Chart Data — per branch

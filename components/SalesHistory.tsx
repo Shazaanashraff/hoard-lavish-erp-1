@@ -47,7 +47,7 @@ type ListItem =
   | { recordType: 'exchange'; data: ExchangeRecord };
 
 const SalesHistory: React.FC = () => {
-  const { salesHistory, exchangeHistory, branches } = useStore();
+  const { salesHistory, exchangeHistory, branches, products } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<ListItem | null>(null);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('ALL');
@@ -73,7 +73,6 @@ const SalesHistory: React.FC = () => {
       })
       .map(s => ({ recordType: 'sale', data: s }));
 
-<<<<<<< HEAD
     const exchanges: ListItem[] = (exchangeHistory || [])
       .filter(e => {
         const matchesSearch =
@@ -103,6 +102,25 @@ const SalesHistory: React.FC = () => {
     return [...sales, ...exchanges];
   }, [salesHistory, exchangeHistory, itemTimePeriod, itemDateFrom, itemDateTo]);
 
+  const productCategoryById = useMemo(() => {
+    const categoryMap = new Map<string, string>();
+    products.forEach(product => {
+      const normalizedCategory = product.category?.trim();
+      if (normalizedCategory) {
+        categoryMap.set(product.id, normalizedCategory);
+      }
+    });
+    return categoryMap;
+  }, [products]);
+
+  const resolveItemCategory = (item: { id: string; category?: string }) => {
+    const itemCategory = item.category?.trim();
+    if (itemCategory) return itemCategory;
+    const productCategory = productCategoryById.get(item.id);
+    if (productCategory) return productCategory;
+    return 'Uncategorized';
+  };
+
   // --- Item-wise sold quantities ---
   const itemStats = useMemo(() => {
     const stats = new Map<string, { name: string; quantity: number; revenue: number; sku: string; size?: string; color?: string; category: string }>();
@@ -113,14 +131,14 @@ const SalesHistory: React.FC = () => {
         const grossItemTotal = sale.items.reduce((sum, cartItem) => sum + (cartItem.price * cartItem.quantity), 0);
         const fallbackShare = sale.items.length > 0 ? 1 / sale.items.length : 0;
         sale.items.forEach(cartItem => {
-          const existing = stats.get(cartItem.id) || { 
+          const existing = stats.get(cartItem.id) || {
             name: cartItem.name, 
             quantity: 0, 
             revenue: 0, 
             sku: cartItem.sku,
             size: cartItem.size,
             color: cartItem.color,
-            category: cartItem.category
+            category: resolveItemCategory(cartItem)
           };
           const itemGross = cartItem.price * cartItem.quantity;
           const share = grossItemTotal > 0 ? itemGross / grossItemTotal : fallbackShare;
@@ -133,14 +151,14 @@ const SalesHistory: React.FC = () => {
       } else {
         const exchange = item.data as ExchangeRecord;
         exchange.newItems?.forEach(cartItem => {
-          const existing = stats.get(cartItem.id) || { 
+          const existing = stats.get(cartItem.id) || {
             name: cartItem.name, 
             quantity: 0, 
             revenue: 0, 
             sku: cartItem.sku,
             size: cartItem.size,
             color: cartItem.color,
-            category: cartItem.category
+            category: resolveItemCategory(cartItem)
           };
           const lineRevenue = cartItem.lineEffectiveTotal ?? ((cartItem.effectiveUnitPrice ?? cartItem.price) * cartItem.quantity);
           stats.set(cartItem.id, {
@@ -155,7 +173,7 @@ const SalesHistory: React.FC = () => {
     return Array.from(stats.entries())
       .map(([id, data]) => ({ id, ...data }))
       .sort((a, b) => b.quantity - a.quantity);
-  }, [itemFilteredItems]);
+  }, [itemFilteredItems, productCategoryById]);
 
   const soldItemCategories = useMemo(() => {
     return Array.from(new Set(itemStats.map(item => item.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -277,24 +295,6 @@ const SalesHistory: React.FC = () => {
   };
 
   // --- Print invoice ---
-=======
-  const soldItemCategories = useMemo(() => {
-    if (!selectedSale) return [];
-    return Array.from(new Set(selectedSale.items.map(item => item.category))).sort((a, b) => a.localeCompare(b));
-  }, [selectedSale]);
-
-  const filteredSaleItems = useMemo(() => {
-    if (!selectedSale) return [];
-    if (itemCategoryFilter === 'ALL') return selectedSale.items;
-    return selectedSale.items.filter(item => item.category === itemCategoryFilter);
-  }, [selectedSale, itemCategoryFilter]);
-
-  useEffect(() => {
-    setItemCategoryFilter('ALL');
-  }, [selectedSale?.id]);
-
-  // --- Print only the invoice ---
->>>>>>> fbb8f8f (Fix sold item revenue calculation)
   const handlePrint = () => {
     if (!invoiceRef.current) return;
     const printContents = invoiceRef.current.innerHTML;
@@ -724,7 +724,6 @@ const SalesHistory: React.FC = () => {
                   </div>
                 )}
 
-<<<<<<< HEAD
                 {/* Returned Items */}
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' as const, marginBottom: 8 }}>Returned Items</p>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
@@ -758,56 +757,6 @@ const SalesHistory: React.FC = () => {
                     </tr>
                   </tbody>
                 </table>
-=======
-            {/* Items Table */}
-            <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                <Filter size={14} />
-                <span>Sold Items</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-400">Category:</label>
-                <select
-                  className="text-xs font-medium bg-slate-100 border-0 rounded-lg px-3 py-1.5 text-slate-700 outline-none cursor-pointer"
-                  value={itemCategoryFilter}
-                  onChange={e => setItemCategoryFilter(e.target.value)}
-                >
-                  <option value="ALL">All Categories</option>
-                  {soldItemCategories.map(category => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9' }}>
-                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'left' }}>Item</th>
-                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'right' }}>Qty</th>
-                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'right' }}>Price</th>
-                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'right' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSaleItems.map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 12px', fontSize: 13 }}>{item.name}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', color: '#64748b' }}>{item.quantity}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', color: '#64748b' }}>{fmtCurrency(item.price)}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', fontWeight: 500 }}>{fmtCurrency(item.price * item.quantity)}</td>
-                  </tr>
-                ))}
-                {filteredSaleItems.length === 0 && (
-                  <tr>
-                    <td colSpan={4} style={{ padding: '12px', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
-                      No sold items in this category.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
->>>>>>> fbb8f8f (Fix sold item revenue calculation)
 
                 {/* New Items */}
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase' as const, marginBottom: 8 }}>New Items</p>

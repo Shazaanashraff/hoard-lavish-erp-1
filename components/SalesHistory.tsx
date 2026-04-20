@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useMemo } from 'react';
-import { Search, Printer, User, Calendar, DollarSign, X, Building2, ArrowLeftRight, Package, FileText } from 'lucide-react';
+import { Search, Printer, User, Calendar, DollarSign, X, Building2, ArrowLeftRight, Package, FileText, Filter } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { SalesRecord, ExchangeRecord } from '../types';
 import { jsPDF } from 'jspdf';
@@ -58,6 +58,7 @@ const SalesHistory: React.FC = () => {
   const [itemTimePeriod, setItemTimePeriod] = useState<TimePeriod>('ALL');
   const [itemDateFrom, setItemDateFrom] = useState<string>('');
   const [itemDateTo, setItemDateTo] = useState<string>('');
+  const [itemCategoryFilter, setItemCategoryFilter] = useState<string>('ALL');
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   // --- Combined filtered list ---
@@ -72,6 +73,7 @@ const SalesHistory: React.FC = () => {
       })
       .map(s => ({ recordType: 'sale', data: s }));
 
+<<<<<<< HEAD
     const exchanges: ListItem[] = (exchangeHistory || [])
       .filter(e => {
         const matchesSearch =
@@ -103,11 +105,13 @@ const SalesHistory: React.FC = () => {
 
   // --- Item-wise sold quantities ---
   const itemStats = useMemo(() => {
-    const stats = new Map<string, { name: string; quantity: number; revenue: number; sku: string; size?: string; color?: string }>();
+    const stats = new Map<string, { name: string; quantity: number; revenue: number; sku: string; size?: string; color?: string; category: string }>();
     
     itemFilteredItems.forEach(item => {
       if (item.recordType === 'sale') {
         const sale = item.data as SalesRecord;
+        const grossItemTotal = sale.items.reduce((sum, cartItem) => sum + (cartItem.price * cartItem.quantity), 0);
+        const fallbackShare = sale.items.length > 0 ? 1 / sale.items.length : 0;
         sale.items.forEach(cartItem => {
           const existing = stats.get(cartItem.id) || { 
             name: cartItem.name, 
@@ -115,12 +119,15 @@ const SalesHistory: React.FC = () => {
             revenue: 0, 
             sku: cartItem.sku,
             size: cartItem.size,
-            color: cartItem.color
+            color: cartItem.color,
+            category: cartItem.category
           };
+          const itemGross = cartItem.price * cartItem.quantity;
+          const share = grossItemTotal > 0 ? itemGross / grossItemTotal : fallbackShare;
           stats.set(cartItem.id, {
             ...existing,
             quantity: existing.quantity + cartItem.quantity,
-            revenue: existing.revenue + (cartItem.price * cartItem.quantity)
+            revenue: existing.revenue + (sale.totalAmount * share)
           });
         });
       } else {
@@ -132,7 +139,8 @@ const SalesHistory: React.FC = () => {
             revenue: 0, 
             sku: cartItem.sku,
             size: cartItem.size,
-            color: cartItem.color
+            color: cartItem.color,
+            category: cartItem.category
           };
           const lineRevenue = cartItem.lineEffectiveTotal ?? ((cartItem.effectiveUnitPrice ?? cartItem.price) * cartItem.quantity);
           stats.set(cartItem.id, {
@@ -148,6 +156,15 @@ const SalesHistory: React.FC = () => {
       .map(([id, data]) => ({ id, ...data }))
       .sort((a, b) => b.quantity - a.quantity);
   }, [itemFilteredItems]);
+
+  const soldItemCategories = useMemo(() => {
+    return Array.from(new Set(itemStats.map(item => item.category).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  }, [itemStats]);
+
+  const filteredItemStats = useMemo(() => {
+    if (itemCategoryFilter === 'ALL') return itemStats;
+    return itemStats.filter(item => item.category === itemCategoryFilter);
+  }, [itemStats, itemCategoryFilter]);
 
   // --- Generate Item Stats Report ---
   const generateItemStatsReport = () => {
@@ -188,8 +205,8 @@ const SalesHistory: React.FC = () => {
     doc.setDrawColor(200, 200, 200);
     doc.line(14, 61, pageWidth - 14, 61);
     
-    const totalQuantity = itemStats.reduce((sum, item) => sum + item.quantity, 0);
-    const totalRevenue = itemStats.reduce((sum, item) => sum + item.revenue, 0);
+    const totalQuantity = filteredItemStats.reduce((sum, item) => sum + item.quantity, 0);
+    const totalRevenue = filteredItemStats.reduce((sum, item) => sum + item.revenue, 0);
     
     autoTable(doc, {
       startY: 65,
@@ -197,7 +214,7 @@ const SalesHistory: React.FC = () => {
       body: [
         ['Total Products Sold', totalQuantity.toString() + ' units'],
         ['Total Revenue', fmtCurrency(totalRevenue)],
-        ['Unique Products', itemStats.length.toString()]
+        ['Unique Products', filteredItemStats.length.toString()]
       ],
       theme: 'plain',
       styles: { fontSize: 11, cellPadding: 3 },
@@ -209,7 +226,7 @@ const SalesHistory: React.FC = () => {
     });
     
     // Item Table
-    if (itemStats.length > 0) {
+    if (filteredItemStats.length > 0) {
       const afterSummaryY = (doc as any).lastAutoTable.finalY + 10;
       
       doc.setFontSize(14);
@@ -217,7 +234,7 @@ const SalesHistory: React.FC = () => {
       doc.text('Products', 14, afterSummaryY);
       doc.line(14, afterSummaryY + 3, pageWidth - 14, afterSummaryY + 3);
       
-      const tableData = itemStats.map(item => [
+      const tableData = filteredItemStats.map(item => [
         item.sku || 'N/A',
         item.name,
         item.quantity.toString(),
@@ -260,6 +277,24 @@ const SalesHistory: React.FC = () => {
   };
 
   // --- Print invoice ---
+=======
+  const soldItemCategories = useMemo(() => {
+    if (!selectedSale) return [];
+    return Array.from(new Set(selectedSale.items.map(item => item.category))).sort((a, b) => a.localeCompare(b));
+  }, [selectedSale]);
+
+  const filteredSaleItems = useMemo(() => {
+    if (!selectedSale) return [];
+    if (itemCategoryFilter === 'ALL') return selectedSale.items;
+    return selectedSale.items.filter(item => item.category === itemCategoryFilter);
+  }, [selectedSale, itemCategoryFilter]);
+
+  useEffect(() => {
+    setItemCategoryFilter('ALL');
+  }, [selectedSale?.id]);
+
+  // --- Print only the invoice ---
+>>>>>>> fbb8f8f (Fix sold item revenue calculation)
   const handlePrint = () => {
     if (!invoiceRef.current) return;
     const printContents = invoiceRef.current.innerHTML;
@@ -543,21 +578,38 @@ const SalesHistory: React.FC = () => {
                 />
               </div>
             )}
+
+            <div className="flex items-center gap-1.5">
+              <Filter size={14} className="text-slate-400" />
+              <select
+                value={itemCategoryFilter}
+                onChange={(e) => setItemCategoryFilter(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md focus:border-slate-400 focus:outline-none bg-white"
+              >
+                <option value="ALL">All Categories</option>
+                {soldItemCategories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4">
-          {itemStats.length === 0 ? (
+          {filteredItemStats.length === 0 ? (
             <div className="text-center py-10 text-slate-400">
               <Package size={32} className="mx-auto mb-2 opacity-40" />
               <p className="text-sm">No items sold yet</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {itemStats.map(item => (
+              {filteredItemStats.map(item => (
                 <div key={item.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                   <div className="flex justify-between items-start mb-1">
                     <h4 className="font-medium text-slate-900 text-sm line-clamp-2 flex-1">{item.name}</h4>
+                  </div>
+                  <div className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400">
+                    <span>{item.category}</span>
                   </div>
                   {(item.size || item.color) && (
                     <div className="mb-1">
@@ -582,20 +634,20 @@ const SalesHistory: React.FC = () => {
         </div>
         
         {/* Summary Footer */}
-        {itemStats.length > 0 && (
+        {filteredItemStats.length > 0 && (
           <div className="p-4 bg-slate-50 border-t border-slate-200">
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">Total Items:</span>
-                <span className="font-bold text-slate-900">{itemStats.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                <span className="font-bold text-slate-900">{filteredItemStats.reduce((sum, item) => sum + item.quantity, 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Total Revenue:</span>
-                <span className="font-bold text-emerald-600">{fmtCurrency(itemStats.reduce((sum, item) => sum + item.revenue, 0))}</span>
+                <span className="font-bold text-emerald-600">{fmtCurrency(filteredItemStats.reduce((sum, item) => sum + item.revenue, 0))}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Unique Products:</span>
-                <span className="font-bold text-slate-900">{itemStats.length}</span>
+                <span className="font-bold text-slate-900">{filteredItemStats.length}</span>
               </div>
             </div>
           </div>
@@ -672,6 +724,7 @@ const SalesHistory: React.FC = () => {
                   </div>
                 )}
 
+<<<<<<< HEAD
                 {/* Returned Items */}
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' as const, marginBottom: 8 }}>Returned Items</p>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
@@ -705,6 +758,56 @@ const SalesHistory: React.FC = () => {
                     </tr>
                   </tbody>
                 </table>
+=======
+            {/* Items Table */}
+            <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <Filter size={14} />
+                <span>Sold Items</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-400">Category:</label>
+                <select
+                  className="text-xs font-medium bg-slate-100 border-0 rounded-lg px-3 py-1.5 text-slate-700 outline-none cursor-pointer"
+                  value={itemCategoryFilter}
+                  onChange={e => setItemCategoryFilter(e.target.value)}
+                >
+                  <option value="ALL">All Categories</option>
+                  {soldItemCategories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9' }}>
+                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'left' }}>Item</th>
+                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'right' }}>Qty</th>
+                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'right' }}>Price</th>
+                  <th style={{ padding: '8px 12px', fontSize: 11, textTransform: 'uppercase' as const, color: '#64748b', textAlign: 'right' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSaleItems.map((item, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '8px 12px', fontSize: 13 }}>{item.name}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', color: '#64748b' }}>{item.quantity}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', color: '#64748b' }}>{fmtCurrency(item.price)}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', fontWeight: 500 }}>{fmtCurrency(item.price * item.quantity)}</td>
+                  </tr>
+                ))}
+                {filteredSaleItems.length === 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ padding: '12px', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
+                      No sold items in this category.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+>>>>>>> fbb8f8f (Fix sold item revenue calculation)
 
                 {/* New Items */}
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase' as const, marginBottom: 8 }}>New Items</p>

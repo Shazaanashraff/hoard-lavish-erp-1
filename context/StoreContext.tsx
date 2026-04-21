@@ -459,9 +459,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       case 'ADD_DAMAGED_GOOD':
         await db.insertDamagedGood(p.record as DamagedGood);
+        if (p.stockRow) {
+          const row = p.stockRow as { productId: string; branchId: string; quantity: number };
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        if (p.stockMovement) {
+          await db.insertStockMovement(p.stockMovement as StockMovement);
+        }
         return;
       case 'DELETE_DAMAGED_GOOD':
-        await db.deleteDamagedGood(p.id as string);
+        if (p.shouldDeleteRemote !== false) {
+          await db.deleteDamagedGood(p.id as string);
+        }
+        if (p.stockRow) {
+          const row = p.stockRow as { productId: string; branchId: string; quantity: number };
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        if (p.stockMovement) {
+          await db.insertStockMovement(p.stockMovement as StockMovement);
+        }
         return;
       case 'ADD_USER':
         await db.insertUser(p.user as User);
@@ -1861,12 +1877,122 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // DAMAGED GOODS ACTIONS
   // ============================================================
   const addDamagedGood = (record: DamagedGood) => {
-    setDamagedGoods(prev => [record, ...prev]);
-    void executeWithOfflineQueue('ADD_DAMAGED_GOOD', { record }, () => db.insertDamagedGood(record), { fallback: 'Failed to add damaged good' });
+    const normalizedRecord: DamagedGood = {
+      ...record,
+      id: isUuid(record.id) ? record.id : makeUuid(),
+      branchId: record.branchId || currentBranch.id,
+      branchName: record.branchName || currentBranch.name,
+    };
+    const normalizedQty = Math.max(0, record.quantity || 0);
+    const product = products.find(p => p.id === normalizedRecord.productId);
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const targetBranchId = normalizedRecord.branchId || currentBranch.id;
+    const targetBranchName = normalizedRecord.branchName || currentBranch.name;
+
+    let stockRow: { productId: string; branchId: string; quantity: number } | null = null;
+    let stockMovement: StockMovement | null = null;
+
+    if (product && normalizedQty > 0) {
+      const currentBranchStock = product.branchStock[targetBranchId] || 0;
+      const nextBranchStock = currentBranchStock + normalizedQty;
+      const updatedBranchStock = { ...product.branchStock, [targetBranchId]: nextBranchStock };
+      const nextTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
+
+      setProducts(prev => prev.map(p => p.id === product.id ? {
+        ...p,
+        branchStock: updatedBranchStock,
+        stock: nextTotalStock,
+      } : p));
+
+      stockRow = { productId: product.id, branchId: targetBranchId, quantity: nextBranchStock };
+      stockMovement = {
+        id: Math.random().toString(36).substr(2, 9),
+        productId: product.id,
+        productName: product.name,
+        branchId: targetBranchId,
+        branchName: targetBranchName,
+        type: 'IN',
+        quantity: normalizedQty,
+        reason: `Damaged goods recorded (${targetBranchName})`,
+        date: `${localDate}T00:00:00.000Z`
+      };
+      setStockHistory(prev => [stockMovement as StockMovement, ...prev]);
+    }
+
+    setDamagedGoods(prev => [normalizedRecord, ...prev]);
+    void executeWithOfflineQueue(
+      'ADD_DAMAGED_GOOD',
+      { record: normalizedRecord, stockRow, stockMovement },
+      async () => {
+        await db.insertDamagedGood(normalizedRecord);
+        if (stockRow) {
+          await db.upsertBranchStock(stockRow.productId, stockRow.branchId, stockRow.quantity);
+        }
+        if (stockMovement) {
+          await db.insertStockMovement(stockMovement);
+        }
+      },
+      { fallback: 'Failed to add damaged good' }
+    );
   };
   const deleteDamagedGood = (id: string) => {
+    const record = damagedGoods.find(d => d.id === id);
+    const product = record ? products.find(p => p.id === record.productId) : undefined;
+    const normalizedQty = Math.max(0, record?.quantity || 0);
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const targetBranchId = record?.branchId || currentBranch.id;
+    const targetBranchName = record?.branchName || currentBranch.name;
+    const shouldDeleteRemote = isUuid(id);
+
+    let stockRow: { productId: string; branchId: string; quantity: number } | null = null;
+    let stockMovement: StockMovement | null = null;
+
+    if (product && normalizedQty > 0) {
+      const currentBranchStock = product.branchStock[targetBranchId] || 0;
+      const nextBranchStock = Math.max(0, currentBranchStock - normalizedQty);
+      const updatedBranchStock = { ...product.branchStock, [targetBranchId]: nextBranchStock };
+      const nextTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
+
+      setProducts(prev => prev.map(p => p.id === product.id ? {
+        ...p,
+        branchStock: updatedBranchStock,
+        stock: nextTotalStock,
+      } : p));
+
+      stockRow = { productId: product.id, branchId: targetBranchId, quantity: nextBranchStock };
+      stockMovement = {
+        id: Math.random().toString(36).substr(2, 9),
+        productId: product.id,
+        productName: product.name,
+        branchId: targetBranchId,
+        branchName: targetBranchName,
+        type: 'OUT',
+        quantity: normalizedQty,
+        reason: `Damaged goods deleted (${targetBranchName})`,
+        date: `${localDate}T00:00:00.000Z`
+      };
+      setStockHistory(prev => [stockMovement as StockMovement, ...prev]);
+    }
+
     setDamagedGoods(prev => prev.filter(d => d.id !== id));
-    void executeWithOfflineQueue('DELETE_DAMAGED_GOOD', { id }, () => db.deleteDamagedGood(id), { fallback: 'Failed to delete damaged good' });
+    void executeWithOfflineQueue(
+      'DELETE_DAMAGED_GOOD',
+      { id, stockRow, stockMovement, shouldDeleteRemote },
+      async () => {
+        if (shouldDeleteRemote) {
+          await db.deleteDamagedGood(id);
+        }
+        if (stockRow) {
+          await db.upsertBranchStock(stockRow.productId, stockRow.branchId, stockRow.quantity);
+        }
+        if (stockMovement) {
+          await db.insertStockMovement(stockMovement);
+        }
+      },
+      { fallback: 'Failed to delete damaged good' }
+    );
   };
 
   // ============================================================

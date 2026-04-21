@@ -136,6 +136,8 @@ export interface DamagedGood {
   productName: string;
   supplierId: string;
   supplierName: string;
+  branchId?: string;
+  branchName?: string;
   quantity: number;
   unitPrice: number;
   totalLoss: number;

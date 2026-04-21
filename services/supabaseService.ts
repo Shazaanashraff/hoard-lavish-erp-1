@@ -1025,18 +1025,90 @@ export async function insertDamagedGood(record: DamagedGood): Promise<void> {
         date: record.date,
     });
     if (error) throw error;
+    // Adjust branch stock (reduce) and record a stock movement
+    const branchId = asUuidOrNull(record.branchId ?? undefined);
+    if (branchId) {
+        const { data: stockRow, error: stockErr } = await supabase
+            .from('product_branch_stock')
+            .select('quantity')
+            .eq('product_id', record.productId)
+            .eq('branch_id', branchId)
+            .maybeSingle();
+        if (stockErr) throw stockErr;
+        const prevQty = (stockRow && (stockRow as any).quantity) ?? 0;
+        const newQty = prevQty - record.quantity;
+        await upsertBranchStock(record.productId, branchId, newQty);
+        await insertStockMovement({
+            id: '',
+            productId: record.productId,
+            productName: record.productName,
+            branchId,
+            branchName: record.branchName ?? '',
+            type: 'OUT',
+            quantity: record.quantity,
+            reason: 'Damaged',
+            date: record.date,
+        } as StockMovement);
+    }
 }
 
 export async function deleteDamagedGood(id: string): Promise<void> {
     if (!isUuid(id)) return;
+    // Fetch the damaged record
+    const { data: record, error: fetchErr } = await supabase.from('damaged_goods').select('*').eq('id', id).maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!record) return;
+
+    const branchId = record.branch_id ?? null;
+    let prevQty: number | null = null;
+    // If branch present, attempt to increment stock first so we can revert if delete fails
+    if (branchId) {
+        const { data: stockRow, error: stockErr } = await supabase
+            .from('product_branch_stock')
+            .select('quantity')
+            .eq('product_id', record.product_id)
+            .eq('branch_id', branchId)
+            .maybeSingle();
+        if (stockErr) throw stockErr;
+        prevQty = (stockRow && (stockRow as any).quantity) ?? 0;
+        const newQty = prevQty + record.quantity;
+        await upsertBranchStock(record.product_id, branchId, newQty);
+    }
+
     const { error } = await supabase.from('damaged_goods').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+        // attempt revert if we already updated stock
+        if (branchId && prevQty !== null) {
+            try {
+                await upsertBranchStock(record.product_id, branchId, prevQty);
+            } catch (revertErr) {
+                // surface combined error
+                throw new Error(`Failed to delete damaged_goods and failed to revert stock: ${String(revertErr)}`);
+            }
+        }
+        throw error;
+    }
+
+    if (branchId) {
+        await insertStockMovement({
+            id: '',
+            productId: record.product_id,
+            productName: record.product_name,
+            branchId,
+            branchName: record.branch_name ?? '',
+            type: 'IN',
+            quantity: record.quantity,
+            reason: 'Restock (damaged removed)',
+            date: record.date,
+        } as StockMovement);
+    }
 }
 
 export async function deleteDamagedGoodByRecord(record: DamagedGood): Promise<void> {
+    // Find matching damaged records first so we can adjust stock per-row
     let query = supabase
         .from('damaged_goods')
-        .delete()
+        .select('*')
         .eq('product_id', record.productId)
         .eq('supplier_id', record.supplierId)
         .eq('quantity', record.quantity)
@@ -1051,8 +1123,52 @@ export async function deleteDamagedGoodByRecord(record: DamagedGood): Promise<vo
         query = query.is('branch_id', null);
     }
 
-    const { error } = await query;
-    if (error) throw error;
+    const { data: rows, error: selectErr } = await query;
+    if (selectErr) throw selectErr;
+    if (!rows || rows.length === 0) return;
+
+    for (const row of rows) {
+        const bid = row.branch_id ?? null;
+        let prevQty: number | null = null;
+        if (bid) {
+            const { data: stockRow, error: stockErr } = await supabase
+                .from('product_branch_stock')
+                .select('quantity')
+                .eq('product_id', row.product_id)
+                .eq('branch_id', bid)
+                .maybeSingle();
+            if (stockErr) throw stockErr;
+            prevQty = (stockRow && (stockRow as any).quantity) ?? 0;
+            const newQty = prevQty + row.quantity;
+            await upsertBranchStock(row.product_id, bid, newQty);
+        }
+
+        const { error: delErr } = await supabase.from('damaged_goods').delete().eq('id', row.id);
+        if (delErr) {
+            if (bid && prevQty !== null) {
+                try {
+                    await upsertBranchStock(row.product_id, bid, prevQty);
+                } catch (revertErr) {
+                    throw new Error(`Failed to delete damaged_goods and failed to revert stock: ${String(revertErr)}`);
+                }
+            }
+            throw delErr;
+        }
+
+        if (bid) {
+            await insertStockMovement({
+                id: '',
+                productId: row.product_id,
+                productName: row.product_name,
+                branchId: bid,
+                branchName: row.branch_name ?? '',
+                type: 'IN',
+                quantity: row.quantity,
+                reason: 'Restock (damaged removed)',
+                date: row.date,
+            } as StockMovement);
+        }
+    }
 }
 
 type SupabaseTableErrorLike = {

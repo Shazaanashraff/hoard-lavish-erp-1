@@ -999,6 +999,8 @@ export async function fetchDamagedGoods(): Promise<DamagedGood[]> {
         productName: r.product_name,
         supplierId: r.supplier_id,
         supplierName: r.supplier_name,
+        branchId: r.branch_id ?? undefined,
+        branchName: r.branch_name ?? undefined,
         quantity: r.quantity,
         unitPrice: Number(r.unit_price),
         totalLoss: Number(r.total_loss),
@@ -1014,6 +1016,8 @@ export async function insertDamagedGood(record: DamagedGood): Promise<void> {
         product_name: record.productName,
         supplier_id: record.supplierId,
         supplier_name: record.supplierName,
+        branch_id: asUuidOrNull(record.branchId ?? undefined),
+        branch_name: record.branchName ?? null,
         quantity: record.quantity,
         unit_price: record.unitPrice,
         total_loss: record.totalLoss,
@@ -1024,7 +1028,30 @@ export async function insertDamagedGood(record: DamagedGood): Promise<void> {
 }
 
 export async function deleteDamagedGood(id: string): Promise<void> {
+    if (!isUuid(id)) return;
     const { error } = await supabase.from('damaged_goods').delete().eq('id', id);
+    if (error) throw error;
+}
+
+export async function deleteDamagedGoodByRecord(record: DamagedGood): Promise<void> {
+    let query = supabase
+        .from('damaged_goods')
+        .delete()
+        .eq('product_id', record.productId)
+        .eq('supplier_id', record.supplierId)
+        .eq('quantity', record.quantity)
+        .eq('unit_price', record.unitPrice)
+        .eq('total_loss', record.totalLoss)
+        .eq('reason', record.reason)
+        .eq('date', record.date);
+
+    if (record.branchId) {
+        query = query.eq('branch_id', record.branchId);
+    } else {
+        query = query.is('branch_id', null);
+    }
+
+    const { error } = await query;
     if (error) throw error;
 }
 

@@ -102,7 +102,7 @@ const ConfirmDialog: React.FC<{
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
 const Suppliers: React.FC = () => {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser } = useStore();
+  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
   const isAdmin = currentUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');
   const [searchTerm, setSearchTerm] = useState('');
@@ -325,6 +325,8 @@ const Suppliers: React.FC = () => {
         productName: product.name,
         supplierId: supplier.id,
         supplierName: supplier.name,
+        branchId: currentBranch.id,
+        branchName: currentBranch.name,
         quantity: damagedForm.quantity,
         unitPrice: damagedForm.unitPrice,
         totalLoss: damagedForm.quantity * damagedForm.unitPrice,

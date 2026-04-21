@@ -1895,7 +1895,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (product && normalizedQty > 0) {
       const currentBranchStock = product.branchStock[targetBranchId] || 0;
-      const nextBranchStock = currentBranchStock + normalizedQty;
+      // When recording damaged goods we should REDUCE the available stock
+      const nextBranchStock = Math.max(0, currentBranchStock - normalizedQty);
       const updatedBranchStock = { ...product.branchStock, [targetBranchId]: nextBranchStock };
       const nextTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
 
@@ -1912,7 +1913,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         productName: product.name,
         branchId: targetBranchId,
         branchName: targetBranchName,
-        type: 'IN',
+        type: 'OUT',
         quantity: normalizedQty,
         reason: `Damaged goods recorded (${targetBranchName})`,
         date: `${localDate}T00:00:00.000Z`
@@ -1951,7 +1952,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (product && normalizedQty > 0) {
       const currentBranchStock = product.branchStock[targetBranchId] || 0;
-      const nextBranchStock = Math.max(0, currentBranchStock - normalizedQty);
+      // Deleting a damaged-good record should RESTORE the stock
+      const nextBranchStock = currentBranchStock + normalizedQty;
       const updatedBranchStock = { ...product.branchStock, [targetBranchId]: nextBranchStock };
       const nextTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
 
@@ -1968,7 +1970,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         productName: product.name,
         branchId: targetBranchId,
         branchName: targetBranchName,
-        type: 'OUT',
+        type: 'IN',
         quantity: normalizedQty,
         reason: `Damaged goods deleted (${targetBranchName})`,
         date: `${localDate}T00:00:00.000Z`

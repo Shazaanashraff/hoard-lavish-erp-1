@@ -1,41 +1,10 @@
 import React, { useState } from 'react';
-import { Users, Plus, Phone, Mail, Edit2, Trash2, X, Search, ChevronLeft, ShoppingBag, Star, Calendar, AlertTriangle } from 'lucide-react';
+import { Users, Plus, Phone, Mail, Edit2, Trash2, X, Search, ChevronLeft, ShoppingBag, Star, Calendar } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Customer } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
-
-const CUR = 'LKR';
-const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-// --- Delete Confirmation Popup ---
-const ConfirmDialog: React.FC<{
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}> = ({ title, message, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onCancel}>
-    <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-      <div className="p-4 flex items-center gap-3 bg-red-50">
-        <div className="p-2 rounded-full bg-red-100 text-red-600">
-          <AlertTriangle size={20} />
-        </div>
-        <div className="flex-1">
-          <h4 className="font-bold text-sm text-red-800">{title}</h4>
-          <p className="text-sm text-slate-600 mt-0.5">{message}</p>
-        </div>
-      </div>
-      <div className="p-3 flex justify-end gap-2 bg-white border-t border-slate-100">
-        <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
-          Cancel
-        </button>
-        <button onClick={onConfirm} className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">
-          Delete
-        </button>
-      </div>
-    </div>
-  </div>
-);
+import { fmtCurrency } from '../utils/formatters';
+import ConfirmDialog from './shared/ConfirmDialog';
 
 const Customers: React.FC = () => {
   const { customers, addCustomer, updateCustomer, deleteCustomer, salesHistory, currentUser } = useStore();

@@ -5,9 +5,7 @@ import { SalesRecord, ExchangeRecord } from '../types';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { parseBusinessDate } from '../utils/dateTime';
-
-const CUR = 'LKR';
-const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency } from '../utils/formatters';
 
 type TimePeriod = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL' | 'CUSTOM';
 

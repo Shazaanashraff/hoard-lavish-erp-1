@@ -19,3 +19,7 @@ CREATE TABLE IF NOT EXISTS stock_transfers (
 CREATE INDEX IF NOT EXISTS idx_stock_transfers_from_branch ON stock_transfers(from_branch_id);
 CREATE INDEX IF NOT EXISTS idx_stock_transfers_to_branch ON stock_transfers(to_branch_id);
 CREATE INDEX IF NOT EXISTS idx_stock_transfers_date ON stock_transfers(date DESC);
+
+-- Enable RLS and allow all operations (PIN-auth phase — permissive like other tables)
+ALTER TABLE stock_transfers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON stock_transfers FOR ALL USING (true) WITH CHECK (true);

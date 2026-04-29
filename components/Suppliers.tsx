@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, ShieldAlert } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Supplier, SupplierTransaction, DamagedGood } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
-
-const CUR = 'LKR';
-const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency } from '../utils/formatters';
+import { CUR } from '../constants';
+import ConfirmDialog from './shared/ConfirmDialog';
+import TabButton from './shared/TabButton';
 
 const renderTransactionNotes = (notes: string) => {
   const normalized = (notes || '').replace(/\r\n/g, '\n').trim();
@@ -74,30 +75,6 @@ interface InventoryLineItem {
   quantity: number;
   unitPrice: number;
 }
-
-// --- Delete Confirmation ---
-const ConfirmDialog: React.FC<{
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}> = ({ title, message, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onCancel}>
-    <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-      <div className="p-4 flex items-center gap-3 bg-red-50">
-        <div className="p-2 rounded-full bg-red-100 text-red-600"><AlertTriangle size={20} /></div>
-        <div className="flex-1">
-          <h4 className="font-bold text-sm text-red-800">{title}</h4>
-          <p className="text-sm text-slate-600 mt-0.5">{message}</p>
-        </div>
-      </div>
-      <div className="p-3 flex justify-end gap-2 bg-white border-t border-slate-100">
-        <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
-        <button onClick={onConfirm} className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">Delete</button>
-      </div>
-    </div>
-  </div>
-);
 
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
@@ -349,16 +326,6 @@ const Suppliers: React.FC = () => {
     deleteDamagedGood(id);
   };
 
-  // Tab button component
-  const TabBtn = ({ id, label }: { id: SupplierTab; label: string }) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${activeTab === id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
       {/* Header */}
@@ -379,10 +346,10 @@ const Suppliers: React.FC = () => {
         </div>
 
         <div className="flex gap-4">
-          <TabBtn id="LIST" label="Suppliers List" />
-          <TabBtn id="EXPENSE" label="Record Expense" />
-          <TabBtn id="HISTORY" label="Expense History" />
-          <TabBtn id="DAMAGED" label="Damaged Goods" />
+          <TabButton id="LIST" label="Suppliers List" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
+          <TabButton id="EXPENSE" label="Record Expense" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
+          <TabButton id="HISTORY" label="Expense History" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
+          <TabButton id="DAMAGED" label="Damaged Goods" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
         </div>
       </div>
 

@@ -1,49 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, AlertCircle, Trash2, Search, Filter, History, Box, Tag, ArrowUpRight, ArrowDownRight, Save, X, Building2, AlertTriangle, Palette, Ruler, ArrowRightLeft, FileText, Printer, ChevronDown, ChevronUp, Minus, Barcode } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
-import { Product, StockTransferItem, StockTransfer } from '../types';
+import { Plus, Edit2, AlertCircle, AlertTriangle, Trash2, Search, Filter, History, Box, Tag, ArrowUpRight, ArrowDownRight, Save, X, Building2, Palette, Ruler, ArrowRightLeft, FileText, Printer, ChevronDown, ChevronUp, Minus, Barcode } from 'lucide-react';
+import { useStore } from '../../context/StoreContext';
+import { Product, StockTransferItem, StockTransfer } from '../../types';
 import JsBarcode from 'jsbarcode';
-import { parseBusinessDate } from '../utils/dateTime';
+import { parseBusinessDate } from '../../utils/dateTime';
+import { fmtCurrency } from '../../utils/formatters';
+import { CUR } from '../../constants';
+import ConfirmDialog from '../shared/ConfirmDialog';
 
 type InventoryTab = 'ALL' | 'LOW_STOCK' | 'ADJUSTMENTS' | 'CATEGORIES' | 'TRANSFERS';
-
-const CUR = 'LKR';
-const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Available colors and sizes for variation builder
 const AVAILABLE_COLORS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Navy', 'Beige', 'Brown', 'Grey', 'Pink', 'Yellow', 'Purple', 'Orange', 'Maroon', 'Olive', 'Teal', 'Cream'];
 const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Free Size', '28', '30', '32', '34', '36', '38', '40', '42'];
-
-// --- Confirmation Popup ---
-const ConfirmDialog: React.FC<{
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  confirmLabel?: string;
-}> = ({ title, message, onConfirm, onCancel }) => (
-  <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onCancel}>
-    <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-      <div className="p-4 flex items-center gap-3 bg-red-50">
-        <div className="p-2 rounded-full bg-red-100 text-red-600">
-          <AlertTriangle size={20} />
-        </div>
-        <div className="flex-1">
-          <h4 className="font-bold text-sm text-red-800">{title}</h4>
-          <p className="text-sm text-slate-600 mt-0.5">{message}</p>
-        </div>
-      </div>
-      <div className="p-3 flex justify-end gap-2 bg-white border-t border-slate-100">
-        <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors">
-          Cancel
-        </button>
-        <button onClick={onConfirm} className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-red-500 hover:bg-red-600 transition-colors">
-          Delete
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
 // Variation row type
 interface VariationRow {
@@ -60,7 +29,7 @@ interface VariationRow {
 const Inventory: React.FC = () => {
   const {
     products, categories, brands, stockHistory, currentBranch, branches,
-    addProduct, updateProduct, deleteProduct, getProductSalesUsage, adjustStock, transferStock, refreshTransfers,
+    addProduct, updateProduct, deleteProduct, getProductSalesUsage, adjustStock, transferStock, deleteTransfer, refreshTransfers,
     addCategory, removeCategory, addBrand, removeBrand,
     currentUser, stockTransfers, settings, isLoading
   } = useStore();
@@ -107,6 +76,8 @@ const Inventory: React.FC = () => {
   const [completedTransfer, setCompletedTransfer] = useState<StockTransfer | null>(null);
   const [showTransferHistory, setShowTransferHistory] = useState(true);
   const [isRefreshingTransfers, setIsRefreshingTransfers] = useState(false);
+  const [deleteTransferConfirm, setDeleteTransferConfirm] = useState<StockTransfer | null>(null);
+  const [isDeletingTransfer, setIsDeletingTransfer] = useState(false);
 
   // Custom color state
   const [customColors, setCustomColors] = useState<string[]>([]);
@@ -1185,13 +1156,22 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                             <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold">{t.status}</span>
                           </td>
                           <td className="p-4 text-center">
-                            <button
-                              onClick={() => generateTransferPDF(t)}
-                              className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors"
-                              title="Print Transfer Invoice"
-                            >
-                              <FileText size={16} />
-                            </button>
+                            <div className="flex justify-center gap-1">
+                              <button
+                                onClick={() => generateTransferPDF(t)}
+                                className="p-1.5 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors"
+                                title="Print Transfer Invoice"
+                              >
+                                <FileText size={16} />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTransferConfirm(t)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Transfer & Revert Stock"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -2000,6 +1980,52 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                 className="px-5 py-2 rounded-lg text-white text-sm font-medium bg-slate-900 hover:bg-black"
               >
                 Confirm Print ({Math.max(1, Number(variationPrintConfirm.qty) || 1)})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTransferConfirm && (
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => !isDeletingTransfer && setDeleteTransferConfirm(null)}>
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 flex items-start gap-3 bg-red-50 border-b border-red-100">
+              <div className="p-2 rounded-full bg-red-100 text-red-700">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-sm text-red-900">Delete Stock Transfer</h4>
+                <p className="text-sm text-slate-700 mt-1">
+                  This will delete transfer <span className="font-mono font-bold">{deleteTransferConfirm.transferNumber}</span> and revert all stock adjustments. <strong>This action cannot be undone.</strong>
+                </p>
+              </div>
+            </div>
+            <div className="p-4 space-y-2 bg-slate-50 text-xs text-slate-600">
+              <p><strong>From:</strong> {deleteTransferConfirm.fromBranchName} → <strong>To:</strong> {deleteTransferConfirm.toBranchName}</p>
+              <p><strong>Items:</strong> {deleteTransferConfirm.totalItems} · <strong>Value:</strong> {fmtCurrency(deleteTransferConfirm.totalValue)}</p>
+            </div>
+            <div className="p-3 flex justify-end gap-2 bg-white border-t border-slate-100">
+              <button
+                disabled={isDeletingTransfer}
+                onClick={() => setDeleteTransferConfirm(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isDeletingTransfer}
+                onClick={async () => {
+                  setIsDeletingTransfer(true);
+                  try {
+                    deleteTransfer(deleteTransferConfirm.id);
+                    setDeleteTransferConfirm(null);
+                  } finally {
+                    setIsDeletingTransfer(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
+              >
+                {isDeletingTransfer ? 'Deleting...' : 'Delete Transfer'}
               </button>
             </div>
           </div>

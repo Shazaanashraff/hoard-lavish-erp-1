@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType } from '../types';
-import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_SUPPLIERS, INITIAL_EXPENSES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
+import { INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
 import { supabase } from '../services/supabaseClient';
 import { calculateCartTotals } from '../utils/cart';
 import { generateInvoiceNumber, generateTransferNumber } from '../utils/generators';
+import { isLikelyConnectivityIssue, extractDbErrorMessage, DbLikeError } from '../utils/errors';
+import { isUuid, makeUuid } from '../utils/ids';
 
 interface StoreContextType {
   products: Product[];
@@ -62,6 +64,7 @@ interface StoreContextType {
   completeExchange: (exchange: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'>) => ExchangeRecord;
   adjustStock: (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => void;
   transferStock: (toBranchId: string, items: StockTransferItem[], notes: string) => StockTransfer;
+  deleteTransfer: (transferId: string) => void;
   refreshTransfers: () => Promise<void>;
 
   addCategory: (category: string) => void;
@@ -116,133 +119,14 @@ const isSupabaseConfigured = (): boolean => {
   return !!(url && key && url !== 'YOUR_SUPABASE_URL' && key !== 'YOUR_SUPABASE_ANON_KEY');
 };
 
-type DbLikeError = {
-  code?: string;
-  message?: string;
-  details?: string;
-  hint?: string;
-  error_description?: string;
-};
-
-const isLikelyConnectivityIssue = (err: unknown): boolean => {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
-
-  if (err instanceof Error) {
-    const msg = (err.message || '').toLowerCase();
-    if (
-      msg.includes('failed to fetch') ||
-      msg.includes('networkerror') ||
-      msg.includes('network request failed') ||
-      msg.includes('fetch failed') ||
-      msg.includes('timed out') ||
-      msg.includes('timeout') ||
-      msg.includes('connection') ||
-      msg.includes('offline')
-    ) {
-      return true;
-    }
-  }
-
-  if (err && typeof err === 'object') {
-    const dbErr = err as DbLikeError;
-    const msg = `${dbErr.message || ''} ${dbErr.error_description || ''}`.toLowerCase();
-    if (
-      msg.includes('failed to fetch') ||
-      msg.includes('network') ||
-      msg.includes('timed out') ||
-      msg.includes('timeout') ||
-      msg.includes('connection') ||
-      msg.includes('offline')
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-};
-
-const extractDbErrorMessage = (
-  err: unknown,
-  fallback = 'Database operation failed',
-  operation: 'checkout' | 'general' = 'general'
-): string => {
-  if (isLikelyConnectivityIssue(err)) {
-    return operation === 'checkout'
-      ? 'Checkout failed due to an internet connection issue. Please check your connection and try again.'
-      : 'Database request failed due to an internet connection issue. Please check your connection and try again.';
-  }
-
-  if (err instanceof Error && err.message) return err.message;
-  if (err && typeof err === 'object') {
-    const dbErr = err as DbLikeError;
-    const code = dbErr.code || '';
-    const message = dbErr.message || dbErr.error_description || '';
-    const details = dbErr.details || '';
-    const hint = dbErr.hint || '';
-    const combined = `${message} ${details} ${hint}`.toLowerCase();
-
-    if (combined.includes('<!doctype html') || combined.includes('cloudflare') || combined.includes('error code 502') || combined.includes('bad gateway')) {
-      return operation === 'checkout'
-        ? 'Checkout could not reach the backend service right now. Please try again.'
-        : 'The backend service returned an error response. Please try again.';
-    }
-
-    if (combined.includes('affects_accounting') && combined.includes('schema cache')) {
-      return operation === 'checkout'
-        ? 'Checkout failed because the database schema is out of date. Refresh the Supabase schema cache or apply the latest migration.'
-        : 'The database schema is out of date for supplier transactions. Refresh the Supabase schema cache or apply the latest migration.';
-    }
-
-    if (code === '23503') {
-      if ((message + details).toLowerCase().includes('product_branch_stock')) {
-        return operation === 'checkout'
-          ? 'Checkout failed because related stock data is missing or invalid (not an internet connection issue).'
-          : 'Cannot add product stock for one or more branches. Please sync branches and try again (not an internet connection issue).';
-      }
-      return operation === 'checkout'
-        ? 'Checkout failed because related data is missing or invalid (not an internet connection issue).'
-        : 'This action failed because related data is missing or invalid (not an internet connection issue).';
-    }
-    if (code === '22P02') {
-      return operation === 'checkout'
-        ? 'Checkout failed because invalid data format was sent to the database (not an internet connection issue).'
-        : 'Invalid value format was sent to the database (not an internet connection issue).';
-    }
-    if (code === '23505') return 'A record with the same value already exists (not an internet connection issue).';
-    if (code === '42501') return 'Permission denied for this database action (not an internet connection issue).';
-    if (code === '23502') return 'A required field is missing for this database action (not an internet connection issue).';
-
-    if (message) {
-      const parts = [message];
-      if (details) parts.push(details);
-      if (hint) parts.push(`Hint: ${hint}`);
-      const merged = parts.join(' - ');
-      return operation === 'checkout'
-        ? `Checkout failed (not an internet connection issue): ${merged}`
-        : `${merged} (not an internet connection issue).`;
-    }
-  }
-  return operation === 'checkout'
-    ? `${fallback} (not an internet connection issue).`
-    : `${fallback} (not an internet connection issue).`;
-};
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
-const makeUuid = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
 const OFFLINE_QUEUE_STORAGE_KEY = 'hoard_offline_queue_v1';
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
   const [currentBranch, setCurrentBranch] = useState<Branch>(INITIAL_BRANCHES[0]);
 
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [salesHistory, setSalesHistory] = useState<SalesRecord[]>([]);
   const [stockHistory, setStockHistory] = useState<StockMovement[]>([]);
@@ -250,9 +134,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([]);
   const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
   const [brands, setBrands] = useState<string[]>(INITIAL_BRANDS);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierTransactions, setSupplierTransactions] = useState<SupplierTransaction[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [damagedGoods, setDamagedGoods] = useState<DamagedGood[]>([]);
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
@@ -500,7 +384,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     operation: OfflineOperationType,
     payload: Record<string, unknown>,
     fn: () => Promise<unknown>,
-    options?: { fallback?: string; operationType?: 'checkout' | 'general'; forceQueueOnError?: boolean }
+    options?: { fallback?: string; operationType?: 'checkout' | 'general'; forceQueueOnError?: boolean; onNonQueueableError?: (error: unknown) => void }
   ): Promise<boolean> => {
     if (!useSupabase) return true;
 
@@ -516,6 +400,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isQueueableError(err) || options?.forceQueueOnError) {
         enqueueOfflineOperation(operation, payload, extractDbErrorMessage(err, options?.fallback, options?.operationType || 'general'));
         return false;
+      }
+      // Call error handler for non-queueable errors (like RLS/permission failures)
+      if (options?.onNonQueueableError) {
+        options.onNonQueueableError(err);
       }
       console.error('Supabase operation failed:', err);
       setDbError(extractDbErrorMessage(err, options?.fallback, options?.operationType || 'general'));
@@ -1628,6 +1516,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       notes,
     };
 
+    // Save original state for rollback on permission errors
+    const originalProducts = products;
+    const originalStockHistory = stockHistory;
+    const originalStockTransfers = stockTransfers;
+
     // Update product stock: deduct from source, add to destination
     const newStockLogs: StockMovement[] = [];
     const newProducts = products.map(p => {
@@ -1646,7 +1539,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         productName: p.name,
         branchId: currentBranch.id,
         branchName: currentBranch.name,
-        type: 'TRANSFER',
+        type: 'OUT',
         quantity: transferItem.quantity,
         reason: `Transfer OUT → ${toBranch.name} (${transferNumber})`,
         date: `${localDate}T00:00:00.000Z`,
@@ -1659,7 +1552,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         productName: p.name,
         branchId: toBranchId,
         branchName: toBranch.name,
-        type: 'TRANSFER',
+        type: 'IN',
         quantity: transferItem.quantity,
         reason: `Transfer IN ← ${currentBranch.name} (${transferNumber})`,
         date: `${localDate}T00:00:00.000Z`,
@@ -1672,7 +1565,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStockHistory(prev => [...newStockLogs, ...prev]);
     setStockTransfers(prev => [transfer, ...prev]);
 
-    // Persist to Supabase with error handling
+    // Persist to Supabase with error handling and rollback on permission errors
     if (useSupabase) {
       const stockRows = items.flatMap(item => {
         const product = newProducts.find(p => p.id === item.productId);
@@ -1704,10 +1597,66 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           console.error('Transfer persistence failed:', err);
           throw new Error(`Failed to save transfer ${transfer.transferNumber} to database. The transfer was created locally but not synced. Click refresh to retry.`);
         }
-      }, { fallback: `Transfer ${transfer.transferNumber} saved locally but failed to sync with database` });
+      }, { 
+        fallback: `Transfer ${transfer.transferNumber} saved locally but failed to sync with database`,
+        onNonQueueableError: () => {
+          // Rollback stock changes on permission/RLS errors
+          setProducts(originalProducts);
+          setStockHistory(originalStockHistory);
+          setStockTransfers(originalStockTransfers);
+        }
+      });
     }
 
     return transfer;
+  };
+
+  const deleteTransfer = (transferId: string) => {
+    const transfer = stockTransfers.find(t => t.id === transferId);
+    if (!transfer) return;
+
+    // Revert stock changes
+    const newProducts = products.map(p => {
+      const transferItem = transfer.items.find(i => i.productId === p.id);
+      if (!transferItem) return p;
+
+      // Reverse the transfer: add back to from_branch, remove from to_branch
+      const revertedFromStock = (p.branchStock[transfer.fromBranchId] || 0) + transferItem.quantity;
+      const revertedToStock = Math.max(0, (p.branchStock[transfer.toBranchId] || 0) - transferItem.quantity);
+      const updatedBranchStock = { ...p.branchStock, [transfer.fromBranchId]: revertedFromStock, [transfer.toBranchId]: revertedToStock };
+      const newTotalStock = Object.values(updatedBranchStock).reduce((a: number, b: number) => a + b, 0);
+
+      return { ...p, branchStock: updatedBranchStock, stock: newTotalStock };
+    });
+
+    // Remove transfer and related stock movements
+    const newTransfers = stockTransfers.filter(t => t.id !== transferId);
+    const newHistory = stockHistory.filter(h => !h.reason?.includes(transfer.transferNumber));
+
+    setProducts(newProducts);
+    setStockTransfers(newTransfers);
+    setStockHistory(newHistory);
+
+    // Persist deletion to Supabase
+    if (useSupabase) {
+      void executeWithOfflineQueue('DELETE_TRANSFER', { transferId, transferNumber: transfer.transferNumber }, async () => {
+        // Update branch stock for all items
+        for (const item of transfer.items) {
+          const product = newProducts.find(p => p.id === item.productId);
+          if (!product) continue;
+          await db.upsertBranchStock(item.productId, transfer.fromBranchId, product.branchStock[transfer.fromBranchId] || 0);
+          await db.upsertBranchStock(item.productId, transfer.toBranchId, product.branchStock[transfer.toBranchId] || 0);
+        }
+        // Delete stock movements related to this transfer
+        for (const movement of stockHistory) {
+          if (movement.reason?.includes(transfer.transferNumber)) {
+            // Note: There's no deleteStockMovement function, so we'll just log it
+            // In a production system, you'd want to soft-delete or have a removal mechanism
+            console.log('Stock movement to be removed:', movement.id);
+          }
+        }
+      }, { fallback: `Failed to delete transfer ${transfer.transferNumber}` });
+    }
   };
 
   // ============================================================
@@ -2172,7 +2121,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addProduct, updateProduct, deleteProduct, getProductSalesUsage,
       addCustomer, updateCustomer, deleteCustomer,
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
-      completeSale, updateSale, deleteSale, completeExchange, adjustStock, transferStock, refreshTransfers,
+      completeSale, updateSale, deleteSale, completeExchange, adjustStock, transferStock, deleteTransfer, refreshTransfers,
       addCategory, removeCategory, addBrand, removeBrand,
       addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,

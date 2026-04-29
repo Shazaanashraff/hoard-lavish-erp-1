@@ -1,21 +1,19 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye, X, Download, ArrowRightLeft, Edit2, Printer, Plus, Minus, Trash2, CheckCircle, ClipboardList } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore } from '../../context/StoreContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { CartItem, SalesRecord } from '../types';
-import { parseBusinessDate } from '../utils/dateTime';
-import { getTopRevenueAndQuantityProducts } from '../utils/revenue';
+import { CartItem, SalesRecord } from '../../types';
+import { parseBusinessDate } from '../../utils/dateTime';
+import { getTopRevenueAndQuantityProducts } from '../../utils/revenue';
+import { fmtCurrency } from '../../utils/formatters';
+import { CUR } from '../../constants';
 
 type FilterMode = 'daily' | 'monthly';
 
-const CUR = 'LKR';
-
 const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
-
-const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const Dashboard: React.FC = () => {
   const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
@@ -161,13 +159,13 @@ const Dashboard: React.FC = () => {
         id: t.id, date: t.date, desc: `Supplier: ${t.supplierName}`, amount: t.amount, type: 'OUT' as const, category: 'Inventory'
       })),
       ...filteredTransfers.map(t => ({
-        id: t.id, date: t.date, desc: `Transfer ${t.transferNumber}: ${t.fromBranchName} → ${t.toBranchName}`, amount: t.totalValue, type: 'TRANSFER' as const, category: 'Stock Transfer'
+        id: t.id, date: t.date, desc: `Transfer ${t.transferNumber}: ${t.fromBranchName} → ${t.toBranchName}`, amount: t.totalValue, type: 'IN' as const, category: 'Stock Transfer'
       })),
       ...filteredExchanges.map(e => ({
         id: e.id, date: e.date,
         desc: `Exchange #${e.exchangeNumber}${e.originalInvoiceNumber ? ` (Sale #${e.originalInvoiceNumber})` : ''}: ${e.description || 'Product exchange'}`,
         amount: Math.abs(e.difference),
-        type: (e.difference >= 0 ? 'IN' : 'OUT') as 'IN' | 'OUT' | 'TRANSFER',
+        type: (e.difference >= 0 ? 'IN' : 'OUT') as 'IN' | 'OUT',
         category: 'Exchange'
       }))
     ];
@@ -222,15 +220,6 @@ const Dashboard: React.FC = () => {
           message: `Stock removed`,
           detail: `${mv.quantity} units of ${mv.productName} — ${mv.reason}`,
           color: 'rose'
-        });
-      } else if (mv.type === 'TRANSFER') {
-        items.push({
-          id: `stock-${mv.id}`,
-          date: mv.date,
-          icon: 'stock_out',
-          message: `Stock transferred`,
-          detail: `${mv.quantity} units of ${mv.productName} — ${mv.reason}`,
-          color: 'indigo'
         });
       } else if (mv.type === 'ADJUSTMENT') {
         const isEdit = mv.reason.startsWith('Product edited');
@@ -1374,12 +1363,12 @@ const Dashboard: React.FC = () => {
                     <td className="p-4">
                       <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium text-slate-600">{item.category}</span>
                     </td>
-                    <td className={`p-4 text-right font-bold ${item.type === 'IN' ? 'text-emerald-600' : item.type === 'TRANSFER' ? 'text-indigo-600' : 'text-rose-600'}`}>
-                      {item.type === 'OUT' ? '-' : item.type === 'TRANSFER' ? '⇄ ' : '+'}{fmtCurrency(item.amount)}
+                    <td className={`p-4 text-right font-bold ${item.category === 'Stock Transfer' ? 'text-indigo-600' : item.type === 'IN' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {item.category === 'Stock Transfer' ? '⇄ ' : item.type === 'OUT' ? '-' : '+'}{fmtCurrency(item.amount)}
                     </td>
                     <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : item.type === 'TRANSFER' ? 'bg-indigo-100 text-indigo-700' : 'bg-rose-100 text-rose-700'}`}>
-                        {item.type === 'IN' ? 'Income' : item.type === 'TRANSFER' ? 'Transfer' : 'Expense'}
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.category === 'Stock Transfer' ? 'bg-indigo-100 text-indigo-700' : item.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {item.category === 'Stock Transfer' ? 'Transfer' : item.type === 'IN' ? 'Income' : 'Expense'}
                       </span>
                     </td>
                   </tr>

@@ -1,7 +1,5 @@
 /// <reference types="vite/client" />
 
-declare const __APP_VERSION__: string;
-
 export interface ElectronAPI {
   platform: string;
   onUpdateAvailable: (callback: (data: { version: string }) => void) => void;
@@ -16,6 +14,7 @@ export interface ElectronAPI {
 }
 
 declare global {
+  const __APP_VERSION__: string;
   interface Window {
     electronAPI?: ElectronAPI;
   }

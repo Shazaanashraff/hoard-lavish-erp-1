@@ -1,69 +1,15 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, UserPlus, User, X, ScanBarcode, Printer, CheckCircle, Store, AlertTriangle, ArrowRightLeft, RotateCcw } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
-import { Product, Customer, SalesRecord, CartItem, ExchangeRecord, ExchangeLineItem } from '../types';
-import { parseBusinessDate } from '../utils/dateTime';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, UserPlus, User, X, ScanBarcode, Printer, CheckCircle, Store, ArrowRightLeft, RotateCcw } from 'lucide-react';
+import { useStore } from '../../context/StoreContext';
+import { Product, Customer, SalesRecord, CartItem, ExchangeRecord, ExchangeLineItem } from '../../types';
+import { parseBusinessDate } from '../../utils/dateTime';
+import { fmtCurrency } from '../../utils/formatters';
+import { CUR } from '../../constants';
+import AlertPopup from '../shared/AlertPopup';
+import { round2, allocateDiscountByUnits, getEffectiveLineTotal } from './posUtils';
 
-const CUR = 'LKR';
-const fmtCurrency = (n: number) => `${CUR} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
-
-// --- Alert Popup Component ---
-const AlertPopup: React.FC<{ message: string; type?: 'error' | 'warning'; onClose: () => void }> = ({ message, type = 'error', onClose }) => (
-  <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
-    <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-      <div className={`p-4 flex items-center gap-3 ${type === 'error' ? 'bg-red-50' : 'bg-amber-50'}`}>
-        <div className={`p-2 rounded-full ${type === 'error' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
-          <AlertTriangle size={20} />
-        </div>
-        <div className="flex-1">
-          <h4 className={`font-bold text-sm ${type === 'error' ? 'text-red-800' : 'text-amber-800'}`}>
-            {type === 'error' ? 'Stock Limit Reached' : 'Warning'}
-          </h4>
-          <p className="text-sm text-slate-600 mt-0.5">{message}</p>
-        </div>
-      </div>
-      <div className="p-3 flex justify-end bg-white border-t border-slate-100">
-        <button
-          onClick={onClose}
-          className={`px-5 py-2 rounded-lg text-white text-sm font-medium transition-colors ${type === 'error' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
-            }`}
-        >
-          OK
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-
-const allocateDiscountByUnits = (totalDiscount: number, totalUnits: number): number[] => {
-  if (totalUnits <= 0 || totalDiscount <= 0) return Array.from({ length: totalUnits }, () => 0);
-  const base = round2(totalDiscount / totalUnits);
-  const shares = Array.from({ length: totalUnits }, () => base);
-  const allocated = round2(shares.reduce((sum, v) => sum + v, 0));
-  const diff = round2(totalDiscount - allocated);
-  if (shares.length > 0 && diff !== 0) {
-    shares[shares.length - 1] = round2(Math.max(0, shares[shares.length - 1] + diff));
-  }
-  return shares;
-};
-
-const getEffectiveLineTotal = (item: ExchangeLineItem, quantity: number): number => {
-  const qty = Math.max(0, quantity);
-  if (item.sourceType === 'no-sale-return') {
-    const manual = Math.max(0, item.manualReturnUnitPrice ?? 0);
-    return round2(manual * qty);
-  }
-
-  const unitItemDiscount = Math.max(0, item.unitItemDiscount ?? item.discount ?? 0);
-  const unitBillDiscountShare = Math.max(0, item.unitBillDiscountShare ?? 0);
-  const fallbackUnit = Math.max(0, item.price - unitItemDiscount - unitBillDiscountShare);
-  const effectiveUnit = Math.max(0, item.effectiveUnitPrice ?? fallbackUnit);
-  return round2(effectiveUnit * qty);
-};
 
 const POS: React.FC = () => {
   const { products, customers, cart, salesHistory, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
@@ -187,6 +133,12 @@ const POS: React.FC = () => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Skip if scan mode overlay is open — its own listener handles everything
       if (isScanMode) return;
+
+      // Skip if a text input is focused (don't intercept typing in search, etc.)
+      const activeElement = document.activeElement as HTMLElement;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.contentEditable === 'true')) {
+        return;
+      }
 
       const now = Date.now();
       const timeSinceLastKey = now - scanLastKeyTimeRef.current;

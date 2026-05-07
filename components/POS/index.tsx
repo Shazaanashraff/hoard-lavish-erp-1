@@ -12,7 +12,7 @@ type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
 
 const POS: React.FC = () => {
-  const { products, customers, cart, salesHistory, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
+  const { products, customers, cart, salesHistory, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, deleteSale, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   // Keep a ref in sync with barcodeInput so the submit handler always reads
@@ -80,19 +80,29 @@ const POS: React.FC = () => {
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scanLastKeyTimeRef = useRef(0);
   const scanCooldownRef = useRef(0); // timestamp of last successful scan — used to ignore duplicates
+  const scanProcessingRef = useRef(false); // lock to prevent concurrent processing
 
   useEffect(() => {
     const SCAN_CHAR_INTERVAL = 100; // max ms between chars to treat as scanner input
     const SCAN_MIN_LENGTH = 3;     // minimum chars to treat as a barcode scan
-    const SCAN_COOLDOWN = 1500;    // ms to ignore duplicate scans after a successful one
+    const SCAN_COOLDOWN = 2500;    // ms to ignore duplicate scans after a successful one (increased from 1500)
 
     const processBarcodeValue = (val: string) => {
+      // Lock: prevent concurrent processing
+      if (scanProcessingRef.current) {
+        console.log('[BARCODE SCANNER] Ignoring duplicate scan (processing in progress):', val);
+        return;
+      }
+      
       // Cooldown: ignore if we just processed a scan recently
       const now = Date.now();
       if (now - scanCooldownRef.current < SCAN_COOLDOWN) {
         console.log('[BARCODE SCANNER] Ignoring duplicate scan (cooldown active):', val);
         return;
       }
+      
+      // Set processing lock
+      scanProcessingRef.current = true;
 
       console.log('[BARCODE SCANNER] Processing barcode value:', val);
       const exact = products.find(p =>
@@ -125,6 +135,7 @@ const POS: React.FC = () => {
       }
       // Mark cooldown timestamp so duplicate scans are ignored
       scanCooldownRef.current = Date.now();
+      scanProcessingRef.current = false;
       setBarcodeInput('');
       barcodeValueRef.current = '';
       setTimeout(() => barcodeInputRef.current?.focus(), 30);
@@ -134,10 +145,13 @@ const POS: React.FC = () => {
       // Skip if scan mode overlay is open — its own listener handles everything
       if (isScanMode) return;
 
-      // Skip if a text input is focused (don't intercept typing in search, etc.)
+      // Skip if OTHER text inputs (not barcode input) are focused — don't intercept typing in search, etc.
+      // But ALLOW the global listener when barcode input has focus (that's where users scan)
       const activeElement = document.activeElement as HTMLElement;
-      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.contentEditable === 'true')) {
-        return;
+      if (activeElement && activeElement !== barcodeInputRef.current) {
+        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.contentEditable === 'true') {
+          return;
+        }
       }
 
       const now = Date.now();
@@ -234,6 +248,14 @@ const POS: React.FC = () => {
       if (e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
+        
+        // Lock: prevent duplicate processing
+        if (scanProcessingRef.current) {
+          console.log('[SCAN MODE] Ignoring Enter (processing in progress)');
+          return;
+        }
+        scanProcessingRef.current = true;
+        
         const val = scanModeBufferRef.current.trim();
         console.log('[SCAN MODE] Enter pressed — buffer:', val);
         if (val.length >= 1) {
@@ -267,11 +289,13 @@ const POS: React.FC = () => {
           }
           setBarcodeInput('');
           barcodeValueRef.current = '';
+          scanCooldownRef.current = Date.now();
           setIsScanMode(false);
           setTimeout(() => barcodeInputRef.current?.focus(), 30);
         }
         scanModeBufferRef.current = '';
         setScanModeBuffer('');
+        scanProcessingRef.current = false;
         return;
       }
 
@@ -286,6 +310,13 @@ const POS: React.FC = () => {
         // Auto-process timeout if scanner doesn't send Enter
         if (scanModeTimerRef.current) clearTimeout(scanModeTimerRef.current);
         scanModeTimerRef.current = setTimeout(() => {
+          // Lock: prevent duplicate processing
+          if (scanProcessingRef.current) {
+            console.log('[SCAN MODE] Ignoring timeout (processing in progress)');
+            return;
+          }
+          scanProcessingRef.current = true;
+          
           const v = scanModeBufferRef.current.trim();
           console.log('[SCAN MODE] Timeout — auto-processing buffer:', v);
           if (v.length >= 3) {
@@ -310,11 +341,13 @@ const POS: React.FC = () => {
             }
             setBarcodeInput('');
             barcodeValueRef.current = '';
+            scanCooldownRef.current = Date.now();
             setIsScanMode(false);
             setTimeout(() => barcodeInputRef.current?.focus(), 30);
           }
           scanModeBufferRef.current = '';
           setScanModeBuffer('');
+          scanProcessingRef.current = false;
         }, 500);
       }
     };
@@ -374,8 +407,10 @@ const POS: React.FC = () => {
   useEffect(() => {
     const val = barcodeInput.trim();
     if (!val) return;
+    // Lock: skip if processing is in progress
+    if (scanProcessingRef.current) return;
     // Cooldown: skip if a scan was just processed
-    if (Date.now() - scanCooldownRef.current < 1500) return;
+    if (Date.now() - scanCooldownRef.current < 2500) return;
     const exact = products.find(p =>
       p.sku.toLowerCase() === val.toLowerCase() ||
       (p.barcode && p.barcode.toLowerCase() === val.toLowerCase()) ||
@@ -445,6 +480,18 @@ const POS: React.FC = () => {
     // Read from ref for latest value — React state may lag behind fast scanners.
     const val = (barcodeValueRef.current || barcodeInput).trim();
     if (!val) return;
+    
+    // Lock: prevent duplicate processing
+    if (scanProcessingRef.current) return;
+    scanProcessingRef.current = true;
+    
+    // Cooldown: skip if a scan was just processed
+    const now = Date.now();
+    if (now - scanCooldownRef.current < 2500) {
+      scanProcessingRef.current = false;
+      return;
+    }
+    
     // Try exact SKU or barcode match first (for real barcode scanners)
     const exact = products.find(p =>
       p.sku.toLowerCase() === val.toLowerCase() ||
@@ -456,18 +503,24 @@ const POS: React.FC = () => {
       const branchStock = product.branchStock[currentBranch.id] || 0;
       if (branchStock > 0) {
         handleAddToCart(product);
+        scanCooldownRef.current = Date.now();
         setBarcodeInput('');
         barcodeValueRef.current = '';
+        scanProcessingRef.current = false;
         setTimeout(() => barcodeInputRef.current?.focus(), 50);
       } else {
         setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+        scanCooldownRef.current = Date.now();
         setBarcodeInput('');
         barcodeValueRef.current = '';
+        scanProcessingRef.current = false;
       }
     } else {
       setAlertPopup({ message: `No product found matching "${val}"`, type: 'error' });
+      scanCooldownRef.current = Date.now();
       setBarcodeInput('');
       barcodeValueRef.current = '';
+      scanProcessingRef.current = false;
     }
   };
 
@@ -1200,6 +1253,22 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
     }
 
     try {
+      // Check if we should void the selected sale: all items from the invoice are being returned
+      let shouldVoidSale = false;
+      if (selectedExchangeSale && noSaleReturnItems.length === 0) {
+        // Only linked-sale returns (no manual items added)
+        const returnedQtyByLineIndex = new Map<number, number>();
+        returnedItems.forEach(item => {
+          if (typeof item.sourceSaleItemIndex === 'number') {
+            returnedQtyByLineIndex.set(item.sourceSaleItemIndex, (returnedQtyByLineIndex.get(item.sourceSaleItemIndex) || 0) + item.quantity);
+          }
+        });
+        // Check if all items from selected sale are being returned
+        shouldVoidSale = selectedExchangeSale.items.every((item, idx) =>
+          (returnedQtyByLineIndex.get(idx) || 0) === item.quantity
+        );
+      }
+
       const exchange = completeExchange({
         originalSaleId: selectedExchangeSale?.id,
         originalInvoiceNumber: selectedExchangeSale?.invoiceNumber,
@@ -1215,7 +1284,13 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
         customerId: selectedExchangeSale?.customerId,
         customerName: selectedExchangeSale?.customerName,
         description: exchangeDescription || 'Product Exchange',
+        voidSaleId: shouldVoidSale ? selectedExchangeSale.id : undefined,
       });
+
+      // If sale should be voided, do it after exchange is created
+      if (shouldVoidSale && selectedExchangeSale) {
+        deleteSale(selectedExchangeSale.id);
+      }
 
       setLastExchange(exchange);
       setIsExchangeInvoiceOpen(true);
@@ -1984,88 +2059,132 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
                 )}
               </div>
 
-              {/* No-Sale Return (add back stock) */}
+              {/* No-Sale / Void Invoice Return */}
               {!selectedExchangeSale && (
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                   <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                     <RotateCcw size={14} className="text-blue-500" />
-                    Return Items Without Sale <span className="text-xs font-normal text-slate-400">(adds stock back)</span>
+                    Return Items <span className="text-xs font-normal text-slate-400">(select invoice to void, or add items manually)</span>
                   </h4>
-                  <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input
-                      type="text"
-                      placeholder="Search product to return..."
-                      className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      value={noSaleProductSearch}
-                      onChange={e => setNoSaleProductSearch(e.target.value)}
-                    />
-                    {noSaleProductResults.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-30 max-h-36 overflow-y-auto">
-                        {noSaleProductResults.map(p => (
-                          <button key={p.id} onMouseDown={() => handleAddNoSaleReturnItem(p)} className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 transition-colors text-left text-sm">
+
+                  {/* Option A: Select Invoice to Void */}
+                  <div className="mb-4 pb-4 border-b border-slate-300">
+                    <p className="text-xs text-slate-600 font-semibold uppercase mb-2">Option A: Select Invoice to Return & Void</p>
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                      <input
+                        type="text"
+                        placeholder="Search by invoice # or customer name..."
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        value={exchangeSaleSearch}
+                        onChange={e => setExchangeSaleSearch(e.target.value)}
+                      />
+                    </div>
+                    {filteredExchangeSales.length > 0 && (
+                      <div className="max-h-36 overflow-y-auto space-y-1 mb-2">
+                        {filteredExchangeSales.map(sale => (
+                          <button
+                            key={sale.id}
+                            onClick={() => {
+                              setSelectedExchangeSale(sale);
+                              setReturnedItems([]);
+                              setNoSaleReturnItems([]);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm transition-colors ${selectedExchangeSale?.id === sale.id ? 'bg-blue-100 border border-blue-300' : 'hover:bg-white border border-transparent'}`}
+                          >
                             <div>
-                              <span className="text-slate-700">{p.name}</span>
-                              <span className="text-xs text-slate-400 ml-2">{p.sku || '-'}</span>
-                              {(p.size || p.color) && (
-                                <p className="text-[11px] text-slate-400 mt-0.5">
-                                  {[p.size ? `Size: ${p.size}` : '', p.color ? `Color: ${p.color}` : ''].filter(Boolean).join(' • ')}
-                                </p>
-                              )}
+                              <span className="font-mono text-xs text-blue-600 font-bold">{sale.invoiceNumber}</span>
+                              <span className="text-slate-600 ml-2">{sale.customerName || 'Walk-in'}</span>
                             </div>
-                            <span className="text-xs text-slate-500">{fmtCurrency(p.price)}</span>
+                            <div className="text-right">
+                              <span className="font-bold text-slate-800">{fmtCurrency(sale.totalAmount)}</span>
+                              <span className="text-[10px] text-slate-400 ml-2">{parseBusinessDate(sale.date).toLocaleDateString()}</span>
+                            </div>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                  {noSaleReturnItems.length > 0 && (
-                    <div className="space-y-1 mt-2">
-                      {noSaleReturnItems.map(item => (
-                        <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
-                          <div>
-                            <p className="text-sm font-medium text-slate-800">{item.name}</p>
-                            {(item.size || item.color) && (
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                {[item.size ? `Size: ${item.size}` : '', item.color ? `Color: ${item.color}` : ''].filter(Boolean).join(' • ')}
-                              </p>
-                            )}
-                            <p className="text-xs text-slate-400">Manual Return Price (unit): {fmtCurrency(item.manualReturnUnitPrice ?? 0)}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min={1}
-                              value={item.quantity}
-                              onChange={e => setNoSaleReturnItems(prev => prev.map(i => i.id === item.id ? {
-                                ...i,
-                                quantity: Math.max(1, Number(e.target.value)),
-                                lineEffectiveTotal: getEffectiveLineTotal(i, Math.max(1, Number(e.target.value)))
-                              } : i))}
-                              className="w-14 p-1 border border-slate-200 rounded text-xs text-center"
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={item.manualReturnUnitPrice ?? 0}
-                              onChange={e => setNoSaleReturnItems(prev => prev.map(i => i.id === item.id ? {
-                                ...i,
-                                manualReturnUnitPrice: Math.max(0, Number(e.target.value)),
-                                effectiveUnitPrice: Math.max(0, Number(e.target.value)),
-                                lineEffectiveTotal: round2(Math.max(0, Number(e.target.value)) * i.quantity),
-                              } : i))}
-                              className="w-28 p-1 border border-slate-200 rounded text-xs text-right"
-                              placeholder="Return Price"
-                              title="Manual return unit price"
-                            />
-                            <span className="text-xs font-semibold text-red-600 w-24 text-right">-{fmtCurrency(getEffectiveLineTotal(item, item.quantity))}</span>
-                            <button onClick={() => setNoSaleReturnItems(prev => prev.filter(i => i.id !== item.id))} className="text-red-400 hover:text-red-600"><X size={14} /></button>
-                          </div>
+
+                  {/* Option B: Add Items Manually */}
+                  <div>
+                    <p className="text-xs text-slate-600 font-semibold uppercase mb-2">Option B: Add Items Manually</p>
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                      <input
+                        type="text"
+                        placeholder="Search product to return..."
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        value={noSaleProductSearch}
+                        onChange={e => setNoSaleProductSearch(e.target.value)}
+                      />
+                      {noSaleProductResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-30 max-h-36 overflow-y-auto">
+                          {noSaleProductResults.map(p => (
+                            <button key={p.id} onMouseDown={() => handleAddNoSaleReturnItem(p)} className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 transition-colors text-left text-sm">
+                              <div>
+                                <span className="text-slate-700">{p.name}</span>
+                                <span className="text-xs text-slate-400 ml-2">{p.sku || '-'}</span>
+                                {(p.size || p.color) && (
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    {[p.size ? `Size: ${p.size}` : '', p.color ? `Color: ${p.color}` : ''].filter(Boolean).join(' • ')}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-xs text-slate-500">{fmtCurrency(p.price)}</span>
+                            </button>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
+                    {noSaleReturnItems.length > 0 && (
+                      <div className="space-y-1 mt-2">
+                        {noSaleReturnItems.map(item => (
+                          <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">{item.name}</p>
+                              {(item.size || item.color) && (
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                  {[item.size ? `Size: ${item.size}` : '', item.color ? `Color: ${item.color}` : ''].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
+                              <p className="text-xs text-slate-400">Manual Return Price (unit): {fmtCurrency(item.manualReturnUnitPrice ?? 0)}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={1}
+                                value={item.quantity}
+                                onChange={e => setNoSaleReturnItems(prev => prev.map(i => i.id === item.id ? {
+                                  ...i,
+                                  quantity: Math.max(1, Number(e.target.value)),
+                                  lineEffectiveTotal: getEffectiveLineTotal(i, Math.max(1, Number(e.target.value)))
+                                } : i))}
+                                className="w-14 p-1 border border-slate-200 rounded text-xs text-center"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={item.manualReturnUnitPrice ?? 0}
+                                onChange={e => setNoSaleReturnItems(prev => prev.map(i => i.id === item.id ? {
+                                  ...i,
+                                  manualReturnUnitPrice: Math.max(0, Number(e.target.value)),
+                                  effectiveUnitPrice: Math.max(0, Number(e.target.value)),
+                                  lineEffectiveTotal: round2(Math.max(0, Number(e.target.value)) * i.quantity),
+                                } : i))}
+                                className="w-28 p-1 border border-slate-200 rounded text-xs text-right"
+                                placeholder="Return Price"
+                                title="Manual return unit price"
+                              />
+                              <span className="text-xs font-semibold text-red-600 w-24 text-right">-{fmtCurrency(getEffectiveLineTotal(item, item.quantity))}</span>
+                              <button onClick={() => setNoSaleReturnItems(prev => prev.filter(i => i.id !== item.id))} className="text-red-400 hover:text-red-600"><X size={14} /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

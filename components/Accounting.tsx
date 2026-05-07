@@ -55,15 +55,8 @@ const Accounting: React.FC = () => {
   const filteredSupplierTx = supplierTransactions.filter(t => t.type === 'PAYMENT' && isInPeriod(t.date) && t.affectsAccounting === true);
   const totalSupplierPayments = filteredSupplierTx.reduce((sum, t) => sum + t.amount, 0);
 
-  // 4. Stock Transfer Costs (cost price of transferred items)
-  const filteredTransfers = (stockTransfers || []).filter(t => isInPeriod(t.date));
-  const totalTransferCosts = filteredTransfers.reduce((sum, t) => {
-    const costValue = t.items.reduce((s, i) => s + i.costPrice * i.quantity, 0);
-    return sum + costValue;
-  }, 0);
-
   // Totals
-  const totalExpenses = totalOperatingExpenses + totalSupplierPayments + exchangeRefunds + totalTransferCosts;
+  const totalExpenses = totalOperatingExpenses + totalSupplierPayments + exchangeRefunds;
   const grossIncome = totalIncome + exchangeIncome;
   const netProfit = grossIncome - totalExpenses;
 
@@ -87,13 +80,9 @@ const Accounting: React.FC = () => {
       if (e.difference > 0) addToMap(e.date, 'income', e.difference);
       else if (e.difference < 0) addToMap(e.date, 'expense', Math.abs(e.difference));
     });
-    filteredTransfers.forEach(t => {
-      const cost = t.items.reduce((s, i) => s + i.costPrice * i.quantity, 0);
-      if (cost > 0) addToMap(t.date, 'expense', cost);
-    });
 
     return Array.from(dataMap.values()).sort((a, b) => parseBusinessDate(a.date).getTime() - parseBusinessDate(b.date).getTime());
-  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredExchanges, filteredTransfers]);
+  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredExchanges]);
 
   // Pie Chart Data: Expense Breakdown
   const expenseBreakdown = useMemo(() => {
@@ -110,13 +99,9 @@ const Accounting: React.FC = () => {
     if (exchangeRefunds > 0) {
       map.set('Exchange Refunds', exchangeRefunds);
     }
-    // Stock Transfer Costs
-    if (totalTransferCosts > 0) {
-      map.set('Stock Transfers', totalTransferCosts);
-    }
     
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
-  }, [filteredExpenses, totalSupplierPayments, exchangeRefunds, totalTransferCosts]);
+  }, [filteredExpenses, totalSupplierPayments, exchangeRefunds]);
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -155,15 +140,12 @@ const Accounting: React.FC = () => {
       ...filteredSupplierTx.map(t => ({
         id: t.id, date: t.date, desc: `Supplier: ${t.supplierName}`, amount: t.amount, type: 'OUT' as const, category: 'Inventory'
       })),
-      ...filteredTransfers.map(t => ({
-        id: t.id, date: t.date, desc: `Stock Transfer ${t.transferNumber}: ${t.fromBranchName} → ${t.toBranchName} (${t.totalItems} items)`, amount: t.items.reduce((s, i) => s + i.costPrice * i.quantity, 0), type: 'OUT' as const, category: 'Stock Transfer'
-      })),
       ...filteredExchanges.map(e => ({
         id: e.id, date: e.date, desc: `Exchange #${e.exchangeNumber}${e.originalInvoiceNumber ? ` (Sale #${e.originalInvoiceNumber})` : ''}: ${e.description || 'Product exchange'}`, amount: Math.abs(e.difference), type: (e.difference >= 0 ? 'IN' : 'OUT') as 'IN' | 'OUT', category: 'Exchange'
       }))
     ];
     return all.sort((a, b) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime());
-  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredTransfers, filteredExchanges]);
+  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredExchanges]);
 
 
   return (
@@ -253,7 +235,7 @@ const Accounting: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-slate-500">Total Expenses</p>
                     <h3 className="text-2xl font-bold text-rose-600 mt-1">LKR {totalExpenses.toLocaleString()}</h3>
-                    <p className="text-xs text-slate-400 mt-1">Ops: LKR {totalOperatingExpenses.toLocaleString()} | Stock: LKR {totalSupplierPayments.toLocaleString()}{totalTransferCosts > 0 ? ` | Transfers: LKR ${totalTransferCosts.toLocaleString()}` : ''}{exchangeRefunds > 0 ? ` | Refunds: LKR ${exchangeRefunds.toLocaleString()}` : ''}</p>
+                    <p className="text-xs text-slate-400 mt-1">Ops: LKR {totalOperatingExpenses.toLocaleString()} | Stock: LKR {totalSupplierPayments.toLocaleString()}{exchangeRefunds > 0 ? ` | Refunds: LKR ${exchangeRefunds.toLocaleString()}` : ''}</p>
                   </div>
                   <div className="p-2 bg-rose-50 rounded-lg text-rose-600"><TrendingDown size={20} /></div>
                 </div>
@@ -302,7 +284,7 @@ const Accounting: React.FC = () => {
                {/* Expense Breakdown Pie Chart */}
                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80 flex flex-col">
                  <h3 className="font-bold text-slate-800 mb-4">Expense Distribution</h3>
-                 <div className="flex-1 flex items-center justify-center">
+                 <div className="flex-1 flex items-center justify-center min-h-0">
                    {expenseBreakdown.length > 0 ? (
                      <ResponsiveContainer width="100%" height="100%">
                        <PieChart>

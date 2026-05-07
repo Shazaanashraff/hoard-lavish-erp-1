@@ -605,8 +605,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCategories(categoriesData);
       setBrands(brandsData);
       setDamagedGoods(damagedGoodsData);
-      setExchangeHistory(exchangesData.length > 0 ? exchangesData : exchangeHistory);
-      if (stockTransfersData.length > 0) setStockTransfers(stockTransfersData);
+      setExchangeHistory(exchangesData);
+      setStockTransfers(stockTransfersData);
       setLastSyncTime(new Date());
       setIsCloudConnected(true);
       return { success: true, productCount: productsData.length };
@@ -1245,7 +1245,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   // EXCHANGE
   // ============================================================
-  const completeExchange = (exchangeData: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'>): ExchangeRecord => {
+  const completeExchange = (exchangeData: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'> & { voidSaleId?: string }): ExchangeRecord => {
     const exchangeNumber = `EX-${Date.now().toString(36).toUpperCase()}`;
     const today = new Date();
     const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -1294,6 +1294,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       branchId: currentBranch.id,
       branchName: currentBranch.name,
     };
+    // Remove voidSaleId from exchange (it's only used for control logic, not persisted)
+    delete (exchange as any).voidSaleId;
 
     // Restock returned items
     const newStockLogs: StockMovement[] = [];

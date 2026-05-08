@@ -13,13 +13,53 @@ export const mapStockMovement = (r: any): StockMovement => ({
     date: r.date,
 });
 
-export async function fetchStockMovements(): Promise<StockMovement[]> {
-    const { data, error } = await supabase
+export interface FetchStockMovementsOptions {
+    branchId?: string;
+    productId?: string;
+    type?: 'IN' | 'OUT' | 'ADJUSTMENT' | 'TRANSFER';
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+}
+
+export async function fetchStockMovements(options: FetchStockMovementsOptions = {}): Promise<StockMovement[]> {
+    let query = supabase
         .from('stock_movements')
         .select('*')
         .order('date', { ascending: false });
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.productId) query = query.eq('product_id', options.productId);
+    if (options.type) query = query.eq('type', options.type);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    if (options.limit) query = query.limit(options.limit);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapStockMovement);
+}
+
+export interface FetchBranchStockOptions {
+    branchId?: string;
+    productId?: string;
+}
+
+export interface BranchStockEntry {
+    productId: string;
+    branchId: string;
+    quantity: number;
+}
+
+export async function fetchBranchStock(options: FetchBranchStockOptions = {}): Promise<BranchStockEntry[]> {
+    let query = supabase.from('product_branch_stock').select('product_id, branch_id, quantity');
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.productId) query = query.eq('product_id', options.productId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map(r => ({
+        productId: r.product_id as string,
+        branchId: r.branch_id as string,
+        quantity: Number(r.quantity),
+    }));
 }
 
 export async function insertStockMovement(movement: StockMovement): Promise<void> {

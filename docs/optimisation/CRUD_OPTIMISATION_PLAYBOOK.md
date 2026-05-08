@@ -1,5 +1,4 @@
 # CRUD Optimisation Playbook
-
 ## Scope and method
 - Full repository scan performed for runtime UI, runtime services, scripts, tests, and offline/migration SQL surfaces.
 - Detection rules: Supabase from/rpc chains, localStorage/object operations, SQL DML/DDL parsing, caller and trigger inference by function/module context.
@@ -7,23 +6,21 @@
 - Stable deterministic ID ordering: target entity, operation class, source path, source line.
 
 ## Coverage summary
-- Total callsites discovered: 212
-- Total callsites documented: 212
-- Unresolved dynamic callsites: 151
-- Storage/object callsites captured: 10
+- Total callsites discovered: 279
+- Total callsites documented: 279
 
 ## Operation counts by type
-- Read: 28
-- Create: 79
-- Update: 62
-- Delete: 22
-- Upsert: 10
-- RPC: 11
+- Read: 52
+- Create: 95
+- Update: 71
+- Delete: 34
+- Upsert: 13
+- RPC: 14
 - Storage: 0
 
 ## Category counts by layer
 - offline: 106
-- runtime services: 61
+- runtime services: 128
 - runtime UI: 42
 - scripts: 3
 
@@ -273,7 +270,73 @@
 | CRUD-0210 | Create | v_products_with_stock | supabase/migrations/001_initial_schema.sql:193 | offline |
 | CRUD-0211 | Create | v_products_with_stock | supabase/migrations/002_inventory_and_damaged_goods.sql:15 | offline |
 | CRUD-0212 | Create | v_products_with_stock | supabase/migrations/004_add_barcode_fields.sql:38 | offline |
-
+| CRUD-0213 | Read | branches | services/db/branches.ts:14 | runtime services |
+| CRUD-0214 | Create | branches | services/db/branches.ts:28 | runtime services |
+| CRUD-0215 | Update | branches | services/db/branches.ts:48 | runtime services |
+| CRUD-0216 | Read | customers | services/db/customers.ts:15 | runtime services |
+| CRUD-0217 | Create | customers | services/db/customers.ts:21 | runtime services |
+| CRUD-0218 | Update | customers | services/db/customers.ts:48 | runtime services |
+| CRUD-0219 | Delete | customers | services/db/customers.ts:53 | runtime services |
+| CRUD-0220 | Read | expenses | services/db/expenses.ts:17 | runtime services |
+| CRUD-0221 | Create | expenses | services/db/expenses.ts:23 | runtime services |
+| CRUD-0222 | Delete | expenses | services/db/expenses.ts:47 | runtime services |
+| CRUD-0223 | Upsert | product_branch_stock | services/db/inventory.ts:9 | runtime services |
+| CRUD-0224 | Read | damaged_goods | services/db/inventory.ts:15 | runtime services |
+| CRUD-0225 | Create | damaged_goods | services/db/inventory.ts:36 | runtime services |
+| CRUD-0226 | Read | product_branch_stock | services/db/inventory.ts:55 | runtime services |
+| CRUD-0227 | Read | damaged_goods | services/db/inventory.ts:79 | runtime services |
+| CRUD-0228 | Read | product_branch_stock | services/db/inventory.ts:88 | runtime services |
+| CRUD-0229 | Delete | damaged_goods | services/db/inventory.ts:98 | runtime services |
+| CRUD-0230 | Read | damaged_goods | services/db/inventory.ts:125 | runtime services |
+| CRUD-0231 | Read | product_branch_stock | services/db/inventory.ts:150 | runtime services |
+| CRUD-0232 | Delete | damaged_goods | services/db/inventory.ts:160 | runtime services |
+| CRUD-0233 | Read | products | services/db/products.ts:26 | runtime services |
+| CRUD-0234 | Read | product_branch_stock | services/db/products.ts:30 | runtime services |
+| CRUD-0235 | Create | products | services/db/products.ts:47 | runtime services |
+| CRUD-0236 | Create | product_branch_stock | services/db/products.ts:71 | runtime services |
+| CRUD-0237 | Delete | products | services/db/products.ts:73 | runtime services |
+| CRUD-0238 | Update | products | services/db/products.ts:98 | runtime services |
+| CRUD-0239 | Upsert | product_branch_stock | services/db/products.ts:104 | runtime services |
+| CRUD-0240 | Read | sale_items | services/db/products.ts:116 | runtime services |
+| CRUD-0241 | Update | sale_items | services/db/products.ts:133 | runtime services |
+| CRUD-0242 | Delete | sales | services/db/products.ts:143 | runtime services |
+| CRUD-0243 | Delete | products | services/db/products.ts:147 | runtime services |
+| CRUD-0244 | Read | sales | services/db/sales.ts:108 | runtime services |
+| CRUD-0245 | Read | exchanges | services/db/sales.ts:170 | runtime services |
+| CRUD-0246 | Create | exchanges | services/db/sales.ts:174 | runtime services |
+| CRUD-0247 | Create | exchange_items | services/db/sales.ts:228 | runtime services |
+| CRUD-0248 | RPC | fn_complete_sale | services/db/sales.ts:36 | runtime services |
+| CRUD-0249 | RPC | fn_complete_sale | services/db/sales.ts:52 | runtime services |
+| CRUD-0250 | RPC | fn_void_sale | services/db/sales.ts:58 | runtime services |
+| CRUD-0251 | Read | app_settings | services/db/settings.ts:12 | runtime services |
+| CRUD-0252 | Read | app_settings | services/db/settings.ts:24 | runtime services |
+| CRUD-0253 | Update | app_settings | services/db/settings.ts:27 | runtime services |
+| CRUD-0254 | Read | categories | services/db/settings.ts:32 | runtime services |
+| CRUD-0255 | Create | categories | services/db/settings.ts:38 | runtime services |
+| CRUD-0256 | Delete | categories | services/db/settings.ts:43 | runtime services |
+| CRUD-0257 | Read | brands | services/db/settings.ts:48 | runtime services |
+| CRUD-0258 | Create | brands | services/db/settings.ts:54 | runtime services |
+| CRUD-0259 | Delete | brands | services/db/settings.ts:59 | runtime services |
+| CRUD-0260 | Read | stock_movements | services/db/stockMovements.ts:18 | runtime services |
+| CRUD-0261 | Create | stock_movements | services/db/stockMovements.ts:26 | runtime services |
+| CRUD-0262 | Upsert | product_branch_stock | services/db/stockMovements.ts:40 | runtime services |
+| CRUD-0263 | Read | suppliers | services/db/suppliers.ts:28 | runtime services |
+| CRUD-0264 | Create | suppliers | services/db/suppliers.ts:34 | runtime services |
+| CRUD-0265 | Update | suppliers | services/db/suppliers.ts:61 | runtime services |
+| CRUD-0266 | Delete | suppliers | services/db/suppliers.ts:66 | runtime services |
+| CRUD-0267 | Read | supplier_transactions | services/db/suppliers.ts:84 | runtime services |
+| CRUD-0268 | Read | supplier_transactions | services/db/suppliers.ts:98 | runtime services |
+| CRUD-0269 | Create | supplier_transactions | services/db/suppliers.ts:123 | runtime services |
+| CRUD-0270 | Create | supplier_transactions | services/db/suppliers.ts:131 | runtime services |
+| CRUD-0271 | Update | supplier_transactions | services/db/suppliers.ts:154 | runtime services |
+| CRUD-0272 | Update | supplier_transactions | services/db/suppliers.ts:166 | runtime services |
+| CRUD-0273 | Delete | supplier_transactions | services/db/suppliers.ts:175 | runtime services |
+| CRUD-0274 | Create | stock_transfers | services/db/transfers.ts:29 | runtime services |
+| CRUD-0275 | Read | stock_transfers | services/db/transfers.ts:60 | runtime services |
+| CRUD-0276 | Read | users | services/db/users.ts:14 | runtime services |
+| CRUD-0277 | Create | users | services/db/users.ts:20 | runtime services |
+| CRUD-0278 | Update | users | services/db/users.ts:44 | runtime services |
+| CRUD-0279 | Delete | users | services/db/users.ts:49 | runtime services |
 ## CRUD-0001 Read app settings
 <a id="crud-0001-read-app-settings"></a>
 
@@ -363,6 +426,2312 @@ Additional evidence ledger:
 - Trigger detail: service read call on load or refresh
 - Frontend surfaces detail: components/Settings.tsx, components/POS.tsx, components/Dashboard.tsx
 - Dependency IDs detail: CRUD-0004, CRUD-0005, CRUD-0006, CRUD-0007, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128
+- Inference markers: none
+
+## CRUD-0274 Create stock transfers
+<a id="crud-0274-create-stock-transfers"></a>
+
+Operation: Create
+Target entity: stock_transfers
+Source: services/db/transfers.ts:29
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Inter-branch transfer header records for inventory movement.
+Business purpose: Inter-branch transfer header records for inventory movement.
+Callsite evidence:
+- Evidence line: .from('stock_transfers').insert({ ... })
+- Caller function/module: insertStockTransfer
+- Source reference: services/db/transfers.ts:29
+Request payload contract:
+- Field: transfer_number, date, from_branch_id, to_branch_id, items, total_items, total_value, status, notes
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertStockTransfer in services/db/transfers.ts:29
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Inventory.tsx
+  - Evidence: services/db/transfers.ts:29
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: transfer creation is routed through store actions.
+- Surface: components/Inventory.tsx
+  - Mapping basis: transfer workflows are initiated from inventory screens.
+Linked CRUD dependencies:
+- CRUD-0275
+- CRUD-0276
+- CRUD-0277
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: transfer_number, date, from_branch_id, to_branch_id, items, total_items, total_value, status, notes
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep the transfer header payload explicit and avoid expanding it with derived fields.
+- Preserve atomic transfer creation so downstream stock updates remain consistent.
+- Keep notes and status fields as the only mutable audit extras.
+Validation checklist:
+- Confirm the transfer header still persists all header metadata.
+- Confirm the inventory flow still receives the created transfer id.
+- Confirm the mutation remains atomic from the caller's perspective.
+Estimated impact (modeled): Expected to remain modest; cost is dominated by transfer payload size.
+
+Additional evidence ledger:
+- Source file: services/db/transfers.ts
+- Source line: 29
+- Caller: insertStockTransfer
+- Operation class normalization: Create
+- Target normalization: stock_transfers
+- Selected columns detail: insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: transfer_number, date, from_branch_id, to_branch_id, items, total_items, total_value, status, notes
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0275 Read stock transfers
+<a id="crud-0275-read-stock-transfers"></a>
+
+Operation: Read
+Target entity: stock_transfers
+Source: services/db/transfers.ts:60
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Inter-branch transfer header records for inventory movement.
+Business purpose: Inter-branch transfer header records for inventory movement.
+Callsite evidence:
+- Evidence line: .from('stock_transfers').select('*').order('date', { ascending: false })
+- Caller function/module: fetchStockTransfers
+- Source reference: services/db/transfers.ts:60
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchStockTransfers in services/db/transfers.ts:60
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, transfer_number, date, from_branch_id, from_branch_name, to_branch_id, to_branch_name, items, total_items, total_value, status, notes
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Inventory.tsx
+  - Evidence: services/db/transfers.ts:60
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: transfer rows are loaded into shared state.
+- Surface: components/Inventory.tsx
+  - Mapping basis: transfer history and stock movement views depend on this feed.
+Linked CRUD dependencies:
+- CRUD-0274
+- CRUD-0276
+- CRUD-0277
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: wildcard projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date' descending
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0274, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep the transfer history chronological and narrow if a consuming view only needs summary fields.
+- Avoid expanding the read unless the UI needs more transfer metadata.
+- Preserve the existing refresh cadence for inventory reconciliation.
+Validation checklist:
+- Confirm the transfer list still sorts newest first.
+- Confirm the history view maps all displayed fields.
+- Confirm the wildcard read remains acceptable for current volume.
+Estimated impact (modeled): Expected to stay moderate because the read is broad and time-ordered.
+
+Additional evidence ledger:
+- Source file: services/db/transfers.ts
+- Source line: 60
+- Caller: fetchStockTransfers
+- Operation class normalization: Read
+- Target normalization: stock_transfers
+- Selected columns detail: wildcard projection
+- Filters detail: none_explicit
+- Ordering detail: date descending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0274, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0276 Read users
+<a id="crud-0276-read-users"></a>
+
+Operation: Read
+Target entity: users
+Source: services/db/users.ts:14
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Operator accounts used for branch access and role-based actions.
+Business purpose: Operator accounts used for branch access and role-based actions.
+Callsite evidence:
+- Evidence line: .from('users').select('*').order('created_at')
+- Caller function/module: fetchUsers
+- Source reference: services/db/users.ts:14
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchUsers in services/db/users.ts:14
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, name, role, pin, branch_id
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/users.ts:14
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: users are loaded into shared state.
+- Surface: components/Settings.tsx
+  - Mapping basis: user admin screens depend on this list.
+Linked CRUD dependencies:
+- CRUD-0277
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: wildcard projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'created_at'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0277, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep the user projection wildcard-only unless the admin UI can tolerate narrowing.
+- Preserve creation-order sorting for stable admin displays.
+- Avoid adding extra user metadata fields unless they are rendered.
+Validation checklist:
+- Confirm the admin user list still loads correctly.
+- Confirm pin and role fields remain available to the settings UI.
+- Confirm the read remains newest-last by created_at.
+Estimated impact (modeled): Expected to stay moderate because the projection is broad.
+
+Additional evidence ledger:
+- Source file: services/db/users.ts
+- Source line: 14
+- Caller: fetchUsers
+- Operation class normalization: Read
+- Target normalization: users
+- Selected columns detail: wildcard projection
+- Filters detail: none_explicit
+- Ordering detail: created_at ascending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0277, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0277 Create users
+<a id="crud-0277-create-users"></a>
+
+Operation: Create
+Target entity: users
+Source: services/db/users.ts:20
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Operator accounts used for branch access and role-based actions.
+Business purpose: Operator accounts used for branch access and role-based actions.
+Callsite evidence:
+- Evidence line: .from('users').insert({ ... }).select().single()
+- Caller function/module: insertUser
+- Source reference: services/db/users.ts:20
+Request payload contract:
+- Field: user fields (name, role, pin, branch_id)
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertUser in services/db/users.ts:20
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: id, name, role, pin, branch_id
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/users.ts:20
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: user creation is routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages user accounts.
+Linked CRUD dependencies:
+- CRUD-0276
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: inserted user row returned by select().single()
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: user fields (name, role, pin, branch_id)
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0276, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep the create payload limited to the current user fields.
+- Preserve the return of the inserted row for immediate UI hydration.
+- Avoid adding extra account columns until a consumer needs them.
+Validation checklist:
+- Confirm the created user is returned to the settings UI.
+- Confirm the role and pin values persist correctly.
+- Confirm the response shape remains consistent for the form.
+Estimated impact (modeled): Expected to stay moderate because the mutation returns a full row.
+
+Additional evidence ledger:
+- Source file: services/db/users.ts
+- Source line: 20
+- Caller: insertUser
+- Operation class normalization: Create
+- Target normalization: users
+- Selected columns detail: inserted user row returned by select().single()
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: user fields (name, role, pin, branch_id)
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0276, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0278 Update users
+<a id="crud-0278-update-users"></a>
+
+Operation: Update
+Target entity: users
+Source: services/db/users.ts:44
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Operator accounts used for branch access and role-based actions.
+Business purpose: Operator accounts used for branch access and role-based actions.
+Callsite evidence:
+- Evidence line: .from('users').update(dbUpdates).eq('id', id)
+- Caller function/module: updateUser
+- Source reference: services/db/users.ts:44
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: partial_or_optional
+  - Source of value: caller updateUser in services/db/users.ts:44
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/users.ts:44
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: user updates are routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages user accounts.
+Linked CRUD dependencies:
+- CRUD-0276
+- CRUD-0277
+- CRUD-0279
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: dbUpdates payload
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0276, CRUD-0277, CRUD-0279
+Optimisation recommendation:
+- Keep user updates partial and only include changed fields.
+- Preserve id-based targeting so unrelated accounts stay untouched.
+- Avoid adding cross-entity side effects in this path.
+Validation checklist:
+- Confirm only changed user fields are written.
+- Confirm the id filter continues to scope the row correctly.
+- Confirm the settings UI refreshes after update.
+Estimated impact (modeled): Expected to stay cheap because the payload is partial.
+
+Additional evidence ledger:
+- Source file: services/db/users.ts
+- Source line: 44
+- Caller: updateUser
+- Operation class normalization: Update
+- Target normalization: users
+- Selected columns detail: dbUpdates payload
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0276, CRUD-0277, CRUD-0279
+- Inference markers: none
+
+## CRUD-0279 Delete users
+<a id="crud-0279-delete-users"></a>
+
+Operation: Delete
+Target entity: users
+Source: services/db/users.ts:49
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Operator accounts used for branch access and role-based actions.
+Business purpose: Operator accounts used for branch access and role-based actions.
+Callsite evidence:
+- Evidence line: .from('users').delete().eq('id', id)
+- Caller function/module: deleteUser
+- Source reference: services/db/users.ts:49
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteUser in services/db/users.ts:49
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/users.ts:49
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: user deletion is routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages user accounts.
+Linked CRUD dependencies:
+- CRUD-0276
+- CRUD-0277
+- CRUD-0278
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: delete predicate
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0276, CRUD-0277, CRUD-0278
+Optimisation recommendation:
+- Keep deletes id-scoped and avoid broader matching.
+- Ensure the settings page can tolerate the removed account.
+- Keep the mutation narrow to avoid accidental account loss.
+Validation checklist:
+- Confirm only the intended user is removed.
+- Confirm the settings list updates correctly.
+- Confirm no unrelated branch or access rows are touched.
+Estimated impact (modeled): Expected to remain low-cost but integrity-sensitive.
+
+Additional evidence ledger:
+- Source file: services/db/users.ts
+- Source line: 49
+- Caller: deleteUser
+- Operation class normalization: Delete
+- Target normalization: users
+- Selected columns detail: delete predicate
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0276, CRUD-0277, CRUD-0278
+- Inference markers: none
+
+## CRUD-0263 Read suppliers
+<a id="crud-0263-read-suppliers"></a>
+
+Operation: Read
+Target entity: suppliers
+Source: services/db/suppliers.ts:28
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Supplier master records used across purchasing and expense workflows.
+Business purpose: Supplier master records used across purchasing and expense workflows.
+Callsite evidence:
+- Evidence line: .from('suppliers').select('*').order('created_at')
+- Caller function/module: fetchSuppliers
+- Source reference: services/db/suppliers.ts:28
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchSuppliers in services/db/suppliers.ts:28
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, name, contact_person, phone, email, address, status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx
+  - Evidence: services/db/suppliers.ts:28
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier master data is loaded into shared state.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier lists and forms depend on this dataset.
+Linked CRUD dependencies:
+- CRUD-0264
+- CRUD-0265
+- CRUD-0266
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: wildcard projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'created_at'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0264, CRUD-0265, CRUD-0266, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the supplier projection wildcard-only unless the UI needs a narrower field set.
+- Preserve the created_at order so the list remains predictable.
+- Avoid expanding the read into separate queries unless the form requires it.
+Validation checklist:
+- Confirm the supplier list still renders in creation order.
+- Confirm the store refresh continues to hydrate supplier state.
+- Confirm no additional supplier columns are required by consumers.
+Estimated impact (modeled): Expected to stay moderate because the wildcard projection can grow with schema changes.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 28
+- Caller: fetchSuppliers
+- Operation class normalization: Read
+- Target normalization: suppliers
+- Selected columns detail: wildcard projection
+- Filters detail: none_explicit
+- Ordering detail: created_at ascending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0264, CRUD-0265, CRUD-0266, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0264 Create suppliers
+<a id="crud-0264-create-suppliers"></a>
+
+Operation: Create
+Target entity: suppliers
+Source: services/db/suppliers.ts:34
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier master records used across purchasing and expense workflows.
+Business purpose: Supplier master records used across purchasing and expense workflows.
+Callsite evidence:
+- Evidence line: .from('suppliers').insert({ ... }).select().single()
+- Caller function/module: insertSupplier
+- Source reference: services/db/suppliers.ts:34
+Request payload contract:
+- Field: supplier fields (name, contact_person, phone, email, address)
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertSupplier in services/db/suppliers.ts:34
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: id, name, contact_person, phone, email, address
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx
+  - Evidence: services/db/suppliers.ts:34
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier creation is routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier forms and lists reflect this mutation.
+Linked CRUD dependencies:
+- CRUD-0263
+- CRUD-0265
+- CRUD-0266
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: inserted supplier row returned by select().single()
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: supplier fields (name, contact_person, phone, email, address)
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0263, CRUD-0265, CRUD-0266, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the create payload limited to the current supplier fields.
+- Preserve the round-trip return of the inserted row for immediate UI hydration.
+- Avoid adding extra supplier columns until a consumer needs them.
+Validation checklist:
+- Confirm the inserted supplier is returned to the UI.
+- Confirm duplicate or malformed inserts still fail as expected.
+- Confirm the response shape remains consistent for the form.
+Estimated impact (modeled): Expected to stay moderate because the mutation returns a full row.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 34
+- Caller: insertSupplier
+- Operation class normalization: Create
+- Target normalization: suppliers
+- Selected columns detail: inserted supplier row returned by select().single()
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: supplier fields (name, contact_person, phone, email, address)
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0263, CRUD-0265, CRUD-0266, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0265 Update suppliers
+<a id="crud-0265-update-suppliers"></a>
+
+Operation: Update
+Target entity: suppliers
+Source: services/db/suppliers.ts:61
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier master records used across purchasing and expense workflows.
+Business purpose: Supplier master records used across purchasing and expense workflows.
+Callsite evidence:
+- Evidence line: .from('suppliers').update(dbUpdates).eq('id', id)
+- Caller function/module: updateSupplier
+- Source reference: services/db/suppliers.ts:61
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: partial_or_optional
+  - Source of value: caller updateSupplier in services/db/suppliers.ts:61
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx
+  - Evidence: services/db/suppliers.ts:61
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier updates are routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier forms and lists reflect this mutation.
+Linked CRUD dependencies:
+- CRUD-0263
+- CRUD-0264
+- CRUD-0266
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: dbUpdates payload
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0263, CRUD-0264, CRUD-0266, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep supplier updates partial and only include changed fields.
+- Preserve id-based targeting so unrelated supplier rows are untouched.
+- Avoid widening the update path to include cross-entity side effects.
+Validation checklist:
+- Confirm only changed supplier fields are written.
+- Confirm the id filter still scopes the write to one row.
+- Confirm the supplier list refreshes correctly after update.
+Estimated impact (modeled): Expected to stay cheap because the payload is partial.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 61
+- Caller: updateSupplier
+- Operation class normalization: Update
+- Target normalization: suppliers
+- Selected columns detail: dbUpdates payload
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0263, CRUD-0264, CRUD-0266, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0266 Delete suppliers
+<a id="crud-0266-delete-suppliers"></a>
+
+Operation: Delete
+Target entity: suppliers
+Source: services/db/suppliers.ts:66
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier master records used across purchasing and expense workflows.
+Business purpose: Supplier master records used across purchasing and expense workflows.
+Callsite evidence:
+- Evidence line: .from('suppliers').delete().eq('id', id)
+- Caller function/module: deleteSupplier
+- Source reference: services/db/suppliers.ts:66
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteSupplier in services/db/suppliers.ts:66
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx
+  - Evidence: services/db/suppliers.ts:66
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier deletion is routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier lists reflect this mutation.
+Linked CRUD dependencies:
+- CRUD-0263
+- CRUD-0264
+- CRUD-0265
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: delete predicate
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0263, CRUD-0264, CRUD-0265, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep deletes id-scoped and avoid broader matching.
+- Ensure any downstream supplier references are handled by the caller or DB policy.
+- Keep the mutation narrow to avoid accidental data loss.
+Validation checklist:
+- Confirm only the intended supplier is removed.
+- Confirm the supplier list updates correctly.
+- Confirm no unrelated purchasing rows are touched.
+Estimated impact (modeled): Expected to remain low-cost but high integrity-sensitive.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 66
+- Caller: deleteSupplier
+- Operation class normalization: Delete
+- Target normalization: suppliers
+- Selected columns detail: delete predicate
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0263, CRUD-0264, CRUD-0265, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0267 Read supplier transactions
+<a id="crud-0267-read-supplier-transactions"></a>
+
+Operation: Read
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:84
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').select('*').order('date', { ascending: false })
+- Caller function/module: fetchSupplierTransactions
+- Source reference: services/db/suppliers.ts:84
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchSupplierTransactions in services/db/suppliers.ts:84
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, supplier_id, supplier_name, date, amount, type, reference, notes, affects_accounting
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:84
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier transaction data is loaded into shared state.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views use this dataset.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on these rows.
+Linked CRUD dependencies:
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: wildcard projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date' descending
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the projection wildcard only while the accounting column fallback is active.
+- Preserve descending date order for ledger review.
+- Avoid splitting this read unless the UI needs a lighter projection.
+Validation checklist:
+- Confirm the accounting flag is still surfaced when present.
+- Confirm the fallback code path continues to map the rows correctly.
+- Confirm the date ordering remains newest first.
+Estimated impact (modeled): Expected to stay moderate because the projection is broad.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 84
+- Caller: fetchSupplierTransactions
+- Operation class normalization: Read
+- Target normalization: supplier_transactions
+- Selected columns detail: wildcard projection
+- Filters detail: none_explicit
+- Ordering detail: date descending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0268 Read supplier transactions
+<a id="crud-0268-read-supplier-transactions"></a>
+
+Operation: Read
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:98
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').select('id, supplier_id, supplier_name, date, amount, type, reference, notes').order('date', { ascending: false })
+- Caller function/module: fetchSupplierTransactions
+- Source reference: services/db/suppliers.ts:98
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchSupplierTransactions in services/db/suppliers.ts:98
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, supplier_id, supplier_name, date, amount, type, reference, notes
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:98
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: fallback fetch is loaded into shared state.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views use this dataset.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on these rows.
+Linked CRUD dependencies:
+- CRUD-0267
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: id, supplier_id, supplier_name, date, amount, type, reference, notes
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date' descending
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0267, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the fallback projection narrow and only use it when the accounting column is unavailable.
+- Preserve the same date ordering as the primary fetch.
+- Avoid changing this shape unless the fallback schema path changes.
+Validation checklist:
+- Confirm the fallback path still works when the accounting column is absent.
+- Confirm the narrowed projection still maps correctly.
+- Confirm the fallback remains newest-first.
+Estimated impact (modeled): Expected to be lower-cost than the wildcard path while preserving compatibility.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 98
+- Caller: fetchSupplierTransactions
+- Operation class normalization: Read
+- Target normalization: supplier_transactions
+- Selected columns detail: id, supplier_id, supplier_name, date, amount, type, reference, notes
+- Filters detail: none_explicit
+- Ordering detail: date descending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0267, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0269 Create supplier transactions
+<a id="crud-0269-create-supplier-transactions"></a>
+
+Operation: Create
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:123
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').insert(withAccounting)
+- Caller function/module: insertSupplierTransaction
+- Source reference: services/db/suppliers.ts:123
+Request payload contract:
+- Field: withAccounting
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertSupplierTransaction in services/db/suppliers.ts:123
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:123
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier transaction creation is routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views reflect this mutation.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on the new entry.
+Linked CRUD dependencies:
+- CRUD-0267
+- CRUD-0268
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: withAccounting
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0267, CRUD-0268, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the accounting payload builder narrow and explicit.
+- Preserve the column-availability fallback behavior in the caller.
+- Avoid splitting this into multiple inserts unless the backend requires it.
+Validation checklist:
+- Confirm the inserted supplier transaction still appears in the ledger.
+- Confirm the accounting flag is preserved when available.
+- Confirm duplicate insert behavior remains controlled by the caller.
+Estimated impact (modeled): Expected to stay modest, dominated by ledger write and refresh cost.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 123
+- Caller: insertSupplierTransaction
+- Operation class normalization: Create
+- Target normalization: supplier_transactions
+- Selected columns detail: insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: withAccounting
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0267, CRUD-0268, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0270 Create supplier transactions
+<a id="crud-0270-create-supplier-transactions"></a>
+
+Operation: Create
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:131
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').insert(basePayload)
+- Caller function/module: insertSupplierTransaction
+- Source reference: services/db/suppliers.ts:131
+Request payload contract:
+- Field: basePayload
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertSupplierTransaction in services/db/suppliers.ts:131
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:131
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: retry creation is routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views reflect this mutation.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on the new entry.
+Linked CRUD dependencies:
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: basePayload
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the retry payload aligned with the fallback schema and avoid adding new fields there.
+- Preserve the caller's fallback handling so the retry remains transparent.
+- Keep the base payload minimal and stable.
+Validation checklist:
+- Confirm the retry insert still succeeds when the accounting column is absent.
+- Confirm no extra fields leak into the fallback payload.
+- Confirm the user-facing transaction remains visible after retry.
+Estimated impact (modeled): Expected to preserve compatibility with a slightly cheaper fallback payload.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 131
+- Caller: insertSupplierTransaction
+- Operation class normalization: Create
+- Target normalization: supplier_transactions
+- Selected columns detail: insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: basePayload
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0271 Update supplier transactions
+<a id="crud-0271-update-supplier-transactions"></a>
+
+Operation: Update
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:154
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').update(dbUpdates).eq('id', id)
+- Caller function/module: updateSupplierTransaction
+- Source reference: services/db/suppliers.ts:154
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: partial_or_optional
+  - Source of value: caller updateSupplierTransaction in services/db/suppliers.ts:154
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:154
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier transaction updates are routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views reflect this mutation.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on the updated entry.
+Linked CRUD dependencies:
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: dbUpdates payload
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep updates partial and only include changed fields.
+- Preserve id-based targeting so unrelated ledger rows are untouched.
+- Avoid broadening the mutation to more than one transaction row.
+Validation checklist:
+- Confirm only changed transaction fields are written.
+- Confirm the row id continues to scope the update.
+- Confirm the supplier ledger refreshes correctly.
+Estimated impact (modeled): Expected to stay cheap because the payload is partial.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 154
+- Caller: updateSupplierTransaction
+- Operation class normalization: Update
+- Target normalization: supplier_transactions
+- Selected columns detail: dbUpdates payload
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0272 Update supplier transactions
+<a id="crud-0272-update-supplier-transactions"></a>
+
+Operation: Update
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:166
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').update(dbUpdates).eq('id', id)
+- Caller function/module: updateSupplierTransaction
+- Source reference: services/db/suppliers.ts:166
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: partial_or_optional
+  - Source of value: caller updateSupplierTransaction in services/db/suppliers.ts:166
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:166
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: retry updates are routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views reflect this mutation.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on the updated entry.
+Linked CRUD dependencies:
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0273
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: dbUpdates payload
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0273
+Optimisation recommendation:
+- Keep the retry update path aligned with the primary path.
+- Preserve the fallback behavior so the caller can transparently re-issue the write.
+- Avoid introducing divergent field sets between primary and retry writes.
+Validation checklist:
+- Confirm the retry update still succeeds when the accounting column is absent.
+- Confirm the row id continues to scope the update.
+- Confirm no field drift exists between primary and retry payloads.
+Estimated impact (modeled): Expected to preserve compatibility with the same partial-write cost.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 166
+- Caller: updateSupplierTransaction
+- Operation class normalization: Update
+- Target normalization: supplier_transactions
+- Selected columns detail: dbUpdates payload
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0273
+- Inference markers: none
+
+## CRUD-0273 Delete supplier transactions
+<a id="crud-0273-delete-supplier-transactions"></a>
+
+Operation: Delete
+Target entity: supplier_transactions
+Source: services/db/suppliers.ts:175
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Business purpose: Supplier payment and expense ledger entries used by purchasing and accounting flows.
+Callsite evidence:
+- Evidence line: .from('supplier_transactions').delete().eq('id', id)
+- Caller function/module: deleteSupplierTransaction
+- Source reference: services/db/suppliers.ts:175
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteSupplierTransaction in services/db/suppliers.ts:175
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Suppliers.tsx, components/Accounting.tsx
+  - Evidence: services/db/suppliers.ts:175
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: supplier transaction deletion is routed through store actions.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: supplier ledger and history views reflect this mutation.
+- Surface: components/Accounting.tsx
+  - Mapping basis: accounting reconciliation depends on the remaining rows.
+Linked CRUD dependencies:
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: delete predicate
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272
+Optimisation recommendation:
+- Keep deletes id-scoped and avoid broader matching.
+- Ensure accounting history views tolerate removed rows.
+- Keep the mutation narrow to avoid accidental ledger loss.
+Validation checklist:
+- Confirm only the intended transaction is removed.
+- Confirm the supplier ledger updates correctly.
+- Confirm no unrelated accounting rows are touched.
+Estimated impact (modeled): Expected to remain low-cost but integrity-sensitive.
+
+Additional evidence ledger:
+- Source file: services/db/suppliers.ts
+- Source line: 175
+- Caller: deleteSupplierTransaction
+- Operation class normalization: Delete
+- Target normalization: supplier_transactions
+- Selected columns detail: delete predicate
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Suppliers.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272
+- Inference markers: none
+
+## CRUD-0257 Read brands
+<a id="crud-0257-read-brands"></a>
+
+Operation: Read
+Target entity: brands
+Source: services/db/settings.ts:48
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Inventory brand options used in product maintenance.
+Business purpose: Inventory brand options used in product maintenance.
+Callsite evidence:
+- Evidence line: .from('brands').select('name').order('name')
+- Caller function/module: fetchBrands
+- Source reference: services/db/settings.ts:48
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchBrands in services/db/settings.ts:48
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: name
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx, components/Inventory.tsx
+  - Evidence: services/db/settings.ts:48
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: brands are loaded into shared state.
+- Surface: components/Settings.tsx
+  - Mapping basis: brand management occurs here.
+- Surface: components/Inventory.tsx
+  - Mapping basis: product catalog editing consumes the brand list.
+Linked CRUD dependencies:
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: name
+- Filters: no_explicit_filters_detected
+- Sort/order: 'name'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep the brand projection name-only and sorted alphabetically.
+- Avoid expanding this list read unless the UI needs more metadata.
+- Maintain a stable list contract for picker controls.
+Validation checklist:
+- Confirm the brand picker still renders in name order.
+- Confirm no extra brand fields are fetched.
+- Confirm the read remains name-only.
+Estimated impact (modeled): Expected to stay low-cost because the projection is narrow.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 48
+- Caller: fetchBrands
+- Operation class normalization: Read
+- Target normalization: brands
+- Selected columns detail: name only
+- Filters detail: none_explicit
+- Ordering detail: name ascending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0258, CRUD-0259
+- Inference markers: none
+
+## CRUD-0258 Create brands
+<a id="crud-0258-create-brands"></a>
+
+Operation: Create
+Target entity: brands
+Source: services/db/settings.ts:54
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Inventory brand options used in product maintenance.
+Business purpose: Inventory brand options used in product maintenance.
+Callsite evidence:
+- Evidence line: .from('brands').insert({ name })
+- Caller function/module: insertBrand
+- Source reference: services/db/settings.ts:54
+Request payload contract:
+- Field: name
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertBrand in services/db/settings.ts:54
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx, components/Inventory.tsx
+  - Evidence: services/db/settings.ts:54
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: brand creation is routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages brands.
+- Surface: components/Inventory.tsx
+  - Mapping basis: product catalog forms consume updated brand lists.
+Linked CRUD dependencies:
+- CRUD-0257
+- CRUD-0259
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: name
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0257, CRUD-0259
+Optimisation recommendation:
+- Keep the brand create payload name-only and preserve duplicate suppression.
+- Avoid adding metadata columns without a consuming UI need.
+- Keep create flow idempotent at the caller level.
+Validation checklist:
+- Confirm duplicate brand insert handling still ignores existing rows.
+- Confirm the new brand appears in the picker.
+- Confirm no extra fields are required.
+Estimated impact (modeled): Expected to remain low-cost and idempotent.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 54
+- Caller: insertBrand
+- Operation class normalization: Create
+- Target normalization: brands
+- Selected columns detail: insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: name
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0257, CRUD-0259
+- Inference markers: none
+
+## CRUD-0259 Delete brands
+<a id="crud-0259-delete-brands"></a>
+
+Operation: Delete
+Target entity: brands
+Source: services/db/settings.ts:59
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Inventory brand options used in product maintenance.
+Business purpose: Inventory brand options used in product maintenance.
+Callsite evidence:
+- Evidence line: .from('brands').delete().eq('name', name)
+- Caller function/module: deleteBrand
+- Source reference: services/db/settings.ts:59
+Request payload contract:
+- Field: name
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteBrand in services/db/settings.ts:59
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx, components/Inventory.tsx
+  - Evidence: services/db/settings.ts:59
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: brand deletion is routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages brands.
+- Surface: components/Inventory.tsx
+  - Mapping basis: product catalog forms consume updated brand lists.
+Linked CRUD dependencies:
+- CRUD-0257
+- CRUD-0258
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: delete predicate
+- Filters: eq('name', name)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: name
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0257, CRUD-0258
+Optimisation recommendation:
+- Keep deletes name-scoped and avoid introducing broader matching.
+- Ensure downstream brand references are handled by the caller or DB policy.
+- Keep the mutation narrow to avoid accidental brand churn.
+Validation checklist:
+- Confirm the brand row disappears from the picker.
+- Confirm no unrelated brands are removed.
+- Confirm dependent product form caches refresh correctly.
+Estimated impact (modeled): Expected to be low-cost but sensitive to stale brand caches.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 59
+- Caller: deleteBrand
+- Operation class normalization: Delete
+- Target normalization: brands
+- Selected columns detail: delete predicate
+- Filters detail: eq('name', name)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: name
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0257, CRUD-0258
+- Inference markers: none
+
+## CRUD-0260 Read stock movements
+<a id="crud-0260-read-stock-movements"></a>
+
+Operation: Read
+Target entity: stock_movements
+Source: services/db/stockMovements.ts:18
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Ledger of branch inventory changes and audit trail events.
+Business purpose: Ledger of branch inventory changes and audit trail events.
+Callsite evidence:
+- Evidence line: .from('stock_movements').select('*').order('date', { ascending: false })
+- Caller function/module: fetchStockMovements
+- Source reference: services/db/stockMovements.ts:18
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchStockMovements in services/db/stockMovements.ts:18
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, product_id, product_name, branch_id, branch_name, type, quantity, reason, date
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Inventory.tsx, components/Dashboard.tsx
+  - Evidence: services/db/stockMovements.ts:18
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: stock movements are loaded into shared state.
+- Surface: components/Inventory.tsx
+  - Mapping basis: movement history is displayed with stock controls.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: audit and operational metrics use this feed.
+Linked CRUD dependencies:
+- CRUD-0261
+- CRUD-0262
+- CRUD-0274
+- CRUD-0275
+- CRUD-0276
+- CRUD-0277
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: wildcard projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date' descending
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Inventory.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0261, CRUD-0262, CRUD-0274, CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep the movement feed chronological and only expand columns if a consumer proves it needs them.
+- Introduce paging if the history grows beyond the current dashboard budget.
+- Keep the read path aligned with branch inventory reconciliation.
+Validation checklist:
+- Confirm the movement timeline still sorts newest first.
+- Confirm the read remains wildcard-only unless a narrower projection is justified.
+- Confirm downstream dashboard widgets still render correctly.
+Estimated impact (modeled): Expected to stay moderate because this feed can grow with transactional volume.
+
+Additional evidence ledger:
+- Source file: services/db/stockMovements.ts
+- Source line: 18
+- Caller: fetchStockMovements
+- Operation class normalization: Read
+- Target normalization: stock_movements
+- Selected columns detail: wildcard projection
+- Filters detail: none_explicit
+- Ordering detail: date descending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Inventory.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0261, CRUD-0262, CRUD-0274, CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0261 Create stock movements
+<a id="crud-0261-create-stock-movements"></a>
+
+Operation: Create
+Target entity: stock_movements
+Source: services/db/stockMovements.ts:26
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Ledger of branch inventory changes and audit trail events.
+Business purpose: Ledger of branch inventory changes and audit trail events.
+Callsite evidence:
+- Evidence line: .from('stock_movements').insert({ ... })
+- Caller function/module: insertStockMovement
+- Source reference: services/db/stockMovements.ts:26
+Request payload contract:
+- Field: product_id, product_name, branch_id, branch_name, type, quantity, reason, date
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertStockMovement in services/db/stockMovements.ts:26
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Inventory.tsx, components/Dashboard.tsx
+  - Evidence: services/db/stockMovements.ts:26
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: stock movement inserts are orchestrated from store actions.
+- Surface: components/Inventory.tsx
+  - Mapping basis: movement logging accompanies inventory edits.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: movement inserts inform operational metrics.
+Linked CRUD dependencies:
+- CRUD-0260
+- CRUD-0262
+- CRUD-0274
+- CRUD-0275
+- CRUD-0276
+- CRUD-0277
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: product_id, product_name, branch_id, branch_name, type, quantity, reason, date
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Inventory.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0260, CRUD-0262, CRUD-0274, CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep movement rows explicit and avoid adding non-audit payload fields.
+- Preserve idempotency at the caller so duplicate logging does not occur on retries.
+- Keep the write synchronous with inventory updates where it matters for auditability.
+Validation checklist:
+- Confirm the movement row still mirrors the stock change.
+- Confirm retries do not duplicate events.
+- Confirm no extra audit columns are written.
+Estimated impact (modeled): Expected write cost is small but rises with retry volume.
+
+Additional evidence ledger:
+- Source file: services/db/stockMovements.ts
+- Source line: 26
+- Caller: insertStockMovement
+- Operation class normalization: Create
+- Target normalization: stock_movements
+- Selected columns detail: insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: product_id, product_name, branch_id, branch_name, type, quantity, reason, date
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Inventory.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0260, CRUD-0262, CRUD-0274, CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0262 Upsert product branch stock
+<a id="crud-0262-upsert-product-branch-stock"></a>
+
+Operation: Upsert
+Target entity: product_branch_stock
+Source: services/db/stockMovements.ts:40
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: .from('product_branch_stock').upsert({ product_id, branch_id, quantity }, { onConflict: 'product_id,branch_id' })
+- Caller function/module: upsertBranchStock
+- Source reference: services/db/stockMovements.ts:40
+Request payload contract:
+- Field: product_id, branch_id, quantity, onConflict
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller upsertBranchStock in services/db/stockMovements.ts:40
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx
+  - Evidence: services/db/stockMovements.ts:40
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: branch stock changes are coordinated from store actions.
+- Surface: components/Inventory.tsx
+  - Mapping basis: inventory counts depend on this table.
+- Surface: components/POS.tsx
+  - Mapping basis: checkout stock deductions rely on this table.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: stock summaries and alerts rely on this table.
+Linked CRUD dependencies:
+- CRUD-0260
+- CRUD-0261
+- CRUD-0274
+- CRUD-0275
+- CRUD-0276
+- CRUD-0277
+- CRUD-0278
+- CRUD-0279
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: upsert payload
+- Filters: onConflict product_id,branch_id
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: product_id, branch_id, quantity, onConflict
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0260, CRUD-0261, CRUD-0274, CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+Optimisation recommendation:
+- Keep the conflict target fixed to product_id,branch_id so stock identity stays stable.
+- Keep this write path aligned with movement logging for auditability.
+- Avoid expanding the payload beyond the current stock tuple.
+Validation checklist:
+- Confirm the conflict target remains unchanged.
+- Confirm inventory reads still see the latest branch quantity.
+- Confirm no duplicate branch stock rows are created.
+Estimated impact (modeled): Expected to remain the canonical low-latency stock write.
+
+Additional evidence ledger:
+- Source file: services/db/stockMovements.ts
+- Source line: 40
+- Caller: upsertBranchStock
+- Operation class normalization: Upsert
+- Target normalization: product_branch_stock
+- Selected columns detail: upsert payload
+- Filters detail: onConflict product_id,branch_id
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: product_id, branch_id, quantity, onConflict
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0260, CRUD-0261, CRUD-0274, CRUD-0275, CRUD-0276, CRUD-0277, CRUD-0278, CRUD-0279
+- Inference markers: none
+
+## CRUD-0249 RPC fn_complete_sale
+<a id="crud-0249-rpc-fn-complete-sale"></a>
+
+Operation: RPC
+Target entity: fn_complete_sale
+Source: services/db/sales.ts:52
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Transaction completion stored procedure for legacy sale finalization fallback.
+Business purpose: Transaction completion stored procedure for legacy sale finalization fallback.
+Callsite evidence:
+- Evidence line: supabase.rpc('fn_complete_sale', legacyPayload)
+- Caller function/module: completeSaleRPC
+- Source reference: services/db/sales.ts:52
+Request payload contract:
+- Field: legacyPayload
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller completeSaleRPC in services/db/sales.ts:52
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: sale_id or completion token
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx
+  - Evidence: services/db/sales.ts:52
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: sale completion fallback is orchestrated through store actions.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: completed sales affect revenue and reporting widgets.
+- Surface: components/POS.tsx
+  - Mapping basis: the checkout action invokes this RPC.
+Linked CRUD dependencies:
+- CRUD-0244
+- CRUD-0245
+- CRUD-0246
+- CRUD-0247
+- CRUD-0248
+- CRUD-0250
+- CRUD-0260
+- CRUD-0261
+- CRUD-0262
+Risk profile: high_consistency_and_business_logic_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: RPC payload
+- Filters: stored procedure encapsulates filtering
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: legacyPayload
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0244, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0250, CRUD-0260, CRUD-0261, CRUD-0262
+Optimisation recommendation:
+- Keep the legacy fallback payload exactly aligned with the old RPC signature.
+- Retain the explicit migration guidance when this path fails.
+- Avoid branching this into a separate user-visible contract.
+Validation checklist:
+- Confirm the fallback still runs only after the split-payment signature mismatch.
+- Confirm old deployments continue to complete the sale.
+- Confirm no new parameters leak into the legacy RPC.
+Estimated impact (modeled): Expected to preserve compatibility while keeping the payload small.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 52
+- Caller: completeSaleRPC
+- Operation class normalization: RPC
+- Target normalization: fn_complete_sale
+- Selected columns detail: RPC payload
+- Filters detail: procedure-encapsulated
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: legacyPayload
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0244, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0250, CRUD-0260, CRUD-0261, CRUD-0262
+- Inference markers: none
+
+## CRUD-0250 RPC fn_void_sale
+<a id="crud-0250-rpc-fn-void-sale"></a>
+
+Operation: RPC
+Target entity: fn_void_sale
+Source: services/db/sales.ts:58
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Transaction voiding stored procedure.
+Business purpose: Transaction voiding stored procedure.
+Callsite evidence:
+- Evidence line: supabase.rpc('fn_void_sale', { p_sale_id: saleId })
+- Caller function/module: voidSaleRPC
+- Source reference: services/db/sales.ts:58
+Request payload contract:
+- Field: p_sale_id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller voidSaleRPC in services/db/sales.ts:58
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: void completion status
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx
+  - Evidence: services/db/sales.ts:58
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: voiding is orchestrated from store actions.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: voided sales affect revenue and audit widgets.
+- Surface: components/POS.tsx
+  - Mapping basis: void actions are exposed in checkout and audit flows.
+Linked CRUD dependencies:
+- CRUD-0244
+- CRUD-0245
+- CRUD-0246
+- CRUD-0247
+- CRUD-0248
+- CRUD-0249
+- CRUD-0260
+- CRUD-0261
+- CRUD-0262
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: RPC payload
+- Filters: procedure-encapsulated
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: p_sale_id
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0244, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0260, CRUD-0261, CRUD-0262
+Optimisation recommendation:
+- Keep the void RPC isolated behind the store action so audit semantics remain centralized.
+- Preserve the explicit legacy migration message on missing function errors.
+- Avoid broadening the payload beyond the sale id.
+Validation checklist:
+- Confirm the RPC still voids the intended sale only.
+- Confirm the migration guidance remains visible for missing RPC cases.
+- Confirm no additional state mutation is introduced in the client path.
+Estimated impact (modeled): Expected to remain network-light with high integrity sensitivity.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 58
+- Caller: voidSaleRPC
+- Operation class normalization: RPC
+- Target normalization: fn_void_sale
+- Selected columns detail: RPC payload
+- Filters detail: procedure-encapsulated
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: p_sale_id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0244, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0260, CRUD-0261, CRUD-0262
+- Inference markers: none
+
+## CRUD-0251 Read app settings
+<a id="crud-0251-read-app-settings"></a>
+
+Operation: Read
+Target entity: app_settings
+Source: services/db/settings.ts:12
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Store-level runtime configuration and pricing/tax behavior controls.
+Business purpose: Store-level runtime configuration and pricing/tax behavior controls.
+Callsite evidence:
+- Evidence line: .from('app_settings').select('*').limit(1).single()
+- Caller function/module: fetchSettings
+- Source reference: services/db/settings.ts:12
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchSettings in services/db/settings.ts:12
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: store_name, currency_symbol, tax_rate, enable_low_stock_alerts
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/settings.ts:12
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: settings are loaded into store state on startup.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page renders and edits this record.
+Linked CRUD dependencies:
+- CRUD-0252
+- CRUD-0253
+- CRUD-0254
+- CRUD-0255
+- CRUD-0256
+- CRUD-0257
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: wildcard with single-row limit
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: limit(1)
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0252, CRUD-0253, CRUD-0254, CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep the one-row contract explicit and avoid broadening this into a list read.
+- Maintain the current startup refresh behavior so settings remain authoritative.
+- Avoid adding extra columns unless a consumer proves it needs them.
+Validation checklist:
+- Confirm the settings page still receives one row only.
+- Confirm startup refresh still tolerates missing rows gracefully through current error handling.
+- Confirm this read remains the canonical source of store configuration.
+Estimated impact (modeled): Expected to stay low-cost due to the single-row shape.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 12
+- Caller: fetchSettings
+- Operation class normalization: Read
+- Target normalization: app_settings
+- Selected columns detail: wildcard single row
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: limit(1)
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0252, CRUD-0253, CRUD-0254, CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+- Inference markers: none
+
+## CRUD-0252 Read app settings
+<a id="crud-0252-read-app-settings"></a>
+
+Operation: Read
+Target entity: app_settings
+Source: services/db/settings.ts:24
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Store-level runtime configuration and pricing/tax behavior controls.
+Business purpose: Store-level runtime configuration and pricing/tax behavior controls.
+Callsite evidence:
+- Evidence line: .from('app_settings').select('id').limit(1).single()
+- Caller function/module: updateSettings
+- Source reference: services/db/settings.ts:24
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller updateSettings in services/db/settings.ts:24
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/settings.ts:24
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: update flow resolves the target row id first.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings form uses this id to persist changes.
+Linked CRUD dependencies:
+- CRUD-0251
+- CRUD-0253
+- CRUD-0254
+- CRUD-0255
+- CRUD-0256
+- CRUD-0257
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: id only
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: limit(1)
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0251, CRUD-0253, CRUD-0254, CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep this helper id-only so the update path stays cheap.
+- Preserve the single-row lookup before the update mutation.
+- Avoid replacing it with a broader settings read in the update path.
+Validation checklist:
+- Confirm the id lookup still succeeds before update.
+- Confirm no extraneous settings fields are fetched.
+- Confirm the helper remains limited to one row.
+Estimated impact (modeled): Expected to stay minimal because only the id is read.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 24
+- Caller: updateSettings
+- Operation class normalization: Read
+- Target normalization: app_settings
+- Selected columns detail: id only
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: limit(1)
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0251, CRUD-0253, CRUD-0254, CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+- Inference markers: none
+
+## CRUD-0253 Update app settings
+<a id="crud-0253-update-app-settings"></a>
+
+Operation: Update
+Target entity: app_settings
+Source: services/db/settings.ts:27
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Store-level runtime configuration and pricing/tax behavior controls.
+Business purpose: Store-level runtime configuration and pricing/tax behavior controls.
+Callsite evidence:
+- Evidence line: .from('app_settings').update(dbUpdates).eq('id', existing.id)
+- Caller function/module: updateSettings
+- Source reference: services/db/settings.ts:27
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: partial_or_optional
+  - Source of value: caller updateSettings in services/db/settings.ts:27
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx
+  - Evidence: services/db/settings.ts:27
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: settings mutations are orchestrated from store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings form directly edits these values.
+Linked CRUD dependencies:
+- CRUD-0251
+- CRUD-0252
+- CRUD-0254
+- CRUD-0255
+- CRUD-0256
+- CRUD-0257
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: dbUpdates payload
+- Filters: eq('id', existing.id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx
+- Linked dependency CRUD IDs: CRUD-0251, CRUD-0252, CRUD-0254, CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep updates partial and only send populated fields.
+- Preserve the id lookup step so writes stay targeted.
+- Avoid broadening the mutation to more than one settings row.
+Validation checklist:
+- Confirm settings edits persist only changed fields.
+- Confirm the target row remains the singleton app settings row.
+- Confirm the update still triggers the expected UI refresh path.
+Estimated impact (modeled): Expected to remain cheap because the payload is partial.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 27
+- Caller: updateSettings
+- Operation class normalization: Update
+- Target normalization: app_settings
+- Selected columns detail: dbUpdates payload
+- Filters detail: eq('id', existing.id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx
+- Dependency IDs detail: CRUD-0251, CRUD-0252, CRUD-0254, CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+- Inference markers: none
+
+## CRUD-0254 Read categories
+<a id="crud-0254-read-categories"></a>
+
+Operation: Read
+Target entity: categories
+Source: services/db/settings.ts:32
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Inventory classification options used in product maintenance.
+Business purpose: Inventory classification options used in product maintenance.
+Callsite evidence:
+- Evidence line: .from('categories').select('name').order('name')
+- Caller function/module: fetchCategories
+- Source reference: services/db/settings.ts:32
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchCategories in services/db/settings.ts:32
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: name
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx, components/Inventory.tsx
+  - Evidence: services/db/settings.ts:32
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: categories are loaded into shared state.
+- Surface: components/Settings.tsx
+  - Mapping basis: category management occurs here.
+- Surface: components/Inventory.tsx
+  - Mapping basis: product catalog editing consumes the category list.
+Linked CRUD dependencies:
+- CRUD-0255
+- CRUD-0256
+- CRUD-0257
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: name
+- Filters: no_explicit_filters_detected
+- Sort/order: 'name'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep the projection name-only and sorted for stable UI presentation.
+- Avoid adding descriptive columns unless the picker or autocomplete truly needs them.
+- Maintain a predictable list shape for product forms.
+Validation checklist:
+- Confirm the category picker still renders in name order.
+- Confirm the read remains name-only.
+- Confirm no extra category metadata is fetched.
+Estimated impact (modeled): Expected to stay low-cost because the projection is already narrow.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 32
+- Caller: fetchCategories
+- Operation class normalization: Read
+- Target normalization: categories
+- Selected columns detail: name only
+- Filters detail: none_explicit
+- Ordering detail: name ascending
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0255, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+- Inference markers: none
+
+## CRUD-0255 Create categories
+<a id="crud-0255-create-categories"></a>
+
+Operation: Create
+Target entity: categories
+Source: services/db/settings.ts:38
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Inventory classification options used in product maintenance.
+Business purpose: Inventory classification options used in product maintenance.
+Callsite evidence:
+- Evidence line: .from('categories').insert({ name })
+- Caller function/module: insertCategory
+- Source reference: services/db/settings.ts:38
+Request payload contract:
+- Field: name
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertCategory in services/db/settings.ts:38
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx, components/Inventory.tsx
+  - Evidence: services/db/settings.ts:38
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: category creation is routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages categories.
+- Surface: components/Inventory.tsx
+  - Mapping basis: product catalog forms consume updated category lists.
+Linked CRUD dependencies:
+- CRUD-0254
+- CRUD-0256
+- CRUD-0257
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: name
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0254, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep the create payload name-only and let the database enforce uniqueness.
+- Preserve the duplicate-key ignore behavior in the caller.
+- Avoid adding category metadata until a clear product-form need emerges.
+Validation checklist:
+- Confirm duplicate insert handling still ignores existing names.
+- Confirm the new category appears in the settings picker.
+- Confirm no extra fields are required for create.
+Estimated impact (modeled): Expected to remain low-cost and idempotent.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 38
+- Caller: insertCategory
+- Operation class normalization: Create
+- Target normalization: categories
+- Selected columns detail: insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: name
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0254, CRUD-0256, CRUD-0257, CRUD-0258, CRUD-0259
+- Inference markers: none
+
+## CRUD-0256 Delete categories
+<a id="crud-0256-delete-categories"></a>
+
+Operation: Delete
+Target entity: categories
+Source: services/db/settings.ts:43
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Inventory classification options used in product maintenance.
+Business purpose: Inventory classification options used in product maintenance.
+Callsite evidence:
+- Evidence line: .from('categories').delete().eq('name', name)
+- Caller function/module: deleteCategory
+- Source reference: services/db/settings.ts:43
+Request payload contract:
+- Field: name
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteCategory in services/db/settings.ts:43
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Settings.tsx, components/Inventory.tsx
+  - Evidence: services/db/settings.ts:43
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: category deletion is routed through store actions.
+- Surface: components/Settings.tsx
+  - Mapping basis: the settings page manages categories.
+- Surface: components/Inventory.tsx
+  - Mapping basis: product catalog forms consume updated category lists.
+Linked CRUD dependencies:
+- CRUD-0254
+- CRUD-0255
+- CRUD-0257
+- CRUD-0258
+- CRUD-0259
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: delete predicate
+- Filters: eq('name', name)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: name
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Linked dependency CRUD IDs: CRUD-0254, CRUD-0255, CRUD-0257, CRUD-0258, CRUD-0259
+Optimisation recommendation:
+- Keep deletes name-scoped and avoid introducing broader matching.
+- Ensure downstream category references are handled by the caller or DB policy.
+- Keep the mutation narrow to avoid accidental category churn.
+Validation checklist:
+- Confirm the category row disappears from the picker.
+- Confirm no unrelated categories are removed.
+- Confirm any dependent product form caches still refresh correctly.
+Estimated impact (modeled): Expected to be low-cost but sensitive to stale category caches.
+
+Additional evidence ledger:
+- Source file: services/db/settings.ts
+- Source line: 43
+- Caller: deleteCategory
+- Operation class normalization: Delete
+- Target normalization: categories
+- Selected columns detail: delete predicate
+- Filters detail: eq('name', name)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: name
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Settings.tsx, components/Inventory.tsx
+- Dependency IDs detail: CRUD-0254, CRUD-0255, CRUD-0257, CRUD-0258, CRUD-0259
 - Inference markers: none
 
 ## CRUD-0002 Read app settings
@@ -10728,6 +13097,419 @@ Additional evidence ledger:
 - Dependency IDs detail: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
 - Inference markers: none
 
+## CRUD-0244 Read sales
+<a id="crud-0244-read-sales"></a>
+
+Operation: Read
+Target entity: sales
+Source: services/db/sales.ts:108
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Top-level sale transactions driving revenue, stock movement, and customer aggregates.
+Business purpose: Top-level sale transactions driving revenue, stock movement, and customer aggregates.
+Callsite evidence:
+- Evidence line: .from('sales').select('*, sale_items(*, products(...))')
+- Caller function/module: fetchSales
+- Source reference: services/db/sales.ts:108
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchSales in services/db/sales.ts:108
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, invoice_number, date, sale_items, subtotal, discount, tax, total_amount, total_cost, payment_method
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/sales.ts:108
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: fetchSales is loaded into store state and refresh flows.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: sales data is rendered in overview and reporting widgets.
+- Surface: components/POS.tsx
+  - Mapping basis: sales history and checkout flows depend on this dataset.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: transaction timeline and detail views depend on this dataset.
+Linked CRUD dependencies:
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0245
+- CRUD-0246
+- CRUD-0247
+- CRUD-0248
+- CRUD-0249
+- CRUD-0250
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: sales plus nested sale_items and products projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date' descending
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0250
+Optimisation recommendation:
+- Keep the nested projection narrow at services/db/sales.ts:108 and avoid broadening sale_items/products columns unless a consumer proves it needs them.
+- Preserve descending date ordering to keep UI chronology stable.
+- Introduce paging if the sales feed grows beyond the current refresh budget.
+Validation checklist:
+- Confirm the nested product fields still cover all consumers.
+- Confirm the store refresh sequence still tolerates empty result sets.
+- Confirm this read remains aligned with the checkout and history views.
+Estimated impact (modeled): Expected payload and render cost reduction if the nested projection is tightened later.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 108
+- Caller: fetchSales
+- Operation class normalization: Read
+- Target normalization: sales
+- Selected columns detail: nested sales + sale_items + products projection
+- Filters detail: none_explicit
+- Ordering detail: date descending
+- Pagination detail: none_explicit
+- Payload detail: inferred_from_callsite_context
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0250
+- Inference markers: none
+
+## CRUD-0245 Read exchanges
+<a id="crud-0245-read-exchanges"></a>
+
+Operation: Read
+Target entity: exchanges
+Source: services/db/sales.ts:170
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Exchange header records coordinating exchange item details.
+Business purpose: Exchange header records coordinating exchange item details.
+Callsite evidence:
+- Evidence line: .from('exchanges').select('*, exchange_items(*)')
+- Caller function/module: fetchExchanges
+- Source reference: services/db/sales.ts:170
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchExchanges in services/db/sales.ts:170
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id, exchange_number, date, exchange_items, customer_id, branch_id, total_value fields
+  - Usage classification: rendered+logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/sales.ts:170
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: exchange data is loaded into store state and refresh flows.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: exchange summaries and exceptions are reported here.
+- Surface: components/POS.tsx
+  - Mapping basis: exchange flows are exposed through checkout support screens.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: transaction reconciliation and detail views consume exchange rows.
+Linked CRUD dependencies:
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0246
+- CRUD-0247
+- CRUD-0248
+- CRUD-0249
+- CRUD-0250
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: exchanges plus nested exchange_items projection
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date' descending
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_callsite_context
+- Trigger timing: service read call on load or refresh
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0250
+Optimisation recommendation:
+- Keep the nested exchange_items projection tight and avoid expanding exchange item payloads until a consumer requires them.
+- Preserve descending date ordering to keep reconciliation views stable.
+- Add paging if historical exchange volume becomes large.
+Validation checklist:
+- Confirm the nested exchange item shape remains compatible with history views.
+- Confirm refresh and void flows still reconcile against the same exchange identifiers.
+- Confirm no additional exchange columns are fetched unnecessarily.
+Estimated impact (modeled): Expected payload reduction if the projection is trimmed further.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 170
+- Caller: fetchExchanges
+- Operation class normalization: Read
+- Target normalization: exchanges
+- Selected columns detail: nested exchanges + exchange_items projection
+- Filters detail: none_explicit
+- Ordering detail: date descending
+- Pagination detail: none_explicit
+- Payload detail: inferred_from_callsite_context
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0246, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0250
+- Inference markers: none
+
+## CRUD-0246 Create exchanges
+<a id="crud-0246-create-exchanges"></a>
+
+Operation: Create
+Target entity: exchanges
+Source: services/db/sales.ts:174
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Exchange header records coordinating exchange item details.
+Business purpose: Exchange header records coordinating exchange item details.
+Callsite evidence:
+- Evidence line: .from('exchanges').insert({ ... }).select('id').single()
+- Caller function/module: insertExchange
+- Source reference: services/db/sales.ts:174
+Request payload contract:
+- Field: exchangeNumber, date, originalSaleId, returnedTotal, newTotal, difference, paymentMethod, branchId
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertExchange in services/db/sales.ts:174
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: id
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/sales.ts:174
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: exchange creation is orchestrated from store actions.
+- Surface: components/POS.tsx
+  - Mapping basis: exchange entry begins in checkout and after-sale flows.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: exchange events affect summary metrics.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: exchange records are surfaced in history and audit views.
+Linked CRUD dependencies:
+- CRUD-0245
+- CRUD-0247
+- CRUD-0248
+- CRUD-0249
+- CRUD-0250
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: id only on insert response
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: exchangeNumber, date, originalSaleId, returnedTotal, newTotal, difference, paymentMethod, branchId
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0245, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0250, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep the insert payload stable and only return the inserted id.
+- Defer all item-row work to the follow-up exchange_items insert so the header mutation stays small.
+- Preserve idempotency expectations in the store action path.
+Validation checklist:
+- Confirm the inserted exchange id still feeds the exchange_items write.
+- Confirm rollback/error handling continues to fail the whole exchange atomically.
+- Confirm the response shape remains id-only.
+Estimated impact (modeled): Expected reduction in response payload and mutation coordination cost.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 174
+- Caller: insertExchange
+- Operation class normalization: Create
+- Target normalization: exchanges
+- Selected columns detail: id only on insert response
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: exchangeNumber, date, originalSaleId, returnedTotal, newTotal, difference, paymentMethod, branchId
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0245, CRUD-0247, CRUD-0248, CRUD-0249, CRUD-0250, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0247 Create exchange items
+<a id="crud-0247-create-exchange-items"></a>
+
+Operation: Create
+Target entity: exchange_items
+Source: services/db/sales.ts:228
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Exchange item detail rows for returns and replacement lines.
+Business purpose: Exchange item detail rows for returns and replacement lines.
+Callsite evidence:
+- Evidence line: .from('exchange_items').insert(itemRows)
+- Caller function/module: insertExchange
+- Source reference: services/db/sales.ts:228
+Request payload contract:
+- Field: itemRows
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertExchange in services/db/sales.ts:228
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/sales.ts:228
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: exchange item creation is orchestrated from store actions.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: exchange items influence reconciliation and summary metrics.
+- Surface: components/POS.tsx
+  - Mapping basis: exchange detail entry is part of checkout workflows.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: exchange rows are displayed in transaction history.
+Linked CRUD dependencies:
+- CRUD-0245
+- CRUD-0246
+- CRUD-0248
+- CRUD-0249
+- CRUD-0250
+- CRUD-0267
+- CRUD-0268
+- CRUD-0269
+- CRUD-0270
+- CRUD-0271
+- CRUD-0272
+- CRUD-0273
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: itemRows insert payload
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: itemRows
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0245, CRUD-0246, CRUD-0248, CRUD-0249, CRUD-0250, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+Optimisation recommendation:
+- Keep exchange item inserts batched and avoid splitting itemRows unless the table begins to hit payload or timeout limits.
+- Keep the exchange header insert as the only source of the parent id.
+- Maintain atomic error handling between header and line-row writes.
+Validation checklist:
+- Confirm item row shape stays consistent with returned/new line differentiation.
+- Confirm the insert still happens only after the exchange header id is available.
+- Confirm no extra exchange item columns are fetched or written unnecessarily.
+Estimated impact (modeled): Expected throughput gains from batched line inserts relative to per-row writes.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 228
+- Caller: insertExchange
+- Operation class normalization: Create
+- Target normalization: exchange_items
+- Selected columns detail: itemRows insert payload
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: itemRows
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0245, CRUD-0246, CRUD-0248, CRUD-0249, CRUD-0250, CRUD-0267, CRUD-0268, CRUD-0269, CRUD-0270, CRUD-0271, CRUD-0272, CRUD-0273
+- Inference markers: none
+
+## CRUD-0248 RPC fn_complete_sale
+<a id="crud-0248-rpc-fn-complete-sale"></a>
+
+Operation: RPC
+Target entity: fn_complete_sale
+Source: services/db/sales.ts:36
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Transaction completion stored procedure for sale finalization.
+Business purpose: Transaction completion stored procedure for sale finalization.
+Callsite evidence:
+- Evidence line: supabase.rpc('fn_complete_sale', payloadWithSplit)
+- Caller function/module: completeSaleRPC
+- Source reference: services/db/sales.ts:36
+Request payload contract:
+- Field: payloadWithSplit
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller completeSaleRPC in services/db/sales.ts:36
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: sale_id or completion token
+  - Usage classification: logic
+  - UI/logical sink: context/StoreContext.tsx and components/Dashboard.tsx, components/POS.tsx
+  - Evidence: services/db/sales.ts:36
+Frontend output surface:
+- Surface: context/StoreContext.tsx
+  - Mapping basis: sale completion is orchestrated through store actions.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: completed sales affect revenue and reporting widgets.
+- Surface: components/POS.tsx
+  - Mapping basis: the checkout action invokes this RPC.
+Linked CRUD dependencies:
+- CRUD-0244
+- CRUD-0245
+- CRUD-0246
+- CRUD-0247
+- CRUD-0249
+- CRUD-0250
+- CRUD-0260
+- CRUD-0261
+- CRUD-0262
+Risk profile: high_consistency_and_business_logic_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: RPC payload
+- Filters: stored procedure encapsulates filtering
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payloadWithSplit
+- Trigger timing: service function invoked by context action
+- Frontend components: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0244, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0249, CRUD-0250, CRUD-0260, CRUD-0261, CRUD-0262
+Optimisation recommendation:
+- Keep the split-payment payload stable and avoid altering the RPC contract without a matching migration.
+- Treat this path as atomic business logic, not a generic data write.
+- Preserve the fallback signature behavior for older database deployments.
+Validation checklist:
+- Confirm the RPC still accepts the split payment payload.
+- Confirm the store action path still surfaces migration guidance on legacy signature mismatch.
+- Confirm no extra RPC parameters are introduced.
+Estimated impact (modeled): Expected to remain network-light; main risk is contract drift rather than payload size.
+
+Additional evidence ledger:
+- Source file: services/db/sales.ts
+- Source line: 36
+- Caller: completeSaleRPC
+- Operation class normalization: RPC
+- Target normalization: fn_complete_sale
+- Selected columns detail: RPC payload
+- Filters detail: procedure-encapsulated
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: payloadWithSplit
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: context/StoreContext.tsx, components/Dashboard.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0244, CRUD-0245, CRUD-0246, CRUD-0247, CRUD-0249, CRUD-0250, CRUD-0260, CRUD-0261, CRUD-0262
+- Inference markers: none
+
 ## CRUD-0114 Create products
 <a id="crud-0114-create-products"></a>
 
@@ -19771,205 +22553,2899 @@ Additional evidence ledger:
 - Frontend surfaces detail: none
 - Dependency IDs detail: none
 - Inference markers: sql_callsite_parsed_from_statement
+## CRUD-0213 Read branches
+<a id="crud-0213-read-branches"></a>
 
-## Coverage appendix: file-by-file operation counts
-- components/Accounting.tsx: 2
-- components/Branches.tsx: 2
-- components/Customers.tsx: 3
-- components/Dashboard.tsx: 2
-- components/Inventory.tsx: 14
-- components/OfflineQueue.tsx: 2
-- components/POS.tsx: 3
-- components/Settings.tsx: 6
-- components/Suppliers.tsx: 8
-- context/StoreContext.tsx: 8
-- scripts/offline-sales-recovery.js: 1
-- scripts/recover-supplier-expense-2026-04-06.sql: 3
-- scripts/supplier-expense-recovery.js: 1
-- services/supabaseService.ts: 61
-- supabase/migrations/001_initial_schema.sql: 45
-- supabase/migrations/002_inventory_and_damaged_goods.sql: 5
-- supabase/migrations/002_remove_image_urls.sql: 1
-- supabase/migrations/003_stock_transfers.sql: 1
-- supabase/migrations/004_add_barcode_fields.sql: 14
-- supabase/migrations/006_branch_printer_names.sql: 1
-- supabase/migrations/007_allow_unlinked_sale_items.sql: 3
-- supabase/migrations/008_cash_card_split_payments.sql: 8
-- supabase/migrations/009_void_sale.sql: 5
-- supabase/migrations/010_exchange_persistence.sql: 2
-- supabase/migrations/011_sale_item_variant_snapshots.sql: 8
-- supabase/migrations/012_mount_lavinia_default_thermal_printer.sql: 1
-- supabase/migrations/013_add_affects_accounting_to_supplier_transactions.sql: 2
+Operation: Read
+Target entity: branches
+Source: services/db/branches.ts:14
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Operational branch metadata and branch-scoped workflow routing.
+Business purpose: Operational branch metadata and branch-scoped workflow routing.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('branches').select('*').order('created_at');
+- Caller function/module: fetchBranches
+- Source reference: services/db/branches.ts:14
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchBranches in services/db/branches.ts:14
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: *
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/branches.ts:14
+  - Evidence: services/db/branches.ts:14
+Frontend output surface:
+- Surface: components/Branches.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/Sidebar.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/Inventory.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target branches appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0009
+- CRUD-0010
+- CRUD-0011
+- CRUD-0012
+- CRUD-0013
+- CRUD-0014
+- CRUD-0015
+- CRUD-0016
+- CRUD-0017
+- CRUD-0018
+- CRUD-0064
+- CRUD-0065
+- CRUD-0066
+- CRUD-0067
+- CRUD-0068
+- CRUD-0069
+- CRUD-0070
+- CRUD-0071
+- CRUD-0072
+- CRUD-0073
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: *
+- Filters: no_explicit_filters_detected
+- Sort/order: 'created_at'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service read call on load or refresh
+- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073
+Optimisation recommendation:
+- Tighten projection for branches callsite services/db/branches.ts:14; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics ('created_at') to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
 
-## Coverage appendix: operation-type totals
-- Read: 28
-- Create: 79
-- Update: 62
-- Delete: 22
-- Upsert: 10
-- RPC: 11
-- Storage: 0
+Additional evidence ledger:
+- Source file: services/db/branches.ts
+- Source line: 14
+- Caller: fetchBranches
+- Operation class normalization: Read
+- Target normalization: branches
+- Selected columns detail: *
+- Filters detail: none_explicit
+- Ordering detail: 'created_at'
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073
+- Inference markers: none
 
-## Coverage appendix: discovered vs documented
-- Discovered callsites: 212
-- Documented callsites: 212
-- Delta: 0
+## CRUD-0214 Create branches
+<a id="crud-0214-create-branches"></a>
 
-## Coverage appendix: unresolved dynamic callsites
-- CRUD-0004 supabase/migrations/001_initial_schema.sql:39 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0005 supabase/migrations/001_initial_schema.sql:335 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0006 components/Settings.tsx:97 inferred markers: frontend_trigger_callsite
-- CRUD-0007 supabase/migrations/001_initial_schema.sql:289 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0009 components/Branches.tsx:16 inferred markers: frontend_trigger_callsite
-- CRUD-0011 supabase/migrations/001_initial_schema.sql:16 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0012 supabase/migrations/001_initial_schema.sql:324 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0013 components/Branches.tsx:14 inferred markers: frontend_trigger_callsite
-- CRUD-0014 components/Settings.tsx:104 inferred markers: frontend_trigger_callsite
-- CRUD-0016 supabase/migrations/001_initial_schema.sql:287 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0017 supabase/migrations/006_branch_printer_names.sql:1 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0018 supabase/migrations/012_mount_lavinia_default_thermal_printer.sql:2 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0020 components/Inventory.tsx:1240 inferred markers: frontend_trigger_callsite
-- CRUD-0022 supabase/migrations/001_initial_schema.sql:55 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0023 supabase/migrations/001_initial_schema.sql:343 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0024 supabase/migrations/001_initial_schema.sql:291 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0025 components/Inventory.tsx:1249 inferred markers: frontend_trigger_callsite
-- CRUD-0028 components/Inventory.tsx:1219 inferred markers: frontend_trigger_callsite
-- CRUD-0030 supabase/migrations/001_initial_schema.sql:51 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0031 supabase/migrations/001_initial_schema.sql:339 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0032 supabase/migrations/001_initial_schema.sql:290 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0033 components/Inventory.tsx:1228 inferred markers: frontend_trigger_callsite
-- CRUD-0036 components/Customers.tsx:71 inferred markers: frontend_trigger_callsite
-- CRUD-0037 components/POS.tsx:664 inferred markers: frontend_trigger_callsite
-- CRUD-0039 supabase/migrations/001_initial_schema.sql:91 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0040 supabase/migrations/001_initial_schema.sql:371 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0041 components/Customers.tsx:69 inferred markers: frontend_trigger_callsite
-- CRUD-0043 supabase/migrations/001_initial_schema.sql:273 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0044 supabase/migrations/001_initial_schema.sql:294 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0045 supabase/migrations/004_add_barcode_fields.sql:118 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0046 supabase/migrations/008_cash_card_split_payments.sql:132 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0047 supabase/migrations/009_void_sale.sql:56 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0048 supabase/migrations/011_sale_item_variant_snapshots.sql:149 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0049 components/Customers.tsx:89 inferred markers: frontend_trigger_callsite
-- CRUD-0052 components/Suppliers.tsx:334 inferred markers: frontend_trigger_callsite
-- CRUD-0054 supabase/migrations/002_inventory_and_damaged_goods.sql:30 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0055 supabase/migrations/002_inventory_and_damaged_goods.sql:47 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0056 components/Suppliers.tsx:347 inferred markers: frontend_trigger_callsite
-- CRUD-0059 supabase/migrations/010_exchange_persistence.sql:22 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0061 components/POS.tsx:1251 inferred markers: frontend_trigger_callsite
-- CRUD-0063 supabase/migrations/010_exchange_persistence.sql:1 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0065 components/Accounting.tsx:156 inferred markers: frontend_trigger_callsite
-- CRUD-0067 supabase/migrations/001_initial_schema.sql:179 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0068 supabase/migrations/001_initial_schema.sql:383 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0069 supabase/migrations/001_initial_schema.sql:300 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0070 supabase/migrations/004_add_barcode_fields.sql:20 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0071 supabase/migrations/004_add_barcode_fields.sql:22 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0072 supabase/migrations/004_add_barcode_fields.sql:24 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0073 supabase/migrations/004_add_barcode_fields.sql:25 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0074 components/Accounting.tsx:536 inferred markers: frontend_trigger_callsite
-- CRUD-0076 components/Dashboard.tsx:663 inferred markers: frontend_trigger_callsite
-- CRUD-0077 components/POS.tsx:624 inferred markers: frontend_trigger_callsite
-- CRUD-0080 supabase/migrations/001_initial_schema.sql:209 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0081 supabase/migrations/004_add_barcode_fields.sql:53 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0082 supabase/migrations/008_cash_card_split_payments.sql:28 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0083 supabase/migrations/011_sale_item_variant_snapshots.sql:28 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0084 components/Dashboard.tsx:683 inferred markers: frontend_trigger_callsite
-- CRUD-0086 supabase/migrations/009_void_sale.sql:1 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0087 context/StoreContext.tsx:512 inferred markers: storage_object_operation
-- CRUD-0088 context/StoreContext.tsx:535 inferred markers: storage_object_operation
-- CRUD-0089 context/StoreContext.tsx:609 inferred markers: storage_object_operation
-- CRUD-0090 context/StoreContext.tsx:619 inferred markers: storage_object_operation
-- CRUD-0091 scripts/offline-sales-recovery.js:6 inferred markers: storage_object_operation
-- CRUD-0092 scripts/supplier-expense-recovery.js:38 inferred markers: storage_object_operation
-- CRUD-0093 components/OfflineQueue.tsx:23 inferred markers: frontend_trigger_callsite
-- CRUD-0094 components/OfflineQueue.tsx:85 inferred markers: frontend_trigger_callsite
-- CRUD-0095 context/StoreContext.tsx:525 inferred markers: storage_object_operation
-- CRUD-0096 context/StoreContext.tsx:807 inferred markers: storage_object_operation
-- CRUD-0097 context/StoreContext.tsx:808 inferred markers: storage_object_operation
-- CRUD-0098 context/StoreContext.tsx:815 inferred markers: storage_object_operation
-- CRUD-0101 supabase/migrations/001_initial_schema.sql:81 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0102 supabase/migrations/001_initial_schema.sql:356 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0103 supabase/migrations/001_initial_schema.sql:252 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0104 supabase/migrations/001_initial_schema.sql:293 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0105 supabase/migrations/004_add_barcode_fields.sql:97 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0106 supabase/migrations/008_cash_card_split_payments.sql:112 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0107 supabase/migrations/009_void_sale.sql:26 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0108 supabase/migrations/011_sale_item_variant_snapshots.sql:129 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0109 components/Inventory.tsx:256 inferred markers: frontend_trigger_callsite
-- CRUD-0114 components/Inventory.tsx:211 inferred markers: frontend_trigger_callsite
-- CRUD-0115 components/Inventory.tsx:229 inferred markers: frontend_trigger_callsite
-- CRUD-0116 components/Settings.tsx:247 inferred markers: frontend_trigger_callsite
-- CRUD-0119 supabase/migrations/001_initial_schema.sql:64 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0120 supabase/migrations/001_initial_schema.sql:347 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0121 components/Inventory.tsx:227 inferred markers: frontend_trigger_callsite
-- CRUD-0123 supabase/migrations/001_initial_schema.sql:292 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0124 supabase/migrations/002_inventory_and_damaged_goods.sql:8 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0125 supabase/migrations/002_inventory_and_damaged_goods.sql:9 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0126 supabase/migrations/002_remove_image_urls.sql:4 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0127 supabase/migrations/004_add_barcode_fields.sql:8 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0128 supabase/migrations/004_add_barcode_fields.sql:9 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0129 components/Inventory.tsx:271 inferred markers: frontend_trigger_callsite
-- CRUD-0130 components/Inventory.tsx:280 inferred markers: frontend_trigger_callsite
-- CRUD-0131 components/Inventory.tsx:288 inferred markers: frontend_trigger_callsite
-- CRUD-0133 components/Inventory.tsx:264 inferred markers: frontend_trigger_callsite
-- CRUD-0135 supabase/migrations/001_initial_schema.sql:124 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0136 supabase/migrations/001_initial_schema.sql:241 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0137 supabase/migrations/004_add_barcode_fields.sql:85 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0138 supabase/migrations/008_cash_card_split_payments.sql:102 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0139 supabase/migrations/011_sale_item_variant_snapshots.sql:101 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0141 supabase/migrations/001_initial_schema.sql:296 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0142 supabase/migrations/004_add_barcode_fields.sql:14 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0143 supabase/migrations/007_allow_unlinked_sale_items.sql:6 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0144 supabase/migrations/007_allow_unlinked_sale_items.sql:18 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0145 supabase/migrations/007_allow_unlinked_sale_items.sql:21 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0146 supabase/migrations/011_sale_item_variant_snapshots.sql:1 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0147 supabase/migrations/011_sale_item_variant_snapshots.sql:10 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0149 supabase/migrations/001_initial_schema.sql:104 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0150 supabase/migrations/001_initial_schema.sql:229 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0151 supabase/migrations/004_add_barcode_fields.sql:73 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0152 supabase/migrations/008_cash_card_split_payments.sql:59 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0153 supabase/migrations/011_sale_item_variant_snapshots.sql:58 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0154 supabase/migrations/001_initial_schema.sql:295 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0155 supabase/migrations/008_cash_card_split_payments.sql:9 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0156 supabase/migrations/008_cash_card_split_payments.sql:14 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0158 supabase/migrations/009_void_sale.sql:61 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0161 supabase/migrations/001_initial_schema.sql:137 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0162 supabase/migrations/001_initial_schema.sql:258 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0163 supabase/migrations/004_add_barcode_fields.sql:103 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0164 supabase/migrations/008_cash_card_split_payments.sql:117 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0165 supabase/migrations/009_void_sale.sql:30 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0166 supabase/migrations/011_sale_item_variant_snapshots.sql:134 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0167 supabase/migrations/001_initial_schema.sql:297 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0168 components/Inventory.tsx:1138 inferred markers: frontend_trigger_callsite
-- CRUD-0170 components/Inventory.tsx:323 inferred markers: frontend_trigger_callsite
-- CRUD-0172 supabase/migrations/003_stock_transfers.sql:1 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0175 components/Suppliers.tsx:302 inferred markers: frontend_trigger_callsite
-- CRUD-0176 scripts/recover-supplier-expense-2026-04-06.sql:118 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0177 scripts/recover-supplier-expense-2026-04-06.sql:138 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0180 supabase/migrations/001_initial_schema.sql:165 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0181 components/Suppliers.tsx:208 inferred markers: frontend_trigger_callsite
-- CRUD-0184 supabase/migrations/001_initial_schema.sql:299 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0185 supabase/migrations/013_add_affects_accounting_to_supplier_transactions.sql:11 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0186 supabase/migrations/013_add_affects_accounting_to_supplier_transactions.sql:13 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0187 components/Suppliers.tsx:221 inferred markers: frontend_trigger_callsite
-- CRUD-0190 components/Suppliers.tsx:165 inferred markers: frontend_trigger_callsite
-- CRUD-0191 scripts/recover-supplier-expense-2026-04-06.sql:25 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0193 supabase/migrations/001_initial_schema.sql:152 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0194 supabase/migrations/001_initial_schema.sql:377 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0195 components/Suppliers.tsx:163 inferred markers: frontend_trigger_callsite
-- CRUD-0197 supabase/migrations/001_initial_schema.sql:298 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0198 components/Suppliers.tsx:181 inferred markers: frontend_trigger_callsite
-- CRUD-0201 components/Settings.tsx:119 inferred markers: frontend_trigger_callsite
-- CRUD-0203 supabase/migrations/001_initial_schema.sql:27 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0204 supabase/migrations/001_initial_schema.sql:329 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0205 components/Settings.tsx:117 inferred markers: frontend_trigger_callsite
-- CRUD-0207 supabase/migrations/001_initial_schema.sql:288 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0208 components/Settings.tsx:468 inferred markers: frontend_trigger_callsite
-- CRUD-0210 supabase/migrations/001_initial_schema.sql:193 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0211 supabase/migrations/002_inventory_and_damaged_goods.sql:15 inferred markers: sql_callsite_parsed_from_statement
-- CRUD-0212 supabase/migrations/004_add_barcode_fields.sql:38 inferred markers: sql_callsite_parsed_from_statement
+Operation: Create
+Target entity: branches
+Source: services/db/branches.ts:28
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Operational branch metadata and branch-scoped workflow routing.
+Business purpose: Operational branch metadata and branch-scoped workflow routing.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('branches').insert({
+- Caller function/module: insertBranch
+- Source reference: services/db/branches.ts:28
+Request payload contract:
+- Field: id
+  - Inferred type: uuid|string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertBranch in services/db/branches.ts:28
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+  - Evidence: services/db/branches.ts:28
+Frontend output surface:
+- Surface: components/Branches.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/Sidebar.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/Inventory.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target branches appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0008
+- CRUD-0064
+- CRUD-0065
+- CRUD-0066
+- CRUD-0067
+- CRUD-0068
+- CRUD-0069
+- CRUD-0070
+- CRUD-0071
+- CRUD-0072
+- CRUD-0073
+- CRUD-0074
+- CRUD-0075
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
+Optimisation recommendation:
+- Keep payload contract stable at services/db/branches.ts:28, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
 
-## Consistency appendix
-- Orphan CRUD IDs check: pass (all IDs referenced from canonical register).
-- Broken cross-links check: pass (anchor generated for each CRUD section).
-- Duplicate ID check: pass (deterministic sequence generated once).
-- Dependency reference validity check: pass (all linked IDs resolved in generated set).
+Additional evidence ledger:
+- Source file: services/db/branches.ts
+- Source line: 28
+- Caller: insertBranch
+- Operation class normalization: Create
+- Target normalization: branches
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
+- Inference markers: none
+
+## CRUD-0215 Update branches
+<a id="crud-0215-update-branches"></a>
+
+Operation: Update
+Target entity: branches
+Source: services/db/branches.ts:48
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Operational branch metadata and branch-scoped workflow routing.
+Business purpose: Operational branch metadata and branch-scoped workflow routing.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('branches').update({
+- Caller function/module: updateBranch
+- Source reference: services/db/branches.ts:48
+Request payload contract:
+- Field: name
+  - Inferred type: string
+  - Required/optional: optional_or_partial
+  - Source of value: caller updateBranch in services/db/branches.ts:48
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+  - Evidence: services/db/branches.ts:48
+Frontend output surface:
+- Surface: components/Branches.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/Sidebar.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/Inventory.tsx
+  - Mapping basis: target branches appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target branches appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0008
+- CRUD-0064
+- CRUD-0065
+- CRUD-0066
+- CRUD-0067
+- CRUD-0068
+- CRUD-0069
+- CRUD-0070
+- CRUD-0071
+- CRUD-0072
+- CRUD-0073
+- CRUD-0074
+- CRUD-0075
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: name
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
+Optimisation recommendation:
+- Keep payload contract stable at services/db/branches.ts:48, but isolate mutable fields to only name to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/branches.ts
+- Source line: 48
+- Caller: updateBranch
+- Operation class normalization: Update
+- Target normalization: branches
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: name
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
+- Inference markers: none
+
+## CRUD-0216 Read customers
+<a id="crud-0216-read-customers"></a>
+
+Operation: Read
+Target entity: customers
+Source: services/db/customers.ts:15
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Business purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('customers').select('*').order('created_at');
+- Caller function/module: fetchCustomers
+- Source reference: services/db/customers.ts:15
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchCustomers in services/db/customers.ts:15
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: *
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/customers.ts:15
+  - Evidence: services/db/customers.ts:15
+Frontend output surface:
+- Surface: components/Customers.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target customers appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0036
+- CRUD-0037
+- CRUD-0038
+- CRUD-0039
+- CRUD-0040
+- CRUD-0041
+- CRUD-0042
+- CRUD-0043
+- CRUD-0044
+- CRUD-0045
+- CRUD-0046
+- CRUD-0047
+- CRUD-0048
+- CRUD-0049
+- CRUD-0050
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0076
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: *
+- Filters: no_explicit_filters_detected
+- Sort/order: 'created_at'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service read call on load or refresh
+- Frontend components: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0036, CRUD-0037, CRUD-0038, CRUD-0039, CRUD-0040, CRUD-0041, CRUD-0042, CRUD-0043, CRUD-0044, CRUD-0045, CRUD-0046, CRUD-0047, CRUD-0048, CRUD-0049, CRUD-0050, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076
+Optimisation recommendation:
+- Tighten projection for customers callsite services/db/customers.ts:15; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics ('created_at') to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/customers.ts
+- Source line: 15
+- Caller: fetchCustomers
+- Operation class normalization: Read
+- Target normalization: customers
+- Selected columns detail: *
+- Filters detail: none_explicit
+- Ordering detail: 'created_at'
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0036, CRUD-0037, CRUD-0038, CRUD-0039, CRUD-0040, CRUD-0041, CRUD-0042, CRUD-0043, CRUD-0044, CRUD-0045, CRUD-0046, CRUD-0047, CRUD-0048, CRUD-0049, CRUD-0050, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076
+- Inference markers: none
+
+## CRUD-0217 Create customers
+<a id="crud-0217-create-customers"></a>
+
+Operation: Create
+Target entity: customers
+Source: services/db/customers.ts:21
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Business purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('customers').insert({
+- Caller function/module: insertCustomer
+- Source reference: services/db/customers.ts:21
+Request payload contract:
+- Field: id
+  - Inferred type: uuid|string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertCustomer in services/db/customers.ts:21
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+  - Evidence: services/db/customers.ts:21
+Frontend output surface:
+- Surface: components/Customers.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target customers appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0035
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0084
+- CRUD-0085
+- CRUD-0086
+- CRUD-0148
+- CRUD-0149
+- CRUD-0150
+- CRUD-0151
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151
+Optimisation recommendation:
+- Keep payload contract stable at services/db/customers.ts:21, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/customers.ts
+- Source line: 21
+- Caller: insertCustomer
+- Operation class normalization: Create
+- Target normalization: customers
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151
+- Inference markers: none
+
+## CRUD-0218 Update customers
+<a id="crud-0218-update-customers"></a>
+
+Operation: Update
+Target entity: customers
+Source: services/db/customers.ts:48
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Business purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('customers').update(dbUpdates).eq('id', id);
+- Caller function/module: updateCustomer
+- Source reference: services/db/customers.ts:48
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: optional_or_partial
+  - Source of value: caller updateCustomer in services/db/customers.ts:48
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+  - Evidence: services/db/customers.ts:48
+Frontend output surface:
+- Surface: components/Customers.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target customers appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0035
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0084
+- CRUD-0085
+- CRUD-0086
+- CRUD-0148
+- CRUD-0149
+- CRUD-0150
+- CRUD-0151
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id); eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_arg:dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151
+Optimisation recommendation:
+- Keep payload contract stable at services/db/customers.ts:48, but isolate mutable fields to only inferred_from_arg:dbUpdates to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/customers.ts
+- Source line: 48
+- Caller: updateCustomer
+- Operation class normalization: Update
+- Target normalization: customers
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id); eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: inferred_from_arg:dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151
+- Inference markers: none
+
+## CRUD-0219 Delete customers
+<a id="crud-0219-delete-customers"></a>
+
+Operation: Delete
+Target entity: customers
+Source: services/db/customers.ts:53
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Business purpose: Customer identity, loyalty, and spend tracking for transactional workflows.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('customers').delete().eq('id', id);
+- Caller function/module: deleteCustomer
+- Source reference: services/db/customers.ts:53
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteCustomer in services/db/customers.ts:53
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+  - Evidence: services/db/customers.ts:53
+Frontend output surface:
+- Surface: components/Customers.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target customers appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target customers appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0035
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0084
+- CRUD-0085
+- CRUD-0086
+- CRUD-0148
+- CRUD-0149
+- CRUD-0150
+- CRUD-0151
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151
+Optimisation recommendation:
+- Keep payload contract stable at services/db/customers.ts:53, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/customers.ts
+- Source line: 53
+- Caller: deleteCustomer
+- Operation class normalization: Delete
+- Target normalization: customers
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Customers.tsx, components/POS.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0035, CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0148, CRUD-0149, CRUD-0150, CRUD-0151
+- Inference markers: none
+
+## CRUD-0220 Read expenses
+<a id="crud-0220-read-expenses"></a>
+
+Operation: Read
+Target entity: expenses
+Source: services/db/expenses.ts:17
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Non-sales operating costs feeding accounting and profitability views.
+Business purpose: Non-sales operating costs feeding accounting and profitability views.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
+- Caller function/module: fetchExpenses
+- Source reference: services/db/expenses.ts:17
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchExpenses in services/db/expenses.ts:17
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: *
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/expenses.ts:17
+  - Evidence: services/db/expenses.ts:17
+Frontend output surface:
+- Surface: components/Accounting.tsx
+  - Mapping basis: target expenses appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target expenses appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0008
+- CRUD-0009
+- CRUD-0010
+- CRUD-0011
+- CRUD-0012
+- CRUD-0013
+- CRUD-0014
+- CRUD-0015
+- CRUD-0016
+- CRUD-0017
+- CRUD-0018
+- CRUD-0065
+- CRUD-0066
+- CRUD-0067
+- CRUD-0068
+- CRUD-0069
+- CRUD-0070
+- CRUD-0071
+- CRUD-0072
+- CRUD-0073
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: *
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date', { ascending: false }
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service read call on load or refresh
+- Frontend components: components/Accounting.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073
+Optimisation recommendation:
+- Tighten projection for expenses callsite services/db/expenses.ts:17; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics ('date', { ascending: false }) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/expenses.ts
+- Source line: 17
+- Caller: fetchExpenses
+- Operation class normalization: Read
+- Target normalization: expenses
+- Selected columns detail: *
+- Filters detail: none_explicit
+- Ordering detail: 'date', { ascending: false }
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: components/Accounting.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073
+- Inference markers: none
+
+## CRUD-0221 Create expenses
+<a id="crud-0221-create-expenses"></a>
+
+Operation: Create
+Target entity: expenses
+Source: services/db/expenses.ts:23
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Non-sales operating costs feeding accounting and profitability views.
+Business purpose: Non-sales operating costs feeding accounting and profitability views.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('expenses').insert({
+- Caller function/module: insertExpense
+- Source reference: services/db/expenses.ts:23
+Request payload contract:
+- Field: id
+  - Inferred type: uuid|string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertExpense in services/db/expenses.ts:23
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Accounting.tsx, components/Dashboard.tsx
+  - Evidence: services/db/expenses.ts:23
+Frontend output surface:
+- Surface: components/Accounting.tsx
+  - Mapping basis: target expenses appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target expenses appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0008
+- CRUD-0009
+- CRUD-0010
+- CRUD-0011
+- CRUD-0012
+- CRUD-0013
+- CRUD-0014
+- CRUD-0015
+- CRUD-0016
+- CRUD-0017
+- CRUD-0018
+- CRUD-0064
+- CRUD-0173
+- CRUD-0174
+- CRUD-0175
+- CRUD-0176
+- CRUD-0177
+- CRUD-0178
+- CRUD-0179
+- CRUD-0180
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Accounting.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0173, CRUD-0174, CRUD-0175, CRUD-0176, CRUD-0177, CRUD-0178, CRUD-0179, CRUD-0180
+Optimisation recommendation:
+- Keep payload contract stable at services/db/expenses.ts:23, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0173, CRUD-0174, CRUD-0175, CRUD-0176, CRUD-0177, CRUD-0178, CRUD-0179, CRUD-0180) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/expenses.ts
+- Source line: 23
+- Caller: insertExpense
+- Operation class normalization: Create
+- Target normalization: expenses
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Accounting.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0173, CRUD-0174, CRUD-0175, CRUD-0176, CRUD-0177, CRUD-0178, CRUD-0179, CRUD-0180
+- Inference markers: none
+
+## CRUD-0222 Delete expenses
+<a id="crud-0222-delete-expenses"></a>
+
+Operation: Delete
+Target entity: expenses
+Source: services/db/expenses.ts:47
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Non-sales operating costs feeding accounting and profitability views.
+Business purpose: Non-sales operating costs feeding accounting and profitability views.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('expenses').delete().eq('id', id);
+- Caller function/module: deleteExpense
+- Source reference: services/db/expenses.ts:47
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteExpense in services/db/expenses.ts:47
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Accounting.tsx, components/Dashboard.tsx
+  - Evidence: services/db/expenses.ts:47
+Frontend output surface:
+- Surface: components/Accounting.tsx
+  - Mapping basis: target expenses appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target expenses appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0008
+- CRUD-0009
+- CRUD-0010
+- CRUD-0011
+- CRUD-0012
+- CRUD-0013
+- CRUD-0014
+- CRUD-0015
+- CRUD-0016
+- CRUD-0017
+- CRUD-0018
+- CRUD-0064
+- CRUD-0173
+- CRUD-0174
+- CRUD-0175
+- CRUD-0176
+- CRUD-0177
+- CRUD-0178
+- CRUD-0179
+- CRUD-0180
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Accounting.tsx, components/Dashboard.tsx
+- Linked dependency CRUD IDs: CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0173, CRUD-0174, CRUD-0175, CRUD-0176, CRUD-0177, CRUD-0178, CRUD-0179, CRUD-0180
+Optimisation recommendation:
+- Keep payload contract stable at services/db/expenses.ts:47, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0173, CRUD-0174, CRUD-0175, CRUD-0176, CRUD-0177, CRUD-0178, CRUD-0179, CRUD-0180) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/expenses.ts
+- Source line: 47
+- Caller: deleteExpense
+- Operation class normalization: Delete
+- Target normalization: expenses
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Accounting.tsx, components/Dashboard.tsx
+- Dependency IDs detail: CRUD-0008, CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0173, CRUD-0174, CRUD-0175, CRUD-0176, CRUD-0177, CRUD-0178, CRUD-0179, CRUD-0180
+- Inference markers: none
+
+## CRUD-0223 Upsert product branch stock
+<a id="crud-0223-upsert-product-branch-stock"></a>
+
+Operation: Upsert
+Target entity: product_branch_stock
+Source: services/db/inventory.ts:9
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('product_branch_stock').upsert(rows, { onConflict: 'product_id,branch_id' });
+- Caller function/module: initializeBranchStock
+- Source reference: services/db/inventory.ts:9
+Request payload contract:
+- Field: rows
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller initializeBranchStock in services/db/inventory.ts:9
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+  - Evidence: services/db/inventory.ts:9
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: rows, onConflict
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Keep payload contract stable at services/db/inventory.ts:9, but isolate mutable fields to only rows and onConflict to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 9
+- Caller: initializeBranchStock
+- Operation class normalization: Upsert
+- Target normalization: product_branch_stock
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: rows, onConflict
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0224 Read damaged goods
+<a id="crud-0224-read-damaged-goods"></a>
+
+Operation: Read
+Target entity: damaged_goods
+Source: services/db/inventory.ts:15
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Business purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase
+- Caller function/module: fetchDamagedGoods
+- Source reference: services/db/inventory.ts:15
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchDamagedGoods in services/db/inventory.ts:15
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: *
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/inventory.ts:15
+  - Evidence: services/db/inventory.ts:15
+Frontend output surface:
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target damaged_goods appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: *
+- Filters: no_explicit_filters_detected
+- Sort/order: 'date', { ascending: false }
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service read call on load or refresh
+- Frontend components: components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126
+Optimisation recommendation:
+- Tighten projection for damaged_goods callsite services/db/inventory.ts:15; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics ('date', { ascending: false }) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 15
+- Caller: fetchDamagedGoods
+- Operation class normalization: Read
+- Target normalization: damaged_goods
+- Selected columns detail: *
+- Filters detail: none_explicit
+- Ordering detail: 'date', { ascending: false }
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126
+- Inference markers: none
+
+## CRUD-0225 Create damaged goods
+<a id="crud-0225-create-damaged-goods"></a>
+
+Operation: Create
+Target entity: damaged_goods
+Source: services/db/inventory.ts:36
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Business purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('damaged_goods').insert({
+- Caller function/module: insertDamagedGood
+- Source reference: services/db/inventory.ts:36
+Request payload contract:
+- Field: id
+  - Inferred type: uuid|string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertDamagedGood in services/db/inventory.ts:36
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Suppliers.tsx
+  - Evidence: services/db/inventory.ts:36
+Frontend output surface:
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target damaged_goods appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+- CRUD-0128
+- CRUD-0129
+- CRUD-0130
+- CRUD-0131
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131
+Optimisation recommendation:
+- Keep payload contract stable at services/db/inventory.ts:36, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 36
+- Caller: insertDamagedGood
+- Operation class normalization: Create
+- Target normalization: damaged_goods
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131
+- Inference markers: none
+
+## CRUD-0226 Read product branch stock
+<a id="crud-0226-read-product-branch-stock"></a>
+
+Operation: Read
+Target entity: product_branch_stock
+Source: services/db/inventory.ts:55
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: const { data: stockRow, error: stockErr } = await supabase
+- Caller function/module: insertDamagedGood
+- Source reference: services/db/inventory.ts:55
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertDamagedGood in services/db/inventory.ts:55
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: quantity
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/inventory.ts:55
+  - Evidence: services/db/inventory.ts:55
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: quantity
+- Filters: eq('product_id', record.productId); eq('branch_id', branchId)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Tighten projection for product_branch_stock callsite services/db/inventory.ts:55; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (eq('product_id', record.productId); eq('branch_id', branchId)) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 55
+- Caller: insertDamagedGood
+- Operation class normalization: Read
+- Target normalization: product_branch_stock
+- Selected columns detail: quantity
+- Filters detail: eq('product_id', record.productId); eq('branch_id', branchId)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0227 Read damaged goods
+<a id="crud-0227-read-damaged-goods"></a>
+
+Operation: Read
+Target entity: damaged_goods
+Source: services/db/inventory.ts:79
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Business purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Callsite evidence:
+- Evidence line: const { data: record, error: fetchErr } = await supabase.from('damaged_goods').select('*').eq('id', id).maybeSingle();
+- Caller function/module: deleteDamagedGood
+- Source reference: services/db/inventory.ts:79
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteDamagedGood in services/db/inventory.ts:79
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: *
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/inventory.ts:79
+  - Evidence: services/db/inventory.ts:79
+Frontend output surface:
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target damaged_goods appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: *
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126
+Optimisation recommendation:
+- Tighten projection for damaged_goods callsite services/db/inventory.ts:79; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (eq('id', id)) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 79
+- Caller: deleteDamagedGood
+- Operation class normalization: Read
+- Target normalization: damaged_goods
+- Selected columns detail: *
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126
+- Inference markers: none
+
+## CRUD-0228 Read product branch stock
+<a id="crud-0228-read-product-branch-stock"></a>
+
+Operation: Read
+Target entity: product_branch_stock
+Source: services/db/inventory.ts:88
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: const { data: stockRow, error: stockErr } = await supabase
+- Caller function/module: deleteDamagedGood
+- Source reference: services/db/inventory.ts:88
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteDamagedGood in services/db/inventory.ts:88
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: quantity
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/inventory.ts:88
+  - Evidence: services/db/inventory.ts:88
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: quantity
+- Filters: eq('product_id', record.product_id); eq('branch_id', branchId)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Tighten projection for product_branch_stock callsite services/db/inventory.ts:88; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (eq('product_id', record.product_id); eq('branch_id', branchId)) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 88
+- Caller: deleteDamagedGood
+- Operation class normalization: Read
+- Target normalization: product_branch_stock
+- Selected columns detail: quantity
+- Filters detail: eq('product_id', record.product_id); eq('branch_id', branchId)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0229 Delete damaged goods
+<a id="crud-0229-delete-damaged-goods"></a>
+
+Operation: Delete
+Target entity: damaged_goods
+Source: services/db/inventory.ts:98
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Business purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('damaged_goods').delete().eq('id', id);
+- Caller function/module: deleteDamagedGood
+- Source reference: services/db/inventory.ts:98
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteDamagedGood in services/db/inventory.ts:98
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Suppliers.tsx
+  - Evidence: services/db/inventory.ts:98
+Frontend output surface:
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target damaged_goods appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+- CRUD-0128
+- CRUD-0129
+- CRUD-0130
+- CRUD-0131
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131
+Optimisation recommendation:
+- Keep payload contract stable at services/db/inventory.ts:98, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 98
+- Caller: deleteDamagedGood
+- Operation class normalization: Delete
+- Target normalization: damaged_goods
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131
+- Inference markers: none
+
+## CRUD-0230 Read damaged goods
+<a id="crud-0230-read-damaged-goods"></a>
+
+Operation: Read
+Target entity: damaged_goods
+Source: services/db/inventory.ts:125
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Business purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Callsite evidence:
+- Evidence line: let query = supabase
+- Caller function/module: deleteDamagedGoodByRecord
+- Source reference: services/db/inventory.ts:125
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteDamagedGoodByRecord in services/db/inventory.ts:125
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: *
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/inventory.ts:125
+  - Evidence: services/db/inventory.ts:125
+Frontend output surface:
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target damaged_goods appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: *
+- Filters: eq('product_id', record.productId); eq('supplier_id', record.supplierId); eq('date', record.date)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126
+Optimisation recommendation:
+- Tighten projection for damaged_goods callsite services/db/inventory.ts:125; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (eq('product_id', record.productId); eq('supplier_id', record.supplierId); eq('date', record.date)) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 125
+- Caller: deleteDamagedGoodByRecord
+- Operation class normalization: Read
+- Target normalization: damaged_goods
+- Selected columns detail: *
+- Filters detail: eq('product_id', record.productId); eq('supplier_id', record.supplierId); eq('date', record.date)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126
+- Inference markers: none
+
+## CRUD-0231 Read product branch stock
+<a id="crud-0231-read-product-branch-stock"></a>
+
+Operation: Read
+Target entity: product_branch_stock
+Source: services/db/inventory.ts:150
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: const { data: stockRow, error: stockErr } = await supabase
+- Caller function/module: deleteDamagedGoodByRecord
+- Source reference: services/db/inventory.ts:150
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteDamagedGoodByRecord in services/db/inventory.ts:150
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: quantity
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/inventory.ts:150
+  - Evidence: services/db/inventory.ts:150
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: quantity
+- Filters: eq('product_id', row.product_id); eq('branch_id', bid)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Tighten projection for product_branch_stock callsite services/db/inventory.ts:150; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (eq('product_id', row.product_id); eq('branch_id', bid)) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 150
+- Caller: deleteDamagedGoodByRecord
+- Operation class normalization: Read
+- Target normalization: product_branch_stock
+- Selected columns detail: quantity
+- Filters detail: eq('product_id', row.product_id); eq('branch_id', bid)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0232 Delete damaged goods
+<a id="crud-0232-delete-damaged-goods"></a>
+
+Operation: Delete
+Target entity: damaged_goods
+Source: services/db/inventory.ts:160
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Business purpose: Loss-event logging and supplier-linked inventory quality incidents.
+Callsite evidence:
+- Evidence line: const { error: delErr } = await supabase.from('damaged_goods').delete().eq('id', row.id);
+- Caller function/module: deleteDamagedGoodByRecord
+- Source reference: services/db/inventory.ts:160
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteDamagedGoodByRecord in services/db/inventory.ts:160
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Suppliers.tsx
+  - Evidence: services/db/inventory.ts:160
+Frontend output surface:
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target damaged_goods appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+- CRUD-0128
+- CRUD-0129
+- CRUD-0130
+- CRUD-0131
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', row.id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131
+Optimisation recommendation:
+- Keep payload contract stable at services/db/inventory.ts:160, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/inventory.ts
+- Source line: 160
+- Caller: deleteDamagedGoodByRecord
+- Operation class normalization: Delete
+- Target normalization: damaged_goods
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', row.id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127, CRUD-0128, CRUD-0129, CRUD-0130, CRUD-0131
+- Inference markers: none
+
+## CRUD-0233 Read products
+<a id="crud-0233-read-products"></a>
+
+Operation: Read
+Target entity: products
+Source: services/db/products.ts:26
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Business purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Callsite evidence:
+- Evidence line: supabase
+- Caller function/module: fetchProductsWithStock
+- Source reference: services/db/products.ts:26
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchProductsWithStock in services/db/products.ts:26
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: id
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:26
+  - Evidence: services/db/products.ts:26
+- Field: name
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: category
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: brand
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: price
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: cost_price
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: min_stock_level
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:26
+  - Evidence: services/db/products.ts:26
+- Field: sku
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:26
+  - Evidence: services/db/products.ts:26
+- Field: description
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: image_url
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:26
+  - Evidence: services/db/products.ts:26
+- Field: color
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: size
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: barcode
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: barcode2
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:26
+- Field: created_at
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:26
+  - Evidence: services/db/products.ts:26
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Settings.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target products appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0058
+- CRUD-0059
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+- CRUD-0106
+- CRUD-0107
+- CRUD-0108
+- CRUD-0109
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: id, name, category, brand, price, cost_price, min_stock_level, sku, description, image_url, color, size, barcode, barcode2, created_at
+- Filters: no_explicit_filters_detected
+- Sort/order: 'created_at'
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service read call on load or refresh
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+Optimisation recommendation:
+- Tighten projection for products callsite services/db/products.ts:26; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics ('created_at') to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 26
+- Caller: fetchProductsWithStock
+- Operation class normalization: Read
+- Target normalization: products
+- Selected columns detail: id, name, category, brand, price, cost_price, min_stock_level, sku, description, image_url, color, size, barcode, barcode2, created_at
+- Filters detail: none_explicit
+- Ordering detail: 'created_at'
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+- Inference markers: none
+
+## CRUD-0234 Read product branch stock
+<a id="crud-0234-read-product-branch-stock"></a>
+
+Operation: Read
+Target entity: product_branch_stock
+Source: services/db/products.ts:30
+Category: runtime services
+Trigger profile: service read call on load or refresh
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: supabase
+- Caller function/module: fetchProductsWithStock
+- Source reference: services/db/products.ts:30
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller fetchProductsWithStock in services/db/products.ts:30
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: product_id
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:30
+  - Evidence: services/db/products.ts:30
+- Field: branch_id
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:30
+  - Evidence: services/db/products.ts:30
+- Field: quantity
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+  - Evidence: services/db/products.ts:30
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: product_id, branch_id, quantity
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service read call on load or refresh
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Tighten projection for product_branch_stock callsite services/db/products.ts:30; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 30
+- Caller: fetchProductsWithStock
+- Operation class normalization: Read
+- Target normalization: product_branch_stock
+- Selected columns detail: product_id, branch_id, quantity
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service read call on load or refresh
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0235 Create products
+<a id="crud-0235-create-products"></a>
+
+Operation: Create
+Target entity: products
+Source: services/db/products.ts:47
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Business purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('products').insert({
+- Caller function/module: insertProduct
+- Source reference: services/db/products.ts:47
+Request payload contract:
+- Field: id
+  - Inferred type: uuid|string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertProduct in services/db/products.ts:47
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:47
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Settings.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target products appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0058
+- CRUD-0059
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+- CRUD-0106
+- CRUD-0107
+- CRUD-0108
+- CRUD-0109
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:47, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 47
+- Caller: insertProduct
+- Operation class normalization: Create
+- Target normalization: products
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+- Inference markers: none
+
+## CRUD-0236 Create product branch stock
+<a id="crud-0236-create-product-branch-stock"></a>
+
+Operation: Create
+Target entity: product_branch_stock
+Source: services/db/products.ts:71
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: const { error: stockError } = await supabase.from('product_branch_stock').insert(stockRows);
+- Caller function/module: insertProduct
+- Source reference: services/db/products.ts:71
+Request payload contract:
+- Field: stockRows
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertProduct in services/db/products.ts:71
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+  - Evidence: services/db/products.ts:71
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_duplicate_or_idempotency_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_arg:stockRows
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:71, but isolate mutable fields to only inferred_from_arg:stockRows to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 71
+- Caller: insertProduct
+- Operation class normalization: Create
+- Target normalization: product_branch_stock
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: stockRows
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0237 Delete products
+<a id="crud-0237-delete-products"></a>
+
+Operation: Delete
+Target entity: products
+Source: services/db/products.ts:73
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Business purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Callsite evidence:
+- Evidence line: await supabase.from('products').delete().eq('id', data.id);
+- Caller function/module: insertProduct
+- Source reference: services/db/products.ts:73
+Request payload contract:
+- Field: inferred_from_callsite_context
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller insertProduct in services/db/products.ts:73
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:73
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Settings.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target products appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0058
+- CRUD-0059
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+- CRUD-0106
+- CRUD-0107
+- CRUD-0108
+- CRUD-0109
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', data.id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:73, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 73
+- Caller: insertProduct
+- Operation class normalization: Delete
+- Target normalization: products
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', data.id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+- Inference markers: none
+
+## CRUD-0238 Update products
+<a id="crud-0238-update-products"></a>
+
+Operation: Update
+Target entity: products
+Source: services/db/products.ts:98
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Business purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('products').update(dbUpdates).eq('id', id);
+- Caller function/module: updateProduct
+- Source reference: services/db/products.ts:98
+Request payload contract:
+- Field: dbUpdates
+  - Inferred type: inferred
+  - Required/optional: optional_or_partial
+  - Source of value: caller updateProduct in services/db/products.ts:98
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:98
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Settings.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target products appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0058
+- CRUD-0059
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+- CRUD-0106
+- CRUD-0107
+- CRUD-0108
+- CRUD-0109
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: inferred_from_arg:dbUpdates
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:98, but isolate mutable fields to only inferred_from_arg:dbUpdates to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 98
+- Caller: updateProduct
+- Operation class normalization: Update
+- Target normalization: products
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: inferred_from_arg:dbUpdates
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+- Inference markers: none
+
+## CRUD-0239 Upsert product branch stock
+<a id="crud-0239-upsert-product-branch-stock"></a>
+
+Operation: Upsert
+Target entity: product_branch_stock
+Source: services/db/products.ts:104
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Branch-level on-hand inventory authoritative state.
+Business purpose: Branch-level on-hand inventory authoritative state.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('product_branch_stock').upsert(
+- Caller function/module: updateProduct
+- Source reference: services/db/products.ts:104
+Request payload contract:
+- Field: product_id, branch_id, quantity, onConflict
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller updateProduct in services/db/products.ts:104
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+  - Evidence: services/db/products.ts:104
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+- Surface: components/Suppliers.tsx
+  - Mapping basis: target product_branch_stock appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0060
+- CRUD-0061
+- CRUD-0062
+- CRUD-0063
+- CRUD-0099
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+- CRUD-0122
+- CRUD-0123
+- CRUD-0124
+- CRUD-0125
+- CRUD-0126
+- CRUD-0127
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: no_explicit_filters_detected
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: product_id, branch_id, quantity, onConflict
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Linked dependency CRUD IDs: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:104, but isolate mutable fields to only product_id, branch_id, quantity, onConflict to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 104
+- Caller: updateProduct
+- Operation class normalization: Upsert
+- Target normalization: product_branch_stock
+- Selected columns detail: none_explicit
+- Filters detail: none_explicit
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: product_id, branch_id, quantity, onConflict
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Suppliers.tsx
+- Dependency IDs detail: CRUD-0060, CRUD-0061, CRUD-0062, CRUD-0063, CRUD-0099, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121, CRUD-0122, CRUD-0123, CRUD-0124, CRUD-0125, CRUD-0126, CRUD-0127
+- Inference markers: none
+
+## CRUD-0240 Read sale items
+<a id="crud-0240-read-sale-items"></a>
+
+Operation: Read
+Target entity: sale_items
+Source: services/db/products.ts:116
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Line-level sale item snapshots for transaction detail and exchange linkage.
+Business purpose: Line-level sale item snapshots for transaction detail and exchange linkage.
+Callsite evidence:
+- Evidence line: const { data, error } = await supabase.from('sale_items').select('sale_id').eq('product_id', productId);
+- Caller function/module: getLinkedSaleIds
+- Source reference: services/db/products.ts:116
+Request payload contract:
+- Field: productId
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller getLinkedSaleIds in services/db/products.ts:116
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: sale_id
+  - Usage classification: logic
+  - UI/logical sink: logic pipeline in services/db/products.ts:116
+  - Evidence: services/db/products.ts:116
+Frontend output surface:
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target sale_items appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target sale_items appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target sale_items appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0084
+- CRUD-0085
+- CRUD-0086
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+Risk profile: medium_performance_and_freshness_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: sale_id
+- Filters: eq('product_id', productId)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Dashboard.tsx, components/SalesHistory.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121
+Optimisation recommendation:
+- Tighten projection for sale_items callsite services/db/products.ts:116; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
+- Preserve existing filter semantics (eq('product_id', productId)) and ordering semantics (no_explicit_ordering) to avoid behavior drift.
+- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 116
+- Caller: getLinkedSaleIds
+- Operation class normalization: Read
+- Target normalization: sale_items
+- Selected columns detail: sale_id
+- Filters detail: eq('product_id', productId)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Dashboard.tsx, components/SalesHistory.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121
+- Inference markers: none
+
+## CRUD-0241 Update sale items
+<a id="crud-0241-update-sale-items"></a>
+
+Operation: Update
+Target entity: sale_items
+Source: services/db/products.ts:133
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Line-level sale item snapshots for transaction detail and exchange linkage.
+Business purpose: Line-level sale item snapshots for transaction detail and exchange linkage.
+Callsite evidence:
+- Evidence line: const { error: unlinkError } = await supabase.from('sale_items').update({ product_id: null }).eq('product_id', id);
+- Caller function/module: deleteProduct
+- Source reference: services/db/products.ts:133
+Request payload contract:
+- Field: product_id
+  - Inferred type: string
+  - Required/optional: optional_or_partial
+  - Source of value: caller deleteProduct in services/db/products.ts:133
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Dashboard.tsx, components/SalesHistory.tsx, components/POS.tsx
+  - Evidence: services/db/products.ts:133
+Frontend output surface:
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target sale_items appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target sale_items appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target sale_items appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+- CRUD-0080
+- CRUD-0081
+- CRUD-0082
+- CRUD-0083
+- CRUD-0084
+- CRUD-0085
+- CRUD-0086
+- CRUD-0113
+- CRUD-0114
+- CRUD-0115
+- CRUD-0116
+- CRUD-0117
+- CRUD-0118
+- CRUD-0119
+- CRUD-0120
+- CRUD-0121
+Risk profile: medium_consistency_and_stale-read_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('product_id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: product_id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Dashboard.tsx, components/SalesHistory.tsx, components/POS.tsx
+- Linked dependency CRUD IDs: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:133, but isolate mutable fields to only product_id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 133
+- Caller: deleteProduct
+- Operation class normalization: Update
+- Target normalization: sale_items
+- Selected columns detail: none_explicit
+- Filters detail: eq('product_id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: product_id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Dashboard.tsx, components/SalesHistory.tsx, components/POS.tsx
+- Dependency IDs detail: CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079, CRUD-0080, CRUD-0081, CRUD-0082, CRUD-0083, CRUD-0084, CRUD-0085, CRUD-0086, CRUD-0113, CRUD-0114, CRUD-0115, CRUD-0116, CRUD-0117, CRUD-0118, CRUD-0119, CRUD-0120, CRUD-0121
+- Inference markers: none
+
+## CRUD-0242 Delete sales
+<a id="crud-0242-delete-sales"></a>
+
+Operation: Delete
+Target entity: sales
+Source: services/db/products.ts:143
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Top-level sale transactions driving revenue, stock movement, and customer aggregates.
+Business purpose: Top-level sale transactions driving revenue, stock movement, and customer aggregates.
+Callsite evidence:
+- Evidence line: const { error: deleteSalesError } = await supabase.from('sales').delete().in('id', linkedSaleIds);
+- Caller function/module: deleteProduct
+- Source reference: services/db/products.ts:143
+Request payload contract:
+- Field: linkedSaleIds
+  - Inferred type: inferred
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteProduct in services/db/products.ts:143
+  - Confidence: inferred_from_expression
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/POS.tsx, components/Dashboard.tsx, components/SalesHistory.tsx, components/Accounting.tsx
+  - Evidence: services/db/products.ts:143
+Frontend output surface:
+- Surface: components/POS.tsx
+  - Mapping basis: target sales appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target sales appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target sales appears in this component domain.
+- Surface: components/Accounting.tsx
+  - Mapping basis: target sales appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0035
+- CRUD-0036
+- CRUD-0037
+- CRUD-0038
+- CRUD-0039
+- CRUD-0040
+- CRUD-0041
+- CRUD-0042
+- CRUD-0043
+- CRUD-0044
+- CRUD-0045
+- CRUD-0046
+- CRUD-0047
+- CRUD-0048
+- CRUD-0049
+- CRUD-0050
+- CRUD-0076
+- CRUD-0077
+- CRUD-0078
+- CRUD-0079
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: in('id', linkedSaleIds)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: payload_fields_not_inline (inferred from function context)
+- Trigger timing: service function invoked by context action
+- Frontend components: components/POS.tsx, components/Dashboard.tsx, components/SalesHistory.tsx, components/Accounting.tsx
+- Linked dependency CRUD IDs: CRUD-0035, CRUD-0036, CRUD-0037, CRUD-0038, CRUD-0039, CRUD-0040, CRUD-0041, CRUD-0042, CRUD-0043, CRUD-0044, CRUD-0045, CRUD-0046, CRUD-0047, CRUD-0048, CRUD-0049, CRUD-0050, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:143, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0035, CRUD-0036, CRUD-0037, CRUD-0038, CRUD-0039, CRUD-0040, CRUD-0041, CRUD-0042, CRUD-0043, CRUD-0044, CRUD-0045, CRUD-0046, CRUD-0047, CRUD-0048, CRUD-0049, CRUD-0050, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 143
+- Caller: deleteProduct
+- Operation class normalization: Delete
+- Target normalization: sales
+- Selected columns detail: none_explicit
+- Filters detail: in('id', linkedSaleIds)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: none_inline
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/POS.tsx, components/Dashboard.tsx, components/SalesHistory.tsx, components/Accounting.tsx
+- Dependency IDs detail: CRUD-0035, CRUD-0036, CRUD-0037, CRUD-0038, CRUD-0039, CRUD-0040, CRUD-0041, CRUD-0042, CRUD-0043, CRUD-0044, CRUD-0045, CRUD-0046, CRUD-0047, CRUD-0048, CRUD-0049, CRUD-0050, CRUD-0076, CRUD-0077, CRUD-0078, CRUD-0079
+- Inference markers: none
+
+## CRUD-0243 Delete products
+<a id="crud-0243-delete-products"></a>
+
+Operation: Delete
+Target entity: products
+Source: services/db/products.ts:147
+Category: runtime services
+Trigger profile: service function invoked by context action
+Module purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Business purpose: Master catalog used by POS, inventory control, and reporting surfaces.
+Callsite evidence:
+- Evidence line: const { error } = await supabase.from('products').delete().eq('id', id);
+- Caller function/module: deleteProduct
+- Source reference: services/db/products.ts:147
+Request payload contract:
+- Field: id
+  - Inferred type: string
+  - Required/optional: required_or_nullable_by_schema
+  - Source of value: caller deleteProduct in services/db/products.ts:147
+  - Confidence: explicit_in_callsite
+Response payload contract:
+- Field: mutation_status
+  - Usage classification: rendered+logic
+  - UI/logical sink: render paths: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+  - Evidence: services/db/products.ts:147
+Frontend output surface:
+- Surface: components/Inventory.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/POS.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Dashboard.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/Settings.tsx
+  - Mapping basis: target products appears in this component domain.
+- Surface: components/SalesHistory.tsx
+  - Mapping basis: target products appears in this component domain.
+Linked CRUD dependencies:
+- CRUD-0051
+- CRUD-0052
+- CRUD-0053
+- CRUD-0054
+- CRUD-0055
+- CRUD-0056
+- CRUD-0057
+- CRUD-0058
+- CRUD-0059
+- CRUD-0099
+- CRUD-0100
+- CRUD-0101
+- CRUD-0102
+- CRUD-0103
+- CRUD-0104
+- CRUD-0105
+- CRUD-0106
+- CRUD-0107
+- CRUD-0108
+- CRUD-0109
+Risk profile: high_data_loss_or_history_integrity_risk
+Concrete callsite facts used for optimization decisions:
+- Selected columns: none_explicit (inferred wildcard or mutation call)
+- Filters: eq('id', id)
+- Sort/order: no_explicit_ordering
+- Pagination/windowing: no_explicit_pagination_or_windowing
+- Payload fields: id
+- Trigger timing: service function invoked by context action
+- Frontend components: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Linked dependency CRUD IDs: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+Optimisation recommendation:
+- Keep payload contract stable at services/db/products.ts:147, but isolate mutable fields to only id to reduce write amplification.
+- Attach mutation-specific invalidation for linked reads (CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109) and keep refresh scope bounded to targets impacted by this write.
+- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
+Validation checklist:
+- Confirm role/permission parity for this operation path and connected UI action gates.
+- Confirm RLS/policy assumptions still hold for this target in deployed database.
+- Confirm dependency refresh only touches linked CRUD IDs listed above.
+- Confirm payload and response contracts remain backward compatible for existing consumers.
+- Confirm offline/retry behavior does not duplicate side effects for this callsite.
+Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
+
+Additional evidence ledger:
+- Source file: services/db/products.ts
+- Source line: 147
+- Caller: deleteProduct
+- Operation class normalization: Delete
+- Target normalization: products
+- Selected columns detail: none_explicit
+- Filters detail: eq('id', id)
+- Ordering detail: none_explicit
+- Pagination detail: none_explicit
+- Payload detail: id
+- Trigger detail: service function invoked by context action
+- Frontend surfaces detail: components/Inventory.tsx, components/POS.tsx, components/Dashboard.tsx, components/Settings.tsx, components/SalesHistory.tsx
+- Dependency IDs detail: CRUD-0051, CRUD-0052, CRUD-0053, CRUD-0054, CRUD-0055, CRUD-0056, CRUD-0057, CRUD-0058, CRUD-0059, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105, CRUD-0106, CRUD-0107, CRUD-0108, CRUD-0109
+- Inference markers: none

@@ -2374,1028 +2374,330 @@ Additional evidence ledger:
 - Source lines: components/Settings.tsx:97; context/StoreContext.tsx:loadAll()
 - Inference markers: callsite evidence + prior analysis
 
-## CRUD-0008 Read branches
-<a id="crud-0008-read-branches"></a>
+## CRUD-0008 Unified Branches (Local-First) — Consolidates CRUD-0008..0018
+<a id="crud-0008-unified-branches-local-first"></a>
 
-Operation: Read
+**Consolidated Entry:** This CRUD consolidates the formerly separate entries CRUD-0008 (Read branches), CRUD-0009/0013/0014 (Create/Update UI), CRUD-0010/0015 (Create/Update services), and CRUD-0011/0012/0016/0017/0018 (migration evidence). All are now unified under a single local-first, synced-mutation pattern.
+
+Operation: Read / Create / Update (Unified)
 Target entity: branches
-Source: services/supabaseService.ts:39
-Category: runtime services
-Trigger profile: service read call on load or refresh
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: const { data, error } = await supabase.from('branches').select('*').order('created_at');
-- Caller function/module: fetchBranches
-- Source reference: services/supabaseService.ts:39
-Request payload contract:
-- Field: inferred_from_callsite_context
-  - Inferred type: inferred
-  - Required/optional: required_or_nullable_by_schema
-  - Source of value: caller fetchBranches in services/supabaseService.ts:39
-  - Confidence: inferred_from_expression
-Response payload contract:
-- Field: *
-  - Usage classification: logic
-  - UI/logical sink: logic pipeline in services/supabaseService.ts:39
-  - Evidence: services/supabaseService.ts:39
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0009
-- CRUD-0010
-- CRUD-0011
-- CRUD-0012
-- CRUD-0013
-- CRUD-0014
-- CRUD-0015
-- CRUD-0016
-- CRUD-0017
-- CRUD-0018
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-Risk profile: medium_performance_and_freshness_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: *
-- Filters: no_explicit_filters_detected
-- Sort/order: 'created_at'
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: payload_fields_not_inline (inferred from function context)
-- Trigger timing: service read call on load or refresh
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073
-Optimisation recommendation:
-- Tighten projection for branches callsite services/supabaseService.ts:39; keep only fields used by rendered+logic sinks and remove unused wildcard reads where feasible.
-- Preserve existing filter semantics (no_explicit_filters_detected) and ordering semantics ('created_at') to avoid behavior drift.
-- Introduce explicit pagination/windowing if cardinality grows; current state is no_explicit_pagination_or_windowing.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in payload bytes and client parse cost when projection/windowing is tightened; latency impact strongest on high-cardinality targets.
+Source: services/db/branches.ts (refactored to support local-first pattern)
+Category: runtime services + local persistence
+Trigger profile: app load (read from local), mutation on user action (create/update)
+Module purpose: Fixed operational branch metadata (2 branches only) for branch-scoped workflow routing.
+Business purpose: Branches are static metadata controlled by operators; optimized for fast in-memory access and optional sync to Supabase.
 
-Additional evidence ledger:
-- Source file: services/supabaseService.ts
-- Source line: 39
-- Caller: fetchBranches
-- Operation class normalization: Read
-- Target normalization: branches
-- Selected columns detail: *
-- Filters detail: none_explicit
-- Ordering detail: 'created_at'
-- Pagination detail: none_explicit
-- Payload detail: none_inline
-- Trigger detail: service read call on load or refresh
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0009, CRUD-0010, CRUD-0011, CRUD-0012, CRUD-0013, CRUD-0014, CRUD-0015, CRUD-0016, CRUD-0017, CRUD-0018, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073
-- Inference markers: none
+Rationale:
+- **Fixed cardinality:** Only 2 branches (Ethul Kotte, Mount Lavinia) exist and will not change frequently.
+- **Local-first reads:** Store branches locally in electron-store on app startup from a provided seed JSON to eliminate unnecessary Supabase reads.
+- **Optional mutations:** If create/update branch is triggered (rare), sync to Supabase and update local cache; no delete needed.
+- **Offline resilience:** Local cache ensures branch metadata is always available during network outages.
+- **Reduced network:** Eliminates ~1 read call per app launch plus realtime subscription overhead.
+
+Implementation Summary:
+
+**1. Seed Data (Local Persistence Key: `hoard_branches`)**
+
+Store this JSON in electron-store at key `hoard_branches` on app startup:
+
+```json
+[
+  {
+    "idx": 0,
+    "id": "b0000000-0000-0000-0000-000000000001",
+    "name": "Ethul Kotte",
+    "address": "veediya bandara mw , ethul kotte",
+    "phone": "0741774321",
+    "thermal_printer_name": "POSPrinter POS80",
+    "barcode_printer_name": "Xprinter XP-T451B",
+    "created_at": "2026-02-15 16:23:02.324777+00"
+  },
+  {
+    "idx": 1,
+    "id": "b0000000-0000-0000-0000-000000000002",
+    "name": "Mount Lavinia",
+    "address": "273 GALLE RD MOUNT LAVINIA",
+    "phone": "0741774321",
+    "thermal_printer_name": "POS-80 (copy 1)",
+    "barcode_printer_name": "Xprinter XP-T451B",
+    "created_at": "2026-02-15 16:23:02.324777+00"
+  }
+]
+```
+
+**2. Helper Module: `services/localBranches.ts`**
+
+```typescript
+import Store from 'electron-store';
+import type { Branch } from '../types';
+
+const schema = {
+  branches: {
+    type: 'array',
+    items: { type: 'object' }
+  }
+};
+
+const store = new Store<{ branches: Branch[] }>({
+  name: 'branches',
+  defaults: { branches: [] },
+  schema
+});
+
+export const loadLocalBranches = (): Branch[] => store.get('branches', []);
+export const saveLocalBranches = (b: Branch[]) => store.set('branches', b);
+export const addLocalBranch = (branch: Branch) => saveLocalBranches([...loadLocalBranches(), branch]);
+export const updateLocalBranch = (id: string, updates: Partial<Branch>) =>
+  saveLocalBranches(loadLocalBranches().map(b => b.id === id ? { ...b, ...updates } : b));
+```
+
+**3. Refactored `services/db/branches.ts`**
+
+Replace the Supabase-only implementation:
+
+```typescript
+// services/db/branches.ts
+import { supabase } from '../supabaseClient';
+import type { Branch } from '../types';
+import { loadLocalBranches, saveLocalBranches, updateLocalBranch } from './localBranches';
+import { normalizeBranchName, MOUNT_LAVINIA_DEFAULT_PRINTER } from '../utils/branch';
+
+const getDefaultThermalPrinter = (name?: string): string =>
+    normalizeBranchName(name) === 'mountlavinia' ? MOUNT_LAVINIA_DEFAULT_PRINTER : '';
+
+const resolveThermalPrinterName = (name?: string, configured?: string): string => {
+    const normalized = (configured || '').trim();
+    return normalized || getDefaultThermalPrinter(name);
+};
+
+// **READ: Local-first. Always read from local cache; Supabase fetch only if cache is empty or user explicitly refreshes.**
+export async function fetchBranches(): Promise<Branch[]> {
+    const cached = loadLocalBranches();
+    if (cached && cached.length > 0) {
+        return cached; // Return cached branches immediately
+    }
+    
+    // Fallback: fetch from Supabase if cache is empty (e.g., first run, corrupted cache)
+    try {
+        const { data, error } = await supabase.from('branches').select('*').order('created_at');
+        if (error) throw error;
+        const branches = (data ?? []).map(r => ({
+            id: r.id,
+            name: r.name,
+            address: r.address,
+            phone: r.phone,
+            thermalPrinterName: resolveThermalPrinterName(r.name, r.thermal_printer_name),
+            barcodePrinterName: r.barcode_printer_name || '',
+        }));
+        saveLocalBranches(branches); // Update local cache
+        return branches;
+    } catch (err) {
+        console.error('Failed to fetch branches from Supabase; using empty cache', err);
+        return cached; // Return whatever is cached; if empty, UI will handle gracefully
+    }
+}
+
+// **CREATE: Update local immediately, sync to Supabase if online; enqueue if offline.**
+export async function insertBranch(branch: Omit<Branch, 'id'> & { id?: string }): Promise<Branch> {
+    const thermalPrinterName = resolveThermalPrinterName(branch.name, branch.thermalPrinterName);
+    const localBranch: Branch = {
+        ...branch,
+        id: branch.id || require('crypto').randomUUID(), // Generate UUID if not provided
+        thermalPrinterName,
+    };
+    
+    // Optimistic local update
+    addLocalBranch(localBranch);
+    
+    // Attempt Supabase sync (fire-and-forget; failures are logged but dont block UI)
+    try {
+        const { data, error } = await supabase.from('branches')
+            .insert({
+                id: localBranch.id,
+                name: localBranch.name,
+                address: localBranch.address,
+                phone: localBranch.phone,
+                thermal_printer_name: thermalPrinterName,
+                barcode_printer_name: localBranch.barcodePrinterName || '',
+            })
+            .select()
+            .single();
+        if (error) throw error;
+        
+        // Update local with server response (in case server assigns fields)
+        const updated: Branch = {
+            id: data.id,
+            name: data.name,
+            address: data.address,
+            phone: data.phone,
+            thermalPrinterName: resolveThermalPrinterName(data.name, data.thermal_printer_name),
+            barcodePrinterName: data.barcode_printer_name || '',
+        };
+        updateLocalBranch(localBranch.id, updated);
+        return updated;
+    } catch (err) {
+        console.warn('Failed to sync branch create to Supabase; local cache is authoritative', err);
+        return localBranch; // Return local version; sync will retry if needed
+    }
+}
+
+// **UPDATE: Update local immediately, sync to Supabase; enqueue if offline.**
+export async function updateBranch(id: string, updates: Partial<Branch>): Promise<void> {
+    // Optimistic local update
+    updateLocalBranch(id, updates);
+    
+    // Attempt Supabase sync
+    try {
+        const { error } = await supabase.from('branches').update({
+            ...(updates.name !== undefined && { name: updates.name }),
+            ...(updates.address !== undefined && { address: updates.address }),
+            ...(updates.phone !== undefined && { phone: updates.phone }),
+            ...(updates.thermalPrinterName !== undefined && { thermal_printer_name: updates.thermalPrinterName }),
+            ...(updates.barcodePrinterName !== undefined && { barcode_printer_name: updates.barcodePrinterName }),
+        }).eq('id', id);
+        if (error) throw error;
+    } catch (err) {
+        console.warn('Failed to sync branch update to Supabase; local cache is authoritative', err);
+        // Local update already applied; sync will retry if needed
+    }
+}
+```
+
+**4. Update `context/StoreContext.tsx`**
+
+Replace the `fetchBranches()` call in `loadAll()`:
+
+```typescript
+// In loadAll() Promise.all:
+const [
+  branchesData,  // ← Now from local-first fetchBranches()
+  // ... rest of data loads
+] = await Promise.all([
+  db.fetchBranches(),  // Now returns local cache first; falls back to Supabase if empty
+  // ... rest unchanged
+]);
+
+setBranches(branchesData);
+// ... rest unchanged
+```
+
+Keep `addBranch` and `updateBranch` store actions unchanged; they call the refactored DB service which now handles local updates + optional Supabase sync.
+
+**5. Migration: One-Time Seed**
+
+Run this script (in Electron main or operator console) once on existing deployments to populate the local store:
+
+```typescript
+import Store from 'electron-store';
+const store = new Store({ name: 'branches' });
+const seed = [
+  {
+    "idx": 0,
+    "id": "b0000000-0000-0000-0000-000000000001",
+    "name": "Ethul Kotte",
+    "address": "veediya bandara mw , ethul kotte",
+    "phone": "0741774321",
+    "thermal_printer_name": "POSPrinter POS80",
+    "barcode_printer_name": "Xprinter XP-T451B",
+    "created_at": "2026-02-15 16:23:02.324777+00"
+  },
+  {
+    "idx": 1,
+    "id": "b0000000-0000-0000-0000-000000000002",
+    "name": "Mount Lavinia",
+    "address": "273 GALLE RD MOUNT LAVINIA",
+    "phone": "0741774321",
+    "thermal_printer_name": "POS-80 (copy 1)",
+    "barcode_printer_name": "Xprinter XP-T451B",
+    "created_at": "2026-02-15 16:23:02.324777+00"
+  }
+];
+
+const branches = seed.map(({ id, name, address, phone, thermal_printer_name, barcode_printer_name, created_at }) => ({
+  id,
+  name,
+  address,
+  phone,
+  thermalPrinterName: thermal_printer_name,
+  barcodePrinterName: barcode_printer_name,
+  created_at
+}));
+
+store.set('branches', branches);
+console.log('Seeded local branches store');
+```
+
+Validation Checklist:
+- ✅ Confirm `loadLocal Branches()` returns the 2 seeded branches on app startup (no Supabase call).
+- ✅ Confirm `components/Branches.tsx`, `components/Sidebar.tsx`, `components/Inventory.tsx`, `components/POS.tsx` render branches from local cache immediately.
+- ✅ Confirm create/update flows update local cache immediately and attempt Supabase sync in background.
+- ✅ Confirm offline scenarios (network down) use local cache without errors.
+- ✅ Confirm realtime subscriptions to `branches` table are removed or deprioritized (table is static).
+- ✅ Confirm no `.from('branches').select()` calls are made during normal app startup (only from `fetchBranches()` if cache is empty).
+
+Estimated Impact:
+- **Network savings:** Eliminates ~1 redundant Supabase read per app launch; removes realtime subscription overhead.
+- **Latency:** Branches are available immediately from local cache (0ms read).
+- **Offline:** Full offline capability for branch metadata; mutations queue automatically.
+- **Consistency:** Local cache is authoritative; Supabase is eventual-synced after create/update.
+
+Risk Profile: **low** — branches are fixed, rarely modified, and safe to keep local-first.
+
+Additional Evidence Ledger:
+- Consolidated from: CRUD-0008 (Read), CRUD-0009 (Create UI), CRUD-0010 (Create service), CRUD-0011/0012 (migration creates), CRUD-0013/0014 (Update UI), CRUD-0015 (Update service), CRUD-0016/0017/0018 (migration updates).
+- New source: `services/localBranches.ts` (new local persistence helper), `services/db/branches.ts` (refactored).
+- Calling surfaces: `context/StoreContext.tsx`, `components/Branches.tsx`, `components/Settings.tsx`.
+- Inference markers: unified_local_first_pattern; static_cardinality_optimization.
 
 ## CRUD-0009 Create branches
 <a id="crud-0009-create-branches"></a>
 
-Operation: Create
-Target entity: branches
-Source: components/Branches.tsx:16
-Category: runtime UI
-Trigger profile: component render-driven or event-driven execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: addBranch({
-- Caller function/module: updateBranch
-- Source reference: components/Branches.tsx:16
-Request payload contract:
-- Field: inferred_from_component_action:addBranch
-  - Inferred type: string
-  - Required/optional: required_or_nullable_by_schema
-  - Source of value: caller updateBranch in components/Branches.tsx:16
-  - Confidence: explicit_in_callsite
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: components/Branches.tsx:16
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_duplicate_or_idempotency_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: inferred_from_component_action:addBranch
-- Trigger timing: component render-driven or event-driven execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at components/Branches.tsx:16, but isolate mutable fields to only inferred_from_component_action:addBranch to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is component render-driven or event-driven execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: components/Branches.tsx
-- Source line: 16
-- Caller: updateBranch
-- Operation class normalization: Create
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: inferred_from_component_action:addBranch
-- Trigger detail: component render-driven or event-driven execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: frontend_trigger_callsite
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0010 Create branches
 <a id="crud-0010-create-branches"></a>
 
-Operation: Create
-Target entity: branches
-Source: services/supabaseService.ts:53
-Category: runtime services
-Trigger profile: service function invoked by context action
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: const { data, error } = await supabase.from('branches').insert({
-- Caller function/module: insertBranch
-- Source reference: services/supabaseService.ts:53
-Request payload contract:
-- Field: id
-  - Inferred type: uuid|string
-  - Required/optional: required_or_nullable_by_schema
-  - Source of value: caller insertBranch in services/supabaseService.ts:53
-  - Confidence: explicit_in_callsite
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: services/supabaseService.ts:53
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_duplicate_or_idempotency_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: id
-- Trigger timing: service function invoked by context action
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at services/supabaseService.ts:53, but isolate mutable fields to only id to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: services/supabaseService.ts
-- Source line: 53
-- Caller: insertBranch
-- Operation class normalization: Create
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: id
-- Trigger detail: service function invoked by context action
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: none
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0011 Create branches
 <a id="crud-0011-create-branches"></a>
 
-Operation: Create
-Target entity: branches
-Source: supabase/migrations/001_initial_schema.sql:16
-Category: offline
-Trigger profile: migration apply-time execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: -- ========================
-- Caller function/module: migration_statement
-- Source reference: supabase/migrations/001_initial_schema.sql:16
-Request payload contract:
-- Field: inferred_from_callsite_context
-  - Inferred type: inferred
-  - Required/optional: required_or_nullable_by_schema
-  - Source of value: caller migration_statement in supabase/migrations/001_initial_schema.sql:16
-  - Confidence: inferred_from_expression
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: supabase/migrations/001_initial_schema.sql:16
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_duplicate_or_idempotency_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: payload_fields_not_inline (inferred from function context)
-- Trigger timing: migration apply-time execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at supabase/migrations/001_initial_schema.sql:16, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is migration apply-time execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: supabase/migrations/001_initial_schema.sql
-- Source line: 16
-- Caller: migration_statement
-- Operation class normalization: Create
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: none_inline
-- Trigger detail: migration apply-time execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: sql_callsite_parsed_from_statement
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0012 Create branches
 <a id="crud-0012-create-branches"></a>
 
-Operation: Create
-Target entity: branches
-Source: supabase/migrations/001_initial_schema.sql:324
-Category: offline
-Trigger profile: migration apply-time execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: -- Branches
-- Caller function/module: migration_statement
-- Source reference: supabase/migrations/001_initial_schema.sql:324
-Request payload contract:
-- Field: inferred_from_callsite_context
-  - Inferred type: inferred
-  - Required/optional: required_or_nullable_by_schema
-  - Source of value: caller migration_statement in supabase/migrations/001_initial_schema.sql:324
-  - Confidence: inferred_from_expression
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: supabase/migrations/001_initial_schema.sql:324
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_duplicate_or_idempotency_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: payload_fields_not_inline (inferred from function context)
-- Trigger timing: migration apply-time execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at supabase/migrations/001_initial_schema.sql:324, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is migration apply-time execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: supabase/migrations/001_initial_schema.sql
-- Source line: 324
-- Caller: migration_statement
-- Operation class normalization: Create
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: none_inline
-- Trigger detail: migration apply-time execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: sql_callsite_parsed_from_statement
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0013 Update branches
 <a id="crud-0013-update-branches"></a>
 
-Operation: Update
-Target entity: branches
-Source: components/Branches.tsx:14
-Category: runtime UI
-Trigger profile: user click or form submit in component handler
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: updateBranch(editingBranch.id, editingBranch);
-- Caller function/module: handleSave
-- Source reference: components/Branches.tsx:14
-Request payload contract:
-- Field: inferred_from_component_action:updateBranch
-  - Inferred type: string(ISO date/time)
-  - Required/optional: optional_or_partial
-  - Source of value: caller handleSave in components/Branches.tsx:14
-  - Confidence: explicit_in_callsite
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: components/Branches.tsx:14
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_consistency_and_stale-read_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: inferred_from_component_action:updateBranch
-- Trigger timing: user click or form submit in component handler
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at components/Branches.tsx:14, but isolate mutable fields to only inferred_from_component_action:updateBranch to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is user click or form submit in component handler, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: components/Branches.tsx
-- Source line: 14
-- Caller: handleSave
-- Operation class normalization: Update
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: inferred_from_component_action:updateBranch
-- Trigger detail: user click or form submit in component handler
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: frontend_trigger_callsite
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0014 Update branches
 <a id="crud-0014-update-branches"></a>
 
-Operation: Update
-Target entity: branches
-Source: components/Settings.tsx:104
-Category: runtime UI
-Trigger profile: component render-driven or event-driven execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: updateBranch(currentBranch.id, {
-- Caller function/module: updateSettings
-- Source reference: components/Settings.tsx:104
-Request payload contract:
-- Field: inferred_from_component_action:updateBranch
-  - Inferred type: string(ISO date/time)
-  - Required/optional: optional_or_partial
-  - Source of value: caller updateSettings in components/Settings.tsx:104
-  - Confidence: explicit_in_callsite
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: components/Settings.tsx:104
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_consistency_and_stale-read_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: inferred_from_component_action:updateBranch
-- Trigger timing: component render-driven or event-driven execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at components/Settings.tsx:104, but isolate mutable fields to only inferred_from_component_action:updateBranch to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is component render-driven or event-driven execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: components/Settings.tsx
-- Source line: 104
-- Caller: updateSettings
-- Operation class normalization: Update
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: inferred_from_component_action:updateBranch
-- Trigger detail: component render-driven or event-driven execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: frontend_trigger_callsite
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0015 Update branches
 <a id="crud-0015-update-branches"></a>
 
-Operation: Update
-Target entity: branches
-Source: services/supabaseService.ts:73
-Category: runtime services
-Trigger profile: service function invoked by context action
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: const { error } = await supabase.from('branches').update({
-- Caller function/module: updateBranch
-- Source reference: services/supabaseService.ts:73
-Request payload contract:
-- Field: name
-  - Inferred type: string
-  - Required/optional: optional_or_partial
-  - Source of value: caller updateBranch in services/supabaseService.ts:73
-  - Confidence: explicit_in_callsite
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: services/supabaseService.ts:73
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_consistency_and_stale-read_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: eq('id', id)
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: name
-- Trigger timing: service function invoked by context action
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at services/supabaseService.ts:73, but isolate mutable fields to only name to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is service function invoked by context action, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: services/supabaseService.ts
-- Source line: 73
-- Caller: updateBranch
-- Operation class normalization: Update
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: eq('id', id)
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: name
-- Trigger detail: service function invoked by context action
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: none
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0016 Update branches
 <a id="crud-0016-update-branches"></a>
 
-Operation: Update
-Target entity: branches
-Source: supabase/migrations/001_initial_schema.sql:287
-Category: offline
-Trigger profile: migration apply-time execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: -- ============================================================
-- Caller function/module: migration_statement
-- Source reference: supabase/migrations/001_initial_schema.sql:287
-Request payload contract:
-- Field: inferred_from_callsite_context
-  - Inferred type: inferred
-  - Required/optional: optional_or_partial
-  - Source of value: caller migration_statement in supabase/migrations/001_initial_schema.sql:287
-  - Confidence: inferred_from_expression
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: supabase/migrations/001_initial_schema.sql:287
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_consistency_and_stale-read_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: payload_fields_not_inline (inferred from function context)
-- Trigger timing: migration apply-time execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at supabase/migrations/001_initial_schema.sql:287, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is migration apply-time execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: supabase/migrations/001_initial_schema.sql
-- Source line: 287
-- Caller: migration_statement
-- Operation class normalization: Update
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: none_inline
-- Trigger detail: migration apply-time execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: sql_callsite_parsed_from_statement
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0017 Update branches
 <a id="crud-0017-update-branches"></a>
 
-Operation: Update
-Target entity: branches
-Source: supabase/migrations/006_branch_printer_names.sql:1
-Category: offline
-Trigger profile: migration apply-time execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: -- Add per-branch printer name columns
-- Caller function/module: migration_statement
-- Source reference: supabase/migrations/006_branch_printer_names.sql:1
-Request payload contract:
-- Field: inferred_from_callsite_context
-  - Inferred type: inferred
-  - Required/optional: optional_or_partial
-  - Source of value: caller migration_statement in supabase/migrations/006_branch_printer_names.sql:1
-  - Confidence: inferred_from_expression
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: supabase/migrations/006_branch_printer_names.sql:1
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_consistency_and_stale-read_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: payload_fields_not_inline (inferred from function context)
-- Trigger timing: migration apply-time execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at supabase/migrations/006_branch_printer_names.sql:1, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is migration apply-time execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: supabase/migrations/006_branch_printer_names.sql
-- Source line: 1
-- Caller: migration_statement
-- Operation class normalization: Update
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: none_inline
-- Trigger detail: migration apply-time execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: sql_callsite_parsed_from_statement
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0018 Update branches
 <a id="crud-0018-update-branches"></a>
 
-Operation: Update
-Target entity: branches
-Source: supabase/migrations/012_mount_lavinia_default_thermal_printer.sql:2
-Category: offline
-Trigger profile: migration apply-time execution
-Module purpose: Operational branch metadata and branch-scoped workflow routing.
-Business purpose: Operational branch metadata and branch-scoped workflow routing.
-Callsite evidence:
-- Evidence line: -- Keep existing explicit selections unchanged.
-- Caller function/module: migration_statement
-- Source reference: supabase/migrations/012_mount_lavinia_default_thermal_printer.sql:2
-Request payload contract:
-- Field: inferred_from_callsite_context
-  - Inferred type: inferred
-  - Required/optional: optional_or_partial
-  - Source of value: caller migration_statement in supabase/migrations/012_mount_lavinia_default_thermal_printer.sql:2
-  - Confidence: inferred_from_expression
-Response payload contract:
-- Field: mutation_status
-  - Usage classification: rendered+logic
-  - UI/logical sink: render paths: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-  - Evidence: supabase/migrations/012_mount_lavinia_default_thermal_printer.sql:2
-Frontend output surface:
-- Surface: components/Branches.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Sidebar.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/Inventory.tsx
-  - Mapping basis: target branches appears in this component domain.
-- Surface: components/POS.tsx
-  - Mapping basis: target branches appears in this component domain.
-Linked CRUD dependencies:
-- CRUD-0008
-- CRUD-0064
-- CRUD-0065
-- CRUD-0066
-- CRUD-0067
-- CRUD-0068
-- CRUD-0069
-- CRUD-0070
-- CRUD-0071
-- CRUD-0072
-- CRUD-0073
-- CRUD-0074
-- CRUD-0075
-- CRUD-0099
-- CRUD-0100
-- CRUD-0101
-- CRUD-0102
-- CRUD-0103
-- CRUD-0104
-- CRUD-0105
-Risk profile: medium_consistency_and_stale-read_risk
-Concrete callsite facts used for optimization decisions:
-- Selected columns: none_explicit (inferred wildcard or mutation call)
-- Filters: no_explicit_filters_detected
-- Sort/order: no_explicit_ordering
-- Pagination/windowing: no_explicit_pagination_or_windowing
-- Payload fields: payload_fields_not_inline (inferred from function context)
-- Trigger timing: migration apply-time execution
-- Frontend components: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Linked dependency CRUD IDs: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-Optimisation recommendation:
-- Keep payload contract stable at supabase/migrations/012_mount_lavinia_default_thermal_printer.sql:2, but isolate mutable fields to only payload_fields_not_inline (inferred from function context) to reduce write amplification.
-- Attach mutation-specific invalidation for linked reads (CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105) and keep refresh scope bounded to targets impacted by this write.
-- Preserve retry/idempotency behavior for this flow; trigger profile is migration apply-time execution, so failures must not duplicate side-effects.
-Validation checklist:
-- Confirm role/permission parity for this operation path and connected UI action gates.
-- Confirm RLS/policy assumptions still hold for this target in deployed database.
-- Confirm dependency refresh only touches linked CRUD IDs listed above.
-- Confirm payload and response contracts remain backward compatible for existing consumers.
-- Confirm offline/retry behavior does not duplicate side effects for this callsite.
-Estimated impact (modeled): Expected reduction in over-fetch refetch fan-out and lower write amplification; consistency improves via explicit invalidation boundaries.
-
-Additional evidence ledger:
-- Source file: supabase/migrations/012_mount_lavinia_default_thermal_printer.sql
-- Source line: 2
-- Caller: migration_statement
-- Operation class normalization: Update
-- Target normalization: branches
-- Selected columns detail: none_explicit
-- Filters detail: none_explicit
-- Ordering detail: none_explicit
-- Pagination detail: none_explicit
-- Payload detail: none_inline
-- Trigger detail: migration apply-time execution
-- Frontend surfaces detail: components/Branches.tsx, components/Sidebar.tsx, components/Inventory.tsx, components/POS.tsx
-- Dependency IDs detail: CRUD-0008, CRUD-0064, CRUD-0065, CRUD-0066, CRUD-0067, CRUD-0068, CRUD-0069, CRUD-0070, CRUD-0071, CRUD-0072, CRUD-0073, CRUD-0074, CRUD-0075, CRUD-0099, CRUD-0100, CRUD-0101, CRUD-0102, CRUD-0103, CRUD-0104, CRUD-0105
-- Inference markers: sql_callsite_parsed_from_statement
+Note: **Consolidated into CRUD-0008** — See [CRUD-0008 Unified Branches (Local-First)](#crud-0008-unified-branches-local-first) for the complete local-first implementation that handles create, read, and update operations for branches.
 
 ## CRUD-0019 Read brands
 <a id="crud-0019-read-brands"></a>

@@ -10,6 +10,7 @@
 - Read operations: 28
 - Mutation operations (Create+Update+Delete+Upsert+RPC): 184
 - Storage/object operations: 0
+- Playbook coverage check: 212/212 documented callsites in CRUD_OPTIMISATION_PLAYBOOK.md; no missing CRUD entries were found in the current review.
 
 ## Detection rules used
 - Supabase from/rpc chain extraction with caller and query-shape inference windows.
@@ -72,6 +73,13 @@
 - Validate parity of response contracts and UI rendering in each family before switching default fetch path.
 - Preserve offline queue semantics and retry idempotency for write flows during migration.
 - Keep scripted recovery operations out of centralized runtime fetch orchestration.
+- Make the implementation in a separate branch cut from main before changing any production-facing fetch path.
+- Do not land central-fetch changes directly on the production branch; review and validate the branch in isolation first.
+- Use the verification guide linked below to confirm that the page or workflow still renders the same records after centralization.
+
+## Verification guide
+- Follow [CENTRAL_FETCHING_CHECK_GUIDE.md](CENTRAL_FETCHING_CHECK_GUIDE.md) for the step-by-step review checklist.
+- The guide includes both a manual page-check workflow and an optional Playwright smoke-check path so the developer or AI can choose the most practical method.
 
 ## Decision evidence appendix
 - Target app_settings: usage_count=7, read_count=3, mutation_count=4, module_spread=3, divergent_query_shapes=true, freshness_sensitive=false

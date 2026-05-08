@@ -50,16 +50,30 @@ export async function insertStockTransfer(transfer: StockTransfer): Promise<void
     stockTransfersTableAvailable = true;
 }
 
-export async function fetchStockTransfers(): Promise<StockTransfer[]> {
+export interface FetchStockTransfersOptions {
+    fromBranchId?: string;
+    toBranchId?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+}
+
+export async function fetchStockTransfers(options: FetchStockTransfersOptions = {}): Promise<StockTransfer[]> {
     if (stockTransfersTableAvailable === false) {
         console.warn('[STOCK TRANSFERS] Table marked unavailable, returning empty array');
         return [];
     }
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('stock_transfers')
         .select('*')
         .order('date', { ascending: false });
+    if (options.fromBranchId) query = query.eq('from_branch_id', options.fromBranchId);
+    if (options.toBranchId) query = query.eq('to_branch_id', options.toBranchId);
+    if (options.status) query = query.eq('status', options.status);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    const { data, error } = await query;
 
     if (error) {
         const isMissing = isMissingTableError(error);

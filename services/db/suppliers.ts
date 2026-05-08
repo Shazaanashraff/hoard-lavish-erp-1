@@ -79,11 +79,28 @@ export const mapSupplierTransaction = (r: any): SupplierTransaction => ({
     affectsAccounting: r.affects_accounting ?? false,
 });
 
-export async function fetchSupplierTransactions(): Promise<SupplierTransaction[]> {
-    const { data, error } = await supabase
+export interface FetchSupplierTransactionsOptions {
+    supplierId?: string;
+    type?: 'PAYMENT' | 'REFUND';
+    dateFrom?: string;
+    dateTo?: string;
+    affectsAccounting?: boolean;
+}
+
+export async function fetchSupplierTransactions(options: FetchSupplierTransactionsOptions = {}): Promise<SupplierTransaction[]> {
+    let query = supabase
         .from('supplier_transactions')
         .select('*')
         .order('date', { ascending: false });
+    if (options.supplierId) query = query.eq('supplier_id', options.supplierId);
+    if (options.type) query = query.eq('type', options.type);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    if (options.affectsAccounting !== undefined && supplierTxAccountingColumnAvailable !== false) {
+        query = query.eq('affects_accounting', options.affectsAccounting);
+    }
+
+    const { data, error } = await query;
 
     if (!error) {
         if (data && data.length > 0 && supplierTxAccountingColumnAvailable !== false) {
@@ -94,10 +111,15 @@ export async function fetchSupplierTransactions(): Promise<SupplierTransaction[]
 
     if (isMissingSupplierAccountingColumnError(error)) {
         supplierTxAccountingColumnAvailable = false;
-        const { data: fallbackData, error: fallbackError } = await supabase
+        let fallbackQuery = supabase
             .from('supplier_transactions')
             .select('id, supplier_id, supplier_name, date, amount, type, reference, notes')
             .order('date', { ascending: false });
+        if (options.supplierId) fallbackQuery = fallbackQuery.eq('supplier_id', options.supplierId);
+        if (options.type) fallbackQuery = fallbackQuery.eq('type', options.type);
+        if (options.dateFrom) fallbackQuery = fallbackQuery.gte('date', options.dateFrom);
+        if (options.dateTo) fallbackQuery = fallbackQuery.lte('date', options.dateTo);
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
         if (fallbackError) throw fallbackError;
         return (fallbackData ?? []).map(mapSupplierTransaction);
     }

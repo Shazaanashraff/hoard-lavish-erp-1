@@ -103,11 +103,25 @@ export const mapSale = (r: any): SalesRecord => ({
     branchName: r.branch_name,
 });
 
-export async function fetchSales(): Promise<SalesRecord[]> {
-    const { data, error } = await supabase
+export interface FetchSalesOptions {
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    paymentMethod?: string;
+    limit?: number;
+}
+
+export async function fetchSales(options: FetchSalesOptions = {}): Promise<SalesRecord[]> {
+    let query = supabase
         .from('sales')
         .select('*, sale_items(*, products(id, name, sku, size, color, barcode, barcode2))')
         .order('date', { ascending: false });
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    if (options.paymentMethod) query = query.eq('payment_method', options.paymentMethod);
+    if (options.limit) query = query.limit(options.limit);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapSale);
 }
@@ -166,11 +180,23 @@ export const mapExchange = (r: any): ExchangeRecord => {
     };
 };
 
-export async function fetchExchanges(): Promise<ExchangeRecord[]> {
-    const { data, error } = await supabase
+export interface FetchExchangesOptions {
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    originalSaleId?: string;
+}
+
+export async function fetchExchanges(options: FetchExchangesOptions = {}): Promise<ExchangeRecord[]> {
+    let query = supabase
         .from('exchanges')
         .select('*, exchange_items(*)')
         .order('date', { ascending: false });
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    if (options.originalSaleId) query = query.eq('original_sale_id', options.originalSaleId);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapExchange);
 }

@@ -4,13 +4,20 @@
 - CRUD_OPTIMISATION_PLAYBOOK.md
 - OPTIMISATION_DEVELOPMENT_GUIDE.md
 - Source callsites in runtime services/context/components/scripts/migrations.
+- Updated `services/db/*.ts` persistence layer addendum in the current codebase.
 
 ## Coverage metrics
-- Total CRUD IDs reviewed: 212
-- Read operations: 28
-- Mutation operations (Create+Update+Delete+Upsert+RPC): 184
+- Total CRUD IDs reviewed: 279
+- Read operations: 52
+- Mutation operations (Create+Update+Delete+Upsert+RPC): 227
 - Storage/object operations: 0
-- Playbook coverage check: 212/212 documented callsites in CRUD_OPTIMISATION_PLAYBOOK.md; no missing CRUD entries were found in the current review.
+- Playbook coverage check: 279/279 documented callsites in CRUD_OPTIMISATION_PLAYBOOK.md; no missing CRUD entries were found in the current review.
+
+## Current boundary note
+- The updated codebase routes runtime persistence through `services/db/*.ts`; the central-fetch verdict is unchanged for the current targets.
+- Use the updated callsite index in CRUD_OPTIMISATION_PLAYBOOK.md as the current source of truth for the new layer.
+- The current shared-fetch boundary now includes the sales, exchange, stock movement, stock transfer, supplier transaction, and user admin readers in `services/db/*.ts`.
+- If a new centralized fetch is introduced for one of those targets, keep the consumer contract aligned with the existing StoreContext refresh path and the relevant page or workflow.
 
 ## Detection rules used
 - Supabase from/rpc chain extraction with caller and query-shape inference windows.
@@ -76,10 +83,12 @@
 - Make the implementation in a separate branch cut from main before changing any production-facing fetch path.
 - Do not land central-fetch changes directly on the production branch; review and validate the branch in isolation first.
 - Use the verification guide linked below to confirm that the page or workflow still renders the same records after centralization.
+- Decide up front whether the workflow needs a Playwright check; use Playwright for stable, repeatable routes and manual checks for one-off or still-shifting pages.
 
 ## Verification guide
 - Follow [CENTRAL_FETCHING_CHECK_GUIDE.md](CENTRAL_FETCHING_CHECK_GUIDE.md) for the step-by-step review checklist.
 - The guide includes both a manual page-check workflow and an optional Playwright smoke-check path so the developer or AI can choose the most practical method.
+- The guide also includes a per-target page/workflow matrix so manual checks cover every consumer of a centralized CRUD path.
 
 ## Decision evidence appendix
 - Target app_settings: usage_count=7, read_count=3, mutation_count=4, module_spread=3, divergent_query_shapes=true, freshness_sensitive=false

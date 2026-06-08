@@ -22,6 +22,11 @@ scope share one fetch; payloads are column-limited per widget.
 Background + per-page sales usage: [docs/EGRESS_OPTIMIZATION.md](../../docs/EGRESS_OPTIMIZATION.md).
 Pattern to mirror for lazy/cached loaders: [TODO-003](TODO-003-customers-lazy-daily-cache.md).
 
+> **Cache note:** the in-memory cache built here is later **promoted into the shared
+> persisted bucket layer** in [TODO-005](TODO-005-sales-migrate-remaining-consumers-drop-fetchall.md)
+> (server-side daily-sum aggregate + on-disk buckets), which Dashboard and the other
+> five pages all share. Build the loaders so that layer can back them.
+
 ### Column tiers (limit the payload)
 
 1. **Light, no `sale_items`** → `id, invoiceNumber, date, branchId, totalAmount, totalCost`

@@ -18,3 +18,9 @@ for how the agent selects and processes tasks.
 | 004 | P1 | [ ] | Dashboard — central on-demand sales loaders (no mount fetch, scoped + cached) |
 | 005 | P1 | [ ] | Sales — migrate POS/Accounting/Customers/SalesHistory/Branches to scoped fetches, drop fetchSales from fetch-all (after 004 + 006) |
 | 006 | P1 | [ ] | Sales — daily-totals aggregate RPC + fetchSalesDailyTotals wrapper (DB migration; 005 depends on it) |
+| 007 | P1 | [ ] | Stock movements — lazy/scoped fetch for Inventory history + Dashboard activity feed, drop fetchStockMovements from fetch-all (after 004) |
+| 008 | P1 | [ ] | Suppliers — lazy fetch on page open + local-first cache, drop fetchSuppliers from fetch-all |
+| 009 | P1 | [ ] | Supplier transactions — remove from Accounting + Day-End report, Suppliers becomes sole consumer (lazy fetch + paginated), drop fetchSupplierTransactions from fetch-all |
+| 010 | P1 | [ ] | Expenses — scoped period fetch (Accounting + Dashboard), drop fetchExpenses from fetch-all |
+| 011 | P1 | [ ] | Users — local-first cache (electron-store, seeded with INITIAL_USERS), drop fetchUsers from fetch-all |
+| 012 | P1 | [ ] | Settings — wire existing localSettings.ts into mount + updateSettings, drop fetchSettings from fetch-all |

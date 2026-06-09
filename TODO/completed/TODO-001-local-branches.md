@@ -2,7 +2,7 @@
 
 - **ID:** 001
 - **Priority:** P1
-- **Status:** TODO
+- **Status:** COMPLETED
 
 ## Description
 

@@ -257,3 +257,35 @@ export async function insertExchange(exchange: ExchangeRecord): Promise<string> 
 
     return exchangeId;
 }
+
+export interface SalesDailyTotal {
+    date: string;        // YYYY-MM-DD
+    branchId: string;
+    sumAmount: number;
+    sumCost: number;
+    txCount: number;
+}
+
+export interface FetchSalesDailyTotalsOptions {
+    branchId?: string;   // omitted/undefined → all branches grouped by branch
+    dateFrom: string;
+    dateTo: string;
+}
+
+export async function fetchSalesDailyTotals(
+    options: FetchSalesDailyTotalsOptions
+): Promise<SalesDailyTotal[]> {
+    const { data, error } = await supabase.rpc('fn_sales_daily_totals', {
+        p_branch_id: options.branchId ?? null,
+        p_date_from: options.dateFrom,
+        p_date_to: options.dateTo,
+    });
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+        date: r.date,
+        branchId: r.branch_id,
+        sumAmount: Number(r.sum_amount),
+        sumCost: Number(r.sum_cost),
+        txCount: Number(r.tx_count),
+    }));
+}

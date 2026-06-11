@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye, X, Download, ArrowRightLeft, Edit2, Printer, Plus, Minus, Trash2, CheckCircle, ClipboardList } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
@@ -9,6 +9,7 @@ import { parseBusinessDate } from '../../utils/dateTime';
 import { getTopRevenueAndQuantityProducts } from '../../utils/revenue';
 import { fmtCurrency } from '../../utils/formatters';
 import { CUR } from '../../constants';
+import { useDashboardSales } from './useDashboardSales';
 
 type FilterMode = 'daily' | 'monthly';
 
@@ -16,7 +17,7 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const { products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -29,6 +30,24 @@ const Dashboard: React.FC = () => {
   );
   const [detailModalType, setDetailModalType] = useState<'revenue' | 'expenses' | 'profit' | null>(null);
   const [showLowStockModal, setShowLowStockModal] = useState(false);
+
+  // --- On-demand sales loaders (Dashboard-local, no global salesHistory) ---
+  const dashSales = useDashboardSales({
+    filterMode,
+    selectedDate,
+    selectedMonth,
+    branchId: currentBranch.id,
+  });
+
+  // Invalidate loaders when filter changes
+  const prevFilterRef = useRef({ filterMode, selectedDate, selectedMonth });
+  useEffect(() => {
+    const prev = prevFilterRef.current;
+    if (prev.filterMode !== filterMode || prev.selectedDate !== selectedDate || prev.selectedMonth !== selectedMonth) {
+      dashSales.invalidate();
+      prevFilterRef.current = { filterMode, selectedDate, selectedMonth };
+    }
+  }, [filterMode, selectedDate, selectedMonth]);
 
   // --- Edit Sale State ---
   const [editingSale, setEditingSale] = useState<SalesRecord | null>(null);
@@ -43,15 +62,8 @@ const Dashboard: React.FC = () => {
   const matchesDate = (dateString: string, targetDate: string) => dateString.startsWith(targetDate);
   const matchesMonth = (dateString: string, targetMonth: string) => dateString.startsWith(targetMonth);
 
-  // --- Filtered Sales (branch-scoped) ---
-  const filteredSales = useMemo(() => {
-    const branchSales = salesHistory.filter(s => s.branchId === currentBranch.id);
-    if (filterMode === 'daily') {
-      return branchSales.filter(s => matchesDate(s.date, selectedDate));
-    } else {
-      return branchSales.filter(s => matchesMonth(s.date, selectedMonth));
-    }
-  }, [salesHistory, filterMode, selectedDate, selectedMonth, currentBranch.id]);
+  // --- Filtered Sales — now loaded on-demand via dashSales ---
+  const filteredSales = dashSales.periodSales.data;
 
   // --- Filtered Exchanges (branch-scoped) ---
   const filteredExchanges = useMemo(() => {
@@ -84,11 +96,12 @@ const Dashboard: React.FC = () => {
 
   // Top Performers
   const topPerformers = useMemo(() => {
-    return getTopRevenueAndQuantityProducts(filteredSales);
-  }, [filteredSales]);
+    return getTopRevenueAndQuantityProducts(dashSales.topPerformers.data);
+  }, [dashSales.topPerformers.data]);
 
-  // Chart Data — per branch
+  // Chart Data — per branch, computed from on-demand loaded chart records
   const chartData = useMemo(() => {
+    const rawSales = dashSales.chart.data;
     if (filterMode === 'daily') {
       const days = 7;
       const data: Record<string, any>[] = [];
@@ -101,9 +114,9 @@ const Dashboard: React.FC = () => {
           name: d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }),
         };
         branches.forEach(br => {
-          const daySales = salesHistory.filter(s => s.branchId === br.id && s.date.startsWith(dateStr));
-          const rev = daySales.reduce((sum, s) => sum + s.totalAmount, 0);
-          const cst = daySales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+          const daySales = rawSales.filter((s: any) => s.branchId === br.id && s.date.startsWith(dateStr));
+          const rev = daySales.reduce((sum: number, s: any) => sum + s.totalAmount, 0);
+          const cst = daySales.reduce((sum: number, s: any) => sum + (s.totalCost || 0), 0);
           point[`rev_${br.id}`] = rev;
           point[`profit_${br.id}`] = rev - cst;
         });
@@ -118,9 +131,9 @@ const Dashboard: React.FC = () => {
         const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const point: Record<string, any> = { name: `${day}` };
         branches.forEach(br => {
-          const daySales = salesHistory.filter(s => s.branchId === br.id && s.date.startsWith(dateStr));
-          const rev = daySales.reduce((sum, s) => sum + s.totalAmount, 0);
-          const cst = daySales.reduce((sum, s) => sum + (s.totalCost || 0), 0);
+          const daySales = rawSales.filter((s: any) => s.branchId === br.id && s.date.startsWith(dateStr));
+          const rev = daySales.reduce((sum: number, s: any) => sum + s.totalAmount, 0);
+          const cst = daySales.reduce((sum: number, s: any) => sum + (s.totalCost || 0), 0);
           point[`rev_${br.id}`] = rev;
           point[`profit_${br.id}`] = rev - cst;
         });
@@ -128,7 +141,7 @@ const Dashboard: React.FC = () => {
       }
       return data;
     }
-  }, [salesHistory, filterMode, selectedDate, selectedMonth, branches]);
+  }, [dashSales.chart.data, filterMode, selectedDate, selectedMonth, branches]);
 
   // --- Unified Ledger ---
   const filteredExpenses = useMemo(() => {
@@ -177,11 +190,11 @@ const Dashboard: React.FC = () => {
   const isSaleEditable = (sale: SalesRecord) => Date.now() - parseBusinessDate(sale.date).getTime() <= TEN_MIN;
   const recentEditableSales = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
-    return salesHistory
-      .filter(s => s.branchId === currentBranch.id && s.date.startsWith(todayStr))
-      .sort((a, b) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime())
+    return dashSales.recentWithItems.data
+      .filter((s: any) => s.date.startsWith(todayStr))
+      .sort((a: any, b: any) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime())
       .slice(0, 20);
-  }, [salesHistory, currentBranch.id]);
+  }, [dashSales.recentWithItems.data]);
 
   // --- Activity Feed ---
   const activityFeed = useMemo(() => {
@@ -189,8 +202,8 @@ const Dashboard: React.FC = () => {
     const items: ActivityItem[] = [];
 
     // Sales events
-    salesHistory.forEach(sale => {
-      const itemNames = sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+    dashSales.recentWithItems.data.forEach((sale: any) => {
+      const itemNames = (sale.items || []).map((i: any) => `${i.quantity}x ${i.name}`).join(', ');
       items.push({
         id: `sale-${sale.id}`,
         date: sale.date,
@@ -239,7 +252,7 @@ const Dashboard: React.FC = () => {
     // Sort by date descending
     items.sort((a, b) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime());
     return items.slice(0, 20);
-  }, [salesHistory, stockHistory]);
+  }, [dashSales.recentWithItems.data, stockHistory]);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -270,10 +283,17 @@ const Dashboard: React.FC = () => {
   };
 
   // --- Day End Report (PDF) ---
-  const generateDayEndReport = (cashierName: string, note: string) => {
+  const handleGenerateDayReport = async (cashierName: string, note: string) => {
+    if (!dashSales.dayReport.loaded) {
+      await dashSales.dayReport.load();
+    }
+    generateDayEndReport(cashierName, note, dashSales.dayReport.data);
+  };
+
+  const generateDayEndReport = (cashierName: string, note: string, salesData: any[]) => {
     // Payment method breakdown
-    const cashSales    = filteredSales.filter(s => s.paymentMethod === 'Cash');
-    const cardSales    = filteredSales.filter(s => s.paymentMethod === 'Card');
+    const cashSales    = salesData.filter((s: any) => s.paymentMethod === 'Cash');
+    const cardSales    = salesData.filter((s: any) => s.paymentMethod === 'Card');
     const codSales     = filteredSales.filter(s => s.paymentMethod === 'COD');
     const splitSales   = filteredSales.filter(s => s.paymentMethod === 'Cash+Card');
     const payhereS     = filteredSales.filter(s => s.paymentMethod === 'PayHere');

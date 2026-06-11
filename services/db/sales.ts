@@ -257,3 +257,31 @@ export async function insertExchange(exchange: ExchangeRecord): Promise<string> 
 
     return exchangeId;
 }
+
+export interface FetchSalesSummaryOptions {
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+}
+
+export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}): Promise<Pick<SalesRecord, 'id' | 'invoiceNumber' | 'date' | 'branchId' | 'totalAmount' | 'totalCost'>[]> {
+    let query = supabase
+        .from('sales')
+        .select('id, invoice_number, date, branch_id, total_amount, total_cost')
+        .order('date', { ascending: false });
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    if (options.limit) query = query.limit(options.limit);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+        id: r.id,
+        invoiceNumber: r.invoice_number,
+        date: r.date,
+        branchId: r.branch_id,
+        totalAmount: Number(r.total_amount),
+        totalCost: Number(r.total_cost),
+    }));
+}

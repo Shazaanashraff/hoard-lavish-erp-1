@@ -18,7 +18,7 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const { salesHistory, refreshSalesHistory, products, expenses, supplierTransactions, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -39,6 +39,14 @@ const Dashboard: React.FC = () => {
   }, [currentBranch.id]);
 
   useEffect(() => { void loadRecentMovements(); }, [loadRecentMovements]);
+
+  // --- Load sales history lazily for this branch (last 90 days) ---
+  useEffect(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    const dateFrom = d.toISOString().split('T')[0];
+    void refreshSalesHistory({ branchId: currentBranch.id, dateFrom, limit: 500 });
+  }, [currentBranch.id]);
 
   // --- Filter State ---
   const today = new Date();

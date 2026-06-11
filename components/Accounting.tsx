@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts';
 import { DollarSign, TrendingUp, TrendingDown, Plus, Filter, Trash2, Calendar, FileText, Building2, ArrowRightLeft } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { fetchSales } from '../services/supabaseService';
 import { EXPENSE_CATEGORIES } from '../constants';
-import { Expense } from '../types';
+import { Expense, SalesRecord } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
 import ConfirmDialog from './shared/ConfirmDialog';
 
 const Accounting: React.FC = () => {
-  const { salesHistory, expenses, supplierTransactions, stockTransfers, exchangeHistory, currentBranch, branches, addExpense, deleteExpense } = useStore();
+  const { expenses, supplierTransactions, stockTransfers, exchangeHistory, currentBranch, branches, addExpense, deleteExpense } = useStore();
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'EXPENSES'>('DASHBOARD');
   const [filterPeriod, setFilterPeriod] = useState<'ALL' | 'MONTH'>('ALL');
   const [branchFilter, setBranchFilter] = useState<string>('ALL');
@@ -25,6 +26,25 @@ const Accounting: React.FC = () => {
     paymentMethod: 'Cash'
   });
 
+  // --- Sales — lazy loaded, scoped to active period ---
+  const [filteredSales, setFilteredSales] = useState<SalesRecord[]>([]);
+
+  useEffect(() => {
+    const now = new Date();
+    let dateFrom: string | undefined;
+    let dateTo: string | undefined;
+    if (filterPeriod === 'MONTH') {
+      dateFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    } else {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 90);
+      dateFrom = d.toISOString().split('T')[0];
+    }
+    fetchSales({ dateFrom, dateTo, limit: 1000 })
+      .then(setFilteredSales)
+      .catch(err => console.error('Failed to load accounting sales', err));
+  }, [filterPeriod]);
+
   // --- Calculations ---
 
   const isInPeriod = (dateStr: string) => {
@@ -35,7 +55,6 @@ const Accounting: React.FC = () => {
   };
 
   // 1. Income (Sales)
-  const filteredSales = salesHistory.filter(s => isInPeriod(s.date));
   const totalIncome = filteredSales.reduce((sum, s) => sum + s.totalAmount, 0);
 
   // 1b. Exchange income/refunds

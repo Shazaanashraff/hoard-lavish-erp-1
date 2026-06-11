@@ -1,10 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Store, Plus, MapPin, Phone, Edit2, BarChart2, Package } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { fetchSales } from '../services/supabaseService';
 import { Branch } from '../types';
 
 const Branches: React.FC = () => {
-  const { branches, addBranch, updateBranch, products, salesHistory } = useStore();
+  const { branches, addBranch, updateBranch, products } = useStore();
+  const [branchRevenue, setBranchRevenue] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (branches.length === 0) return;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const dateFrom = thirtyDaysAgo.toISOString().split('T')[0];
+    Promise.all(
+      branches.map(b => fetchSales({ branchId: b.id, dateFrom, limit: 500 })
+        .then(sales => ({ id: b.id, total: sales.reduce((s, r) => s + r.totalAmount, 0) }))
+        .catch(() => ({ id: b.id, total: 0 }))
+      )
+    ).then(results => {
+      const map: Record<string, number> = {};
+      results.forEach(r => { map[r.id] = r.total; });
+      setBranchRevenue(map);
+    });
+  }, [branches]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Partial<Branch>>({});
 
@@ -29,10 +48,7 @@ const Branches: React.FC = () => {
   const getBranchStats = (branchId: string) => {
     const totalStock = products.reduce((sum, p) => sum + (p.branchStock[branchId] || 0), 0);
     const stockValue = products.reduce((sum, p) => sum + ((p.branchStock[branchId] || 0) * p.price), 0);
-    const totalSales = salesHistory
-      .filter(s => s.branchId === branchId)
-      .reduce((sum, s) => sum + s.totalAmount, 0);
-    
+    const totalSales = branchRevenue[branchId] ?? 0;
     return { totalStock, stockValue, totalSales };
   };
 

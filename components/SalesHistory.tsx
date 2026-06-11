@@ -1,6 +1,7 @@
-﻿import React, { useState, useRef, useMemo } from 'react';
-import { Search, Printer, User, Calendar, DollarSign, X, Building2, ArrowLeftRight, Package, FileText, Filter } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { Search, Printer, User, Calendar, DollarSign, X, Building2, ArrowLeftRight, Package, FileText, Filter, RefreshCw } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { fetchSales } from '../services/supabaseService';
 import { SalesRecord, ExchangeRecord } from '../types';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -45,7 +46,7 @@ type ListItem =
   | { recordType: 'exchange'; data: ExchangeRecord };
 
 const SalesHistory: React.FC = () => {
-  const { salesHistory, exchangeHistory, branches, products } = useStore();
+  const { exchangeHistory, branches, products } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<ListItem | null>(null);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('ALL');
@@ -58,17 +59,67 @@ const SalesHistory: React.FC = () => {
   const [itemDateTo, setItemDateTo] = useState<string>('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState<string>('ALL');
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const SALES_PAGE_SIZE = 20;
+
+  // --- Paginated server-side sales list ---
+  const [pageSales, setPageSales] = useState<SalesRecord[]>([]);
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesHasMore, setSalesHasMore] = useState(true);
+  const [salesLoading, setSalesLoading] = useState(false);
+
+  const buildSalesOptions = useCallback((offset = 0) => {
+    const now = new Date();
+    let dFrom = dateFrom || undefined;
+    let dTo = dateTo || undefined;
+    if (!dFrom && timePeriod !== 'ALL' && timePeriod !== 'CUSTOM') {
+      if (timePeriod === 'TODAY') dFrom = now.toISOString().split('T')[0];
+      else if (timePeriod === 'WEEK') { const d = new Date(now); d.setDate(d.getDate() - 7); dFrom = d.toISOString().split('T')[0]; }
+      else if (timePeriod === 'MONTH') { dFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`; }
+    }
+    return {
+      branchId: branchFilter !== 'ALL' ? branchFilter : undefined,
+      dateFrom: dFrom,
+      dateTo: dTo,
+      search: searchTerm.trim() || undefined,
+      limit: SALES_PAGE_SIZE,
+      offset,
+    };
+  }, [timePeriod, branchFilter, dateFrom, dateTo, searchTerm]);
+
+  const loadSales = useCallback(async () => {
+    setSalesLoading(true);
+    try {
+      const data = await fetchSales(buildSalesOptions(0));
+      setPageSales(data);
+      setSalesPage(0);
+      setSalesHasMore(data.length === SALES_PAGE_SIZE);
+    } catch (err) {
+      console.error('Failed to load sales history', err);
+    } finally {
+      setSalesLoading(false);
+    }
+  }, [buildSalesOptions]);
+
+  const loadMoreSales = async () => {
+    const nextPage = salesPage + 1;
+    setSalesLoading(true);
+    try {
+      const data = await fetchSales(buildSalesOptions(nextPage * SALES_PAGE_SIZE));
+      setPageSales(prev => [...prev, ...data]);
+      setSalesPage(nextPage);
+      setSalesHasMore(data.length === SALES_PAGE_SIZE);
+    } catch (err) {
+      console.error('Failed to load more sales', err);
+    } finally {
+      setSalesLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadSales(); }, [loadSales]);
 
   // --- Combined filtered list ---
   const filteredItems = useMemo((): ListItem[] => {
-    const sales: ListItem[] = salesHistory
-      .filter(s => {
-        const matchesSearch =
-          s.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (s.customerName && s.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
-        return matchesSearch && isInPeriod(s.date, timePeriod, dateFrom, dateTo) &&
-          (branchFilter === 'ALL' || s.branchId === branchFilter);
-      })
+    const sales: ListItem[] = pageSales
       .map(s => ({ recordType: 'sale', data: s }));
 
     const exchanges: ListItem[] = (exchangeHistory || [])
@@ -85,11 +136,11 @@ const SalesHistory: React.FC = () => {
     return [...sales, ...exchanges].sort(
       (a, b) => parseBusinessDate(b.data.date).getTime() - parseBusinessDate(a.data.date).getTime()
     );
-  }, [salesHistory, exchangeHistory, searchTerm, timePeriod, branchFilter, dateFrom, dateTo]);
+  }, [pageSales, exchangeHistory, searchTerm, timePeriod, branchFilter, dateFrom, dateTo]);
 
   // --- Item-wise filtered list (independent from main list) ---
   const itemFilteredItems = useMemo((): ListItem[] => {
-    const sales: ListItem[] = salesHistory
+    const sales: ListItem[] = pageSales
       .filter(s => isInPeriod(s.date, itemTimePeriod, itemDateFrom, itemDateTo))
       .map(s => ({ recordType: 'sale', data: s }));
 
@@ -98,7 +149,7 @@ const SalesHistory: React.FC = () => {
       .map(e => ({ recordType: 'exchange', data: e }));
 
     return [...sales, ...exchanges];
-  }, [salesHistory, exchangeHistory, itemTimePeriod, itemDateFrom, itemDateTo]);
+  }, [pageSales, exchangeHistory, itemTimePeriod, itemDateFrom, itemDateTo]);
 
   const productCategoryById = useMemo(() => {
     const categoryMap = new Map<string, string>();
@@ -519,9 +570,29 @@ const SalesHistory: React.FC = () => {
             }
             return null;
           })}
-          {filteredItems.length === 0 && (
+          {filteredItems.length === 0 && !salesLoading && (
             <div className="text-center py-10 text-slate-400">
               No records found.
+            </div>
+          )}
+          {salesLoading && pageSales.length === 0 && (
+            <div className="text-center py-10 text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw size={16} className="animate-spin" /> Loading…
+            </div>
+          )}
+          {salesHasMore && !salesLoading && pageSales.length > 0 && (
+            <div className="p-4 text-center">
+              <button
+                onClick={loadMoreSales}
+                className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Show more
+              </button>
+            </div>
+          )}
+          {salesLoading && pageSales.length > 0 && (
+            <div className="p-4 text-center text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw size={14} className="animate-spin" /> Loading more…
             </div>
           )}
         </div>

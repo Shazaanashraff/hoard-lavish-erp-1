@@ -109,18 +109,28 @@ export interface FetchSalesOptions {
     dateTo?: string;
     paymentMethod?: string;
     limit?: number;
+    offset?: number;
+    customerId?: string;
+    search?: string;
 }
 
 export async function fetchSales(options: FetchSalesOptions = {}): Promise<SalesRecord[]> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
     let query = supabase
         .from('sales')
         .select('*, sale_items(*, products(id, name, sku, size, color, barcode, barcode2))')
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .range(offset, offset + limit - 1);
     if (options.branchId) query = query.eq('branch_id', options.branchId);
     if (options.dateFrom) query = query.gte('date', options.dateFrom);
     if (options.dateTo) query = query.lte('date', options.dateTo);
     if (options.paymentMethod) query = query.eq('payment_method', options.paymentMethod);
-    if (options.limit) query = query.limit(options.limit);
+    if (options.customerId) query = query.eq('customer_id', options.customerId);
+    if (options.search) {
+        const s = options.search.replace(/'/g, "''");
+        query = query.or(`invoice_number.ilike.%${s}%,customer_name.ilike.%${s}%`);
+    }
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapSale);

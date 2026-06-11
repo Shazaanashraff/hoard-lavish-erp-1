@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Search, Plus, Minus, Trash2, CreditCard, Banknote, UserPlus, User, X, ScanBarcode, Printer, CheckCircle, Store, ArrowRightLeft, RotateCcw } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { fetchSales } from '../../services/supabaseService';
 import { Product, Customer, SalesRecord, CartItem, ExchangeRecord, ExchangeLineItem } from '../../types';
 import { parseBusinessDate } from '../../utils/dateTime';
 import { fmtCurrency } from '../../utils/formatters';
@@ -12,7 +13,7 @@ type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
 
 const POS: React.FC = () => {
-  const { products, customers, cart, salesHistory, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, deleteSale, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
+  const { products, customers, cart, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, deleteSale, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   // Keep a ref in sync with barcodeInput so the submit handler always reads
@@ -1062,16 +1063,28 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
     }
   };
 
-  // === Exchange Helpers ===
+  // === Exchange Helpers — server-side search ===
+  const [filteredExchangeSales, setFilteredExchangeSales] = useState<SalesRecord[]>([]);
+  const exchangeSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filteredExchangeSales = useMemo(() => {
-    if (!exchangeSaleSearch.trim()) return salesHistory.slice(0, 10);
-    const term = exchangeSaleSearch.toLowerCase();
-    return salesHistory.filter(s =>
-      s.invoiceNumber.toLowerCase().includes(term) ||
-      (s.customerName && s.customerName.toLowerCase().includes(term))
-    ).slice(0, 10);
-  }, [salesHistory, exchangeSaleSearch]);
+  const loadExchangeSales = useCallback(async (term: string) => {
+    try {
+      const results = await fetchSales(
+        term.trim() ? { search: term, branchId: currentBranch.id, limit: 10 } : { branchId: currentBranch.id, limit: 10 }
+      );
+      setFilteredExchangeSales(results);
+    } catch (err) {
+      console.error('Failed to search exchange sales', err);
+    }
+  }, [currentBranch.id]);
+
+  useEffect(() => {
+    if (exchangeSearchTimerRef.current) clearTimeout(exchangeSearchTimerRef.current);
+    exchangeSearchTimerRef.current = setTimeout(() => {
+      void loadExchangeSales(exchangeSaleSearch);
+    }, 300);
+    return () => { if (exchangeSearchTimerRef.current) clearTimeout(exchangeSearchTimerRef.current); };
+  }, [exchangeSaleSearch, loadExchangeSales]);
 
   const linkedReturnedQtyByLine = useMemo(() => {
     const map = new Map<string, number>();

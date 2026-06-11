@@ -12,7 +12,7 @@ type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
 
 const POS: React.FC = () => {
-  const { products, customers, cart, salesHistory, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, deleteSale, clearCart, addCustomer, adjustStock, currentBranch, currentUser, settings } = useStore();
+  const { products, customers, cart, salesHistory, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, deleteSale, clearCart, addCustomer, loadCustomers, adjustStock, currentBranch, currentUser, settings } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   // Keep a ref in sync with barcodeInput so the submit handler always reads
@@ -1516,7 +1516,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
                       setCustomerSearch(e.target.value);
                       setIsCustomerDropdownOpen(true);
                     }}
-                    onFocus={() => setIsCustomerDropdownOpen(true)}
+                    onFocus={() => { setIsCustomerDropdownOpen(true); loadCustomers(); }}
                     onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
                   />
                   {/* Dynamic customer dropdown */}

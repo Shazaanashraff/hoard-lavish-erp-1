@@ -16,7 +16,7 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 

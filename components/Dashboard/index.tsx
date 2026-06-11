@@ -1,7 +1,9 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye, X, Download, ArrowRightLeft, Edit2, Printer, Plus, Minus, Trash2, CheckCircle, ClipboardList } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { fetchStockMovements } from '../../services/supabaseService';
+import { StockMovement } from '../../types';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { CartItem, SalesRecord } from '../../types';
@@ -16,9 +18,27 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const { salesHistory, products, expenses, supplierTransactions, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
+
+  // --- Recent stock movements for activity feed (lazy, 30 most recent non-sale-out) ---
+  const [recentMovements, setRecentMovements] = useState<StockMovement[]>([]);
+  const [movementsRefreshing, setMovementsRefreshing] = useState(false);
+
+  const loadRecentMovements = useCallback(async () => {
+    setMovementsRefreshing(true);
+    try {
+      const data = await fetchStockMovements({ branchId: currentBranch.id, limit: 30, excludeSaleOuts: true });
+      setRecentMovements(data);
+    } catch (err) {
+      console.error('Failed to load recent movements', err);
+    } finally {
+      setMovementsRefreshing(false);
+    }
+  }, [currentBranch.id]);
+
+  useEffect(() => { void loadRecentMovements(); }, [loadRecentMovements]);
 
   // --- Filter State ---
   const today = new Date();
@@ -202,7 +222,7 @@ const Dashboard: React.FC = () => {
     });
 
     // Stock movements
-    stockHistory.forEach(mv => {
+    recentMovements.forEach(mv => {
       if (mv.type === 'IN') {
         items.push({
           id: `stock-${mv.id}`,
@@ -239,7 +259,7 @@ const Dashboard: React.FC = () => {
     // Sort by date descending
     items.sort((a, b) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime());
     return items.slice(0, 20);
-  }, [salesHistory, stockHistory]);
+  }, [salesHistory, recentMovements]);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -1217,7 +1237,14 @@ const Dashboard: React.FC = () => {
                 <p className="text-xs text-slate-400">Recent events across the store</p>
               </div>
             </div>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Live"></span>
+            <button
+              onClick={() => void loadRecentMovements()}
+              disabled={movementsRefreshing}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              title="Refresh activity"
+            >
+              <RefreshCw size={14} className={movementsRefreshing ? 'animate-spin' : ''} />
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[400px]">
             {activityFeed.length > 0 ? (

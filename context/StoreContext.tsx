@@ -62,7 +62,7 @@ interface StoreContextType {
   updateSale: (saleId: string, updatedItems: CartItem[], discount: number, customerId?: string) => SalesRecord;
   deleteSale: (saleId: string) => void;
   completeExchange: (exchange: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'>) => ExchangeRecord;
-  adjustStock: (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => void;
+  adjustStock: (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => StockMovement | null;
   transferStock: (toBranchId: string, items: StockTransferItem[], notes: string) => StockTransfer;
   deleteTransfer: (transferId: string) => void;
   refreshTransfers: () => Promise<void>;
@@ -473,7 +473,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           productsData,
           customersData,
           salesData,
-          stockData,
           suppliersData,
           supplierTxnData,
           expensesData,
@@ -488,7 +487,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchProductsWithStock(),
           db.fetchCustomers(),
           db.fetchSales(),
-          db.fetchStockMovements(),
+          // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
           db.fetchSuppliers(),
           db.fetchSupplierTransactions(),
           db.fetchExpenses(),
@@ -531,7 +530,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setProducts(productsData);
         setCustomers(customersData);
         setSalesHistory(salesData);
-        setStockHistory(stockData);
         setSuppliers(suppliersData);
         setSupplierTransactions(supplierTxnData);
         setExpenses(expensesData);
@@ -568,7 +566,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         productsData,
         customersData,
         salesData,
-        stockData,
         suppliersData,
         supplierTxnData,
         expensesData,
@@ -580,7 +577,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         db.fetchProductsWithStock(),
         db.fetchCustomers(),
         db.fetchSales(),
-        db.fetchStockMovements(),
+        // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
         db.fetchSuppliers(),
         db.fetchSupplierTransactions(),
         db.fetchExpenses(),
@@ -598,7 +595,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setProducts(productsData);
       setCustomers(customersData);
       setSalesHistory(salesData);
-      setStockHistory(stockData);
       setSuppliers(suppliersData);
       setSupplierTransactions(supplierTxnData);
       setExpenses(expensesData);
@@ -652,7 +648,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .on('postgres_changes', { event: '*', schema: 'public', table: 'sale_items' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'exchanges' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'exchange_items' }, onEvent)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, onEvent)
+        // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_transfers' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, onEvent)
@@ -1439,9 +1435,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   // STOCK ADJUSTMENT
   // ============================================================
-  const adjustStock = (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => {
+  const adjustStock = (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string): StockMovement | null => {
     const product = products.find(p => p.id === productId);
-    if (!product) return;
+    if (!product) return null;
 
     const currentBranchStock = product.branchStock[currentBranch.id] || 0;
     let newBranchStock = currentBranchStock;
@@ -1488,6 +1484,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       { fallback: 'Failed to adjust stock' }
     );
+
+    return movement;
   };
 
   // ============================================================

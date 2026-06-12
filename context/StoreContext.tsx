@@ -7,6 +7,7 @@ import { calculateCartTotals } from '../utils/cart';
 import { generateInvoiceNumber, generateTransferNumber } from '../utils/generators';
 import { isLikelyConnectivityIssue, extractDbErrorMessage, DbLikeError } from '../utils/errors';
 import { isUuid, makeUuid } from '../utils/ids';
+import { loadLocalUsers, saveLocalUsers, setLocalUsers } from '../services/localUsers';
 
 interface StoreContextType {
   products: Product[];
@@ -89,6 +90,7 @@ interface StoreContextType {
   addUser: (user: User) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   deleteUser: (id: string) => void;
+  refreshUsers: () => Promise<void>;
 
   updateSettings: (settings: Partial<AppSettings>) => void;
 
@@ -138,7 +140,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [supplierTransactions, setSupplierTransactions] = useState<SupplierTransaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [damagedGoods, setDamagedGoods] = useState<DamagedGood[]>([]);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>(loadLocalUsers());
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
 
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
@@ -477,7 +479,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           suppliersData,
           supplierTxnData,
           expensesData,
-          usersData,
           settingsData,
           categoriesData,
           brandsData,
@@ -492,7 +493,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchSuppliers(),
           db.fetchSupplierTransactions(),
           db.fetchExpenses(),
-          db.fetchUsers(),
           db.fetchSettings(),
           db.fetchCategories(),
           db.fetchBrands(),
@@ -535,7 +535,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSuppliers(suppliersData);
         setSupplierTransactions(supplierTxnData);
         setExpenses(expensesData);
-        setUsers(usersData);
         setSettings(settingsData);
         setCategories(categoriesData);
         setBrands(brandsData);
@@ -1952,16 +1951,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // USER ACTIONS
   // ============================================================
   const addUser = (user: User) => {
-    setUsers(prev => [...prev, user]);
+    setUsers(prev => {
+      const next = [...prev, user];
+      saveLocalUsers(next);
+      return next;
+    });
     void executeWithOfflineQueue('ADD_USER', { user }, () => db.insertUser(user), { fallback: 'Failed to add user' });
   };
   const updateUser = (id: string, updates: Partial<User>) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+    setUsers(prev => {
+      const next = prev.map(u => u.id === id ? { ...u, ...updates } : u);
+      saveLocalUsers(next);
+      return next;
+    });
     void executeWithOfflineQueue('UPDATE_USER', { id, updates }, () => db.updateUser(id, updates), { fallback: 'Failed to update user' });
   };
   const deleteUser = (id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
+    setUsers(prev => {
+      const next = prev.filter(u => u.id !== id);
+      saveLocalUsers(next);
+      return next;
+    });
     void executeWithOfflineQueue('DELETE_USER', { id }, () => db.deleteUser(id), { fallback: 'Failed to delete user' });
+  };
+
+  const refreshUsers = async () => {
+    if (!useSupabase) return;
+    try {
+      const fresh = await db.fetchUsers();
+      setUsers(fresh);
+      setLocalUsers(fresh);
+    } catch (err: unknown) {
+      console.error('Failed to refresh users:', err);
+    }
   };
 
   // ============================================================
@@ -2128,7 +2150,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,
-      addUser, updateUser, deleteUser,
+      addUser, updateUser, deleteUser, refreshUsers,
       updateSettings, exportData, importData,
       syncData, syncOfflineQueue, retryOfflineItem, removeOfflineItem, dismissOfflinePopup, dismissDbError,
       login, logout, setView

@@ -6,12 +6,12 @@ import { normalizeBranchName, isMountLaviniaBranch, getThermalPrinterForBranch, 
 import { parseCSV, CSV_COLUMNS, CSV_REQUIRED, CSV_SAMPLE } from '../utils/csv';
 
 const Settings: React.FC = () => {
-  const { 
-    settings, updateSettings, 
-    users, addUser, updateUser, deleteUser, 
+  const {
+    settings, updateSettings,
+    users, addUser, updateUser, deleteUser, refreshUsers,
     branches, currentBranch, updateBranch,
     addProduct,
-    exportData, importData 
+    exportData, importData
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'DATA' | 'IMPORT'>('GENERAL');
@@ -64,6 +64,10 @@ const Settings: React.FC = () => {
         setAvailablePrinters(list.map((p: any) => p.name).filter(Boolean));
       }).catch(() => {});
     }
+  }, []);
+
+  useEffect(() => {
+    refreshUsers();
   }, []);
 
   const handleSaveGeneral = () => {
@@ -402,6 +406,12 @@ const Settings: React.FC = () => {
           <div className="max-w-4xl">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-900">User Management</h3>
+              <button
+                onClick={() => refreshUsers()}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors text-sm font-medium"
+              >
+                Refresh
+              </button>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

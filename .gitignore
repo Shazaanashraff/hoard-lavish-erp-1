@@ -28,3 +28,6 @@ dist-electron
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code agent worktrees (local artifacts, never committed)
+.claude/worktrees/

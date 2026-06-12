@@ -85,6 +85,9 @@ export interface FetchSupplierTransactionsOptions {
     dateFrom?: string;
     dateTo?: string;
     affectsAccounting?: boolean;
+    search?: string;
+    limit?: number;
+    offset?: number;
 }
 
 export async function fetchSupplierTransactions(options: FetchSupplierTransactionsOptions = {}): Promise<SupplierTransaction[]> {
@@ -99,6 +102,12 @@ export async function fetchSupplierTransactions(options: FetchSupplierTransactio
     if (options.affectsAccounting !== undefined && supplierTxAccountingColumnAvailable !== false) {
         query = query.eq('affects_accounting', options.affectsAccounting);
     }
+    if (options.search) {
+        const q = options.search.replace(/'/g, "''");
+        query = query.or(`supplier_name.ilike.%${q}%,reference.ilike.%${q}%`);
+    }
+    if (options.limit !== undefined) query = query.limit(options.limit);
+    if (options.offset !== undefined) query = query.range(options.offset, options.offset + (options.limit ?? 50) - 1);
 
     const { data, error } = await query;
 
@@ -119,6 +128,12 @@ export async function fetchSupplierTransactions(options: FetchSupplierTransactio
         if (options.type) fallbackQuery = fallbackQuery.eq('type', options.type);
         if (options.dateFrom) fallbackQuery = fallbackQuery.gte('date', options.dateFrom);
         if (options.dateTo) fallbackQuery = fallbackQuery.lte('date', options.dateTo);
+        if (options.search) {
+            const q = options.search.replace(/'/g, "''");
+            fallbackQuery = fallbackQuery.or(`supplier_name.ilike.%${q}%,reference.ilike.%${q}%`);
+        }
+        if (options.limit !== undefined) fallbackQuery = fallbackQuery.limit(options.limit);
+        if (options.offset !== undefined) fallbackQuery = fallbackQuery.range(options.offset, options.offset + (options.limit ?? 50) - 1);
         const { data: fallbackData, error: fallbackError } = await fallbackQuery;
         if (fallbackError) throw fallbackError;
         return (fallbackData ?? []).map(mapSupplierTransaction);

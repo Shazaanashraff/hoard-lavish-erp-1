@@ -16,7 +16,7 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const { salesHistory, products, expenses, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -137,11 +137,6 @@ const Dashboard: React.FC = () => {
     return branchExpenses.filter(e => matchesMonth(e.date, selectedMonth));
   }, [expenses, filterMode, selectedDate, selectedMonth, currentBranch.id]);
 
-  const filteredSupplierTx = useMemo(() => {
-    if (filterMode === 'daily') return supplierTransactions.filter(t => t.type === 'PAYMENT' && t.affectsAccounting === true && matchesDate(t.date, selectedDate));
-    return supplierTransactions.filter(t => t.type === 'PAYMENT' && t.affectsAccounting === true && matchesMonth(t.date, selectedMonth));
-  }, [supplierTransactions, filterMode, selectedDate, selectedMonth]);
-
   const filteredTransfers = useMemo(() => {
     if (filterMode === 'daily') return stockTransfers.filter(t => matchesDate(t.date, selectedDate));
     return stockTransfers.filter(t => matchesMonth(t.date, selectedMonth));
@@ -155,9 +150,6 @@ const Dashboard: React.FC = () => {
       ...filteredExpenses.map(e => ({
         id: e.id, date: e.date, desc: e.description, amount: e.amount, type: 'OUT' as const, category: e.category
       })),
-      ...filteredSupplierTx.map(t => ({
-        id: t.id, date: t.date, desc: `Supplier: ${t.supplierName}`, amount: t.amount, type: 'OUT' as const, category: 'Inventory'
-      })),
       ...filteredTransfers.map(t => ({
         id: t.id, date: t.date, desc: `Transfer ${t.transferNumber}: ${t.fromBranchName} → ${t.toBranchName}`, amount: t.totalValue, type: 'IN' as const, category: 'Stock Transfer'
       })),
@@ -170,7 +162,7 @@ const Dashboard: React.FC = () => {
       }))
     ];
     return all.sort((a, b) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime());
-  }, [filteredSales, filteredExpenses, filteredSupplierTx, filteredTransfers, filteredExchanges]);
+  }, [filteredSales, filteredExpenses, filteredTransfers, filteredExchanges]);
 
   // --- Recent Sales (today, current branch — editable within 10 min) ---
   const TEN_MIN = 10 * 60 * 1000;
@@ -298,8 +290,7 @@ const Dashboard: React.FC = () => {
 
     // Expenses
     const totalOperatingExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
-    const totalSupplierPayments  = filteredSupplierTx.reduce((s, t) => s + t.amount, 0);
-    const totalExpenses          = totalOperatingExpenses + totalSupplierPayments;
+    const totalExpenses          = totalOperatingExpenses;
     const netSales               = grossSales - totalExpenses;
 
     const avgBill             = txCount > 0 ? grossSales / txCount : 0;
@@ -392,9 +383,6 @@ const Dashboard: React.FC = () => {
     const expenseRows: (string | number)[][] = [];
     filteredExpenses.forEach(e => {
       expenseRows.push([parseBusinessDate(e.date).toLocaleDateString(), e.category, e.description, fmtCurrency(e.amount)]);
-    });
-    filteredSupplierTx.forEach(t => {
-      expenseRows.push([parseBusinessDate(t.date).toLocaleDateString(), 'Supplier Payment', t.supplierName + (t.reference ? ` — ${t.reference}` : ''), fmtCurrency(t.amount)]);
     });
 
     let afterExpensesY: number;
@@ -877,43 +865,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Supplier Payments */}
-                  {filteredSupplierTx.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="p-1.5 bg-rose-50 rounded-lg text-rose-600">
-                          <TrendingDown size={14} />
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                          Supplier Payments ({filteredSupplierTx.length})
-                        </h4>
-                      </div>
-                      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                            <tr>
-                              <th className="p-3">Supplier</th>
-                              <th className="p-3">Date</th>
-                              <th className="p-3">Reference</th>
-                              <th className="p-3 text-right">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {filteredSupplierTx.map(tx => (
-                              <tr key={tx.id} className="hover:bg-slate-50">
-                                <td className="p-3 font-medium text-slate-900">{tx.supplierName}</td>
-                                <td className="p-3 text-slate-500 whitespace-nowrap text-xs">{parseBusinessDate(tx.date).toLocaleDateString()}</td>
-                                <td className="p-3 text-slate-600 text-xs">{tx.reference || 'Payment'}</td>
-                                <td className="p-3 text-right font-bold text-rose-600">-{fmtCurrency(tx.amount)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {filteredSales.length === 0 && filteredExpenses.length === 0 && filteredSupplierTx.length === 0 && (
+                  {filteredSales.length === 0 && filteredExpenses.length === 0 && (
                     <div className="p-12 text-center text-slate-400">
                       <CreditCard size={32} className="mx-auto mb-3 opacity-30" />
                       <p className="text-sm font-medium">No expenses in this period</p>

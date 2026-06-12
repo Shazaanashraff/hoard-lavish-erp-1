@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, ShieldAlert } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { fetchSupplierTransactions } from '../services/db/suppliers';
 import { Supplier, SupplierTransaction, DamagedGood } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
 import { fmtCurrency } from '../utils/formatters';
@@ -78,11 +79,42 @@ interface InventoryLineItem {
 
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
+const TX_PAGE_SIZE = 50;
+
 const Suppliers: React.FC = () => {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
+  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
   const isAdmin = currentUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Lazy-loaded transaction state
+  const [txPage, setTxPage] = useState<SupplierTransaction[]>([]);
+  const [txSearch, setTxSearch] = useState('');
+  const [txOffset, setTxOffset] = useState(0);
+  const [txHasMore, setTxHasMore] = useState(false);
+  const [txLoading, setTxLoading] = useState(false);
+
+  const loadTransactions = useCallback(async (search: string, offset: number, append = false) => {
+    setTxLoading(true);
+    try {
+      const rows = await fetchSupplierTransactions({ search: search || undefined, limit: TX_PAGE_SIZE + 1, offset });
+      const hasMore = rows.length > TX_PAGE_SIZE;
+      const pageRows = rows.slice(0, TX_PAGE_SIZE);
+      setTxPage(prev => append ? [...prev, ...pageRows] : pageRows);
+      setTxHasMore(hasMore);
+      setTxOffset(offset);
+    } catch (e) {
+      console.error('Failed to load transactions', e);
+    } finally {
+      setTxLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'HISTORY') {
+      loadTransactions(txSearch, 0);
+    }
+  }, [activeTab]);
 
   // Modal State for Add/Edit Supplier
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -126,11 +158,6 @@ const Suppliers: React.FC = () => {
   const filteredSuppliers = suppliers.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredTransactions = supplierTransactions.filter(t =>
-    t.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.reference.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Handlers
@@ -190,12 +217,22 @@ const Suppliers: React.FC = () => {
       notes: editingTransactionForm.notes,
       date: new Date(editingTransactionForm.date).toISOString()
     });
+    setTxPage(prev => prev.map(t => t.id === editingTransactionId ? {
+      ...t,
+      supplierId: supplier.id,
+      supplierName: supplier.name,
+      amount,
+      reference: editingTransactionForm.reference,
+      notes: editingTransactionForm.notes,
+      date: new Date(editingTransactionForm.date).toISOString()
+    } : t));
     setEditingTransactionId(null);
   };
 
   const handleDeleteTransaction = () => {
     if (!transactionDeleteConfirm) return;
     deleteSupplierTransaction(transactionDeleteConfirm.id);
+    setTxPage(prev => prev.filter(t => t.id !== transactionDeleteConfirm.id));
     if (editingTransactionId === transactionDeleteConfirm.id) {
       setEditingTransactionId(null);
     }
@@ -277,6 +314,7 @@ const Suppliers: React.FC = () => {
         }));
 
       recordSupplierExpense(transaction, stockAdjustments);
+      setTxPage(prev => [transaction, ...prev]);
 
       setExpenseForm({
         supplierId: '',
@@ -584,17 +622,30 @@ const Suppliers: React.FC = () => {
         {/* VIEW: EXPENSE HISTORY */}
         {activeTab === 'HISTORY' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-800">Transaction History</h3>
-              <div className="relative max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                <input
-                  type="text"
-                  placeholder="Search transactions..."
-                  className="w-full pl-9 pr-4 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <h3 className="font-bold text-slate-800 shrink-0">Transaction History</h3>
+              <div className="flex items-center gap-2 ml-auto">
+                <div className="relative max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search transactions..."
+                    className="w-full pl-9 pr-4 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none"
+                    value={txSearch}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setTxSearch(val);
+                      loadTransactions(val, 0);
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => loadTransactions(txSearch, 0)}
+                  disabled={txLoading}
+                  className="px-3 py-1.5 text-sm border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 shrink-0"
+                >
+                  {txLoading ? 'Loading...' : 'Refresh'}
+                </button>
               </div>
             </div>
             <table className="w-full text-left text-sm">
@@ -609,7 +660,7 @@ const Suppliers: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTransactions.map(t => (
+                {txPage.map(t => (
                   <tr key={t.id} className="hover:bg-slate-50">
                     <td className="p-4 text-slate-500">
                       {editingTransactionId === t.id ? (
@@ -705,13 +756,29 @@ const Suppliers: React.FC = () => {
                     )}
                   </tr>
                 ))}
-                {filteredTransactions.length === 0 && (
+                {txPage.length === 0 && !txLoading && (
                   <tr>
                     <td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400">No transactions found.</td>
                   </tr>
                 )}
+                {txPage.length === 0 && txLoading && (
+                  <tr>
+                    <td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400">Loading...</td>
+                  </tr>
+                )}
               </tbody>
             </table>
+            {txHasMore && (
+              <div className="p-4 text-center border-t border-slate-100">
+                <button
+                  onClick={() => loadTransactions(txSearch, txOffset + TX_PAGE_SIZE, true)}
+                  disabled={txLoading}
+                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  {txLoading ? 'Loading...' : 'Show more'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -475,7 +475,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           salesData,
           stockData,
           suppliersData,
-          supplierTxnData,
           expensesData,
           usersData,
           settingsData,
@@ -490,7 +489,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchSales(),
           db.fetchStockMovements(),
           db.fetchSuppliers(),
-          db.fetchSupplierTransactions(),
           db.fetchExpenses(),
           db.fetchUsers(),
           db.fetchSettings(),
@@ -533,7 +531,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSalesHistory(salesData);
         setStockHistory(stockData);
         setSuppliers(suppliersData);
-        setSupplierTransactions(supplierTxnData);
         setExpenses(expensesData);
         setUsers(usersData);
         setSettings(settingsData);
@@ -570,7 +567,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         salesData,
         stockData,
         suppliersData,
-        supplierTxnData,
         expensesData,
         categoriesData,
         brandsData,
@@ -582,7 +578,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         db.fetchSales(),
         db.fetchStockMovements(),
         db.fetchSuppliers(),
-        db.fetchSupplierTransactions(),
         db.fetchExpenses(),
         db.fetchCategories(),
         db.fetchBrands(),
@@ -600,7 +595,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSalesHistory(salesData);
       setStockHistory(stockData);
       setSuppliers(suppliersData);
-      setSupplierTransactions(supplierTxnData);
       setExpenses(expensesData);
       setCategories(categoriesData);
       setBrands(brandsData);
@@ -657,7 +651,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, onEvent)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_transactions' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'damaged_goods' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'branches' }, onEvent)

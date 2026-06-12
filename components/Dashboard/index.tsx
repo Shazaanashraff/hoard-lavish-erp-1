@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, CreditCard, Wallet, Calendar, Trophy, Award, FileDown, BookOpen, Activity, Package, UserCheck, ArrowDownCircle, ArrowUpCircle, RefreshCw, Eye, X, Download, ArrowRightLeft, Edit2, Printer, Plus, Minus, Trash2, CheckCircle, ClipboardList } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
@@ -9,6 +9,8 @@ import { parseBusinessDate } from '../../utils/dateTime';
 import { getTopRevenueAndQuantityProducts } from '../../utils/revenue';
 import { fmtCurrency } from '../../utils/formatters';
 import { CUR } from '../../constants';
+import { fetchExpenses } from '../../services/db/expenses';
+import type { Expense } from '../../types';
 
 type FilterMode = 'daily' | 'monthly';
 
@@ -16,7 +18,8 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { salesHistory, products, expenses, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const { salesHistory, products, supplierTransactions, stockHistory, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, customers, currentBranch, branches } = useStore();
+  const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
 
@@ -130,12 +133,35 @@ const Dashboard: React.FC = () => {
     }
   }, [salesHistory, filterMode, selectedDate, selectedMonth, branches]);
 
+  // --- Fetch expenses on demand when filter changes ---
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const branchId = currentBranch.id;
+        let dateFrom: string | undefined;
+        let dateTo: string | undefined;
+        if (filterMode === 'daily') {
+          dateFrom = selectedDate;
+          dateTo = selectedDate;
+        } else {
+          const [year, month] = selectedMonth.split('-').map(Number);
+          const daysInMonth = new Date(year, month, 0).getDate();
+          dateFrom = `${selectedMonth}-01`;
+          dateTo = `${selectedMonth}-${String(daysInMonth).padStart(2, '0')}`;
+        }
+        const data = await fetchExpenses({ branchId, dateFrom, dateTo });
+        if (!cancelled) setLocalExpenses(data);
+      } catch (e) {
+        console.error('Failed to load expenses', e);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [filterMode, selectedDate, selectedMonth, currentBranch.id]);
+
   // --- Unified Ledger ---
-  const filteredExpenses = useMemo(() => {
-    const branchExpenses = expenses.filter(e => e.branchId === currentBranch.id);
-    if (filterMode === 'daily') return branchExpenses.filter(e => matchesDate(e.date, selectedDate));
-    return branchExpenses.filter(e => matchesMonth(e.date, selectedMonth));
-  }, [expenses, filterMode, selectedDate, selectedMonth, currentBranch.id]);
+  const filteredExpenses = useMemo(() => localExpenses, [localExpenses]);
 
   const filteredSupplierTx = useMemo(() => {
     if (filterMode === 'daily') return supplierTransactions.filter(t => t.type === 'PAYMENT' && t.affectsAccounting === true && matchesDate(t.date, selectedDate));

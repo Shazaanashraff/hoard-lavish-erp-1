@@ -13,8 +13,18 @@ export const mapExpense = (r: any): Expense => ({
     paymentMethod: r.payment_method,
 });
 
-export async function fetchExpenses(): Promise<Expense[]> {
-    const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false });
+export interface FetchExpensesOptions {
+  branchId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export async function fetchExpenses(options: FetchExpensesOptions = {}): Promise<Expense[]> {
+    let query = supabase.from('expenses').select('*').order('date', { ascending: false });
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapExpense);
 }

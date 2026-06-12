@@ -476,7 +476,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           stockData,
           suppliersData,
           supplierTxnData,
-          expensesData,
           usersData,
           settingsData,
           categoriesData,
@@ -491,7 +490,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchStockMovements(),
           db.fetchSuppliers(),
           db.fetchSupplierTransactions(),
-          db.fetchExpenses(),
           db.fetchUsers(),
           db.fetchSettings(),
           db.fetchCategories(),
@@ -534,7 +532,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setStockHistory(stockData);
         setSuppliers(suppliersData);
         setSupplierTransactions(supplierTxnData);
-        setExpenses(expensesData);
         setUsers(usersData);
         setSettings(settingsData);
         setCategories(categoriesData);
@@ -571,7 +568,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         stockData,
         suppliersData,
         supplierTxnData,
-        expensesData,
         categoriesData,
         brandsData,
         damagedGoodsData,
@@ -583,7 +579,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         db.fetchStockMovements(),
         db.fetchSuppliers(),
         db.fetchSupplierTransactions(),
-        db.fetchExpenses(),
         db.fetchCategories(),
         db.fetchBrands(),
         db.fetchDamagedGoods(),
@@ -601,7 +596,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setStockHistory(stockData);
       setSuppliers(suppliersData);
       setSupplierTransactions(supplierTxnData);
-      setExpenses(expensesData);
       setCategories(categoriesData);
       setBrands(brandsData);
       setDamagedGoods(damagedGoodsData);
@@ -658,7 +652,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_transactions' }, onEvent)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'damaged_goods' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'branches' }, onEvent)
         .subscribe((status) => {

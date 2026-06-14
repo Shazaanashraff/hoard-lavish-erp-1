@@ -11,6 +11,7 @@ import { loadCachedProducts, saveCachedProducts, applyStockDelta, mergeBranchSto
 import * as localCustomers from '../services/localCustomers';
 import { loadLocalSuppliers, saveLocalSuppliers } from '../services/localSuppliers';
 import { loadLocalSettings, saveLocalSettings, setLocalSettings } from '../services/localSettings';
+import { loadLocalUsers, saveLocalUsers, setLocalUsers } from '../services/localUsers';
 
 const getTodayDate = (): string => {
   const d = new Date();
@@ -101,6 +102,7 @@ interface StoreContextType {
   addUser: (user: User) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   deleteUser: (id: string) => void;
+  refreshUsers: () => Promise<void>;
 
   updateSettings: (settings: Partial<AppSettings>) => void;
   refreshSettings: () => Promise<void>;
@@ -152,7 +154,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [supplierTransactions, setSupplierTransactions] = useState<SupplierTransaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [damagedGoods, setDamagedGoods] = useState<DamagedGood[]>([]);
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>(loadLocalUsers());
   const [settings, setSettings] = useState<AppSettings>(loadLocalSettings());
 
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
@@ -494,7 +496,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           catalogData,
           freshStockRows,
           salesData,
-          usersData,
           categoriesData,
           brandsData,
           damagedGoodsData,
@@ -505,7 +506,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchSales(),
           // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
           // supplier_transactions excluded — lazy fetched on the Suppliers page
-          db.fetchUsers(),
+          // suppliers / expenses / users / settings excluded — local-first or lazy
           db.fetchCategories(),
           db.fetchBrands(),
           db.fetchDamagedGoods(),
@@ -545,7 +546,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         setProducts(productsData);
         setSalesHistory(salesData);
-        setUsers(usersData);
         setCategories(categoriesData);
         setBrands(brandsData);
         setDamagedGoods(damagedGoodsData);
@@ -2004,16 +2004,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // USER ACTIONS
   // ============================================================
   const addUser = (user: User) => {
-    setUsers(prev => [...prev, user]);
+    setUsers(prev => {
+      const next = [...prev, user];
+      saveLocalUsers(next);
+      return next;
+    });
     void executeWithOfflineQueue('ADD_USER', { user }, () => db.insertUser(user), { fallback: 'Failed to add user' });
   };
   const updateUser = (id: string, updates: Partial<User>) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+    setUsers(prev => {
+      const next = prev.map(u => u.id === id ? { ...u, ...updates } : u);
+      saveLocalUsers(next);
+      return next;
+    });
     void executeWithOfflineQueue('UPDATE_USER', { id, updates }, () => db.updateUser(id, updates), { fallback: 'Failed to update user' });
   };
   const deleteUser = (id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
+    setUsers(prev => {
+      const next = prev.filter(u => u.id !== id);
+      saveLocalUsers(next);
+      return next;
+    });
     void executeWithOfflineQueue('DELETE_USER', { id }, () => db.deleteUser(id), { fallback: 'Failed to delete user' });
+  };
+
+  const refreshUsers = async () => {
+    if (!useSupabase) return;
+    try {
+      const fresh = await db.fetchUsers();
+      setUsers(fresh);
+      setLocalUsers(fresh);
+    } catch (err: unknown) {
+      console.error('Failed to refresh users:', err);
+    }
   };
 
   // ============================================================
@@ -2192,7 +2215,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       refreshSuppliers, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,
-      addUser, updateUser, deleteUser,
+      addUser, updateUser, deleteUser, refreshUsers,
       updateSettings, refreshSettings, exportData, importData,
       syncData, syncOfflineQueue, retryOfflineItem, removeOfflineItem, dismissOfflinePopup, dismissDbError,
       login, logout, setView

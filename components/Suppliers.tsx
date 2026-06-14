@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, ShieldAlert, RefreshCw } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { Supplier, SupplierTransaction, DamagedGood } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
@@ -79,7 +79,17 @@ interface InventoryLineItem {
 type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 
 const Suppliers: React.FC = () => {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
+  const { suppliers, products, refreshSuppliers, addSupplier, updateSupplier, deleteSupplier, supplierTransactions, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    void refreshSuppliers();
+  }, []);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try { await refreshSuppliers(); } finally { setIsRefreshing(false); }
+  };
   const isAdmin = currentUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');
   const [searchTerm, setSearchTerm] = useState('');
@@ -335,14 +345,23 @@ const Suppliers: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900">Supplier Management</h1>
             <p className="text-sm text-slate-500">Manage vendor profiles, purchase expenses, and damaged goods.</p>
           </div>
-          {isAdmin && (
-          <button
-            onClick={() => { setEditingSupplier({}); setIsModalOpen(true); }}
-            className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium"
-          >
-            <Plus size={16} /> Add Supplier
-          </button>
-          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} /> Refresh
+            </button>
+            {isAdmin && (
+            <button
+              onClick={() => { setEditingSupplier({}); setIsModalOpen(true); }}
+              className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium"
+            >
+              <Plus size={16} /> Add Supplier
+            </button>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-4">

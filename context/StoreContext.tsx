@@ -9,6 +9,7 @@ import { isUuid, makeUuid } from '../utils/ids';
 import { loadLocalBranches, saveLocalBranches } from '../services/localBranches';
 import { loadCachedProducts, saveCachedProducts, applyStockDelta, mergeBranchStock } from '../services/localProducts';
 import * as localCustomers from '../services/localCustomers';
+import { loadLocalSuppliers, saveLocalSuppliers } from '../services/localSuppliers';
 
 const getTodayDate = (): string => {
   const d = new Date();
@@ -81,6 +82,7 @@ interface StoreContextType {
   addBrand: (brand: string) => void;
   removeBrand: (brand: string) => void;
 
+  refreshSuppliers: () => Promise<void>;
   addSupplier: (supplier: Supplier) => void;
   updateSupplier: (id: string, updates: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
@@ -144,7 +146,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([]);
   const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
   const [brands, setBrands] = useState<string[]>(INITIAL_BRANDS);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadLocalSuppliers());
   const [supplierTransactions, setSupplierTransactions] = useState<SupplierTransaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [damagedGoods, setDamagedGoods] = useState<DamagedGood[]>([]);
@@ -491,7 +493,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           freshStockRows,
           salesData,
           stockData,
-          suppliersData,
           supplierTxnData,
           expensesData,
           usersData,
@@ -505,7 +506,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           db.fetchBranchStock(),  // always reconcile quantities on mount
           db.fetchSales(),
           db.fetchStockMovements(),
-          db.fetchSuppliers(),
           db.fetchSupplierTransactions(),
           db.fetchExpenses(),
           db.fetchUsers(),
@@ -550,7 +550,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setProducts(productsData);
         setSalesHistory(salesData);
         setStockHistory(stockData);
-        setSuppliers(suppliersData);
         setSupplierTransactions(supplierTxnData);
         setExpenses(expensesData);
         setUsers(usersData);
@@ -585,7 +584,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const [
         salesData,
         stockData,
-        suppliersData,
         supplierTxnData,
         expensesData,
         categoriesData,
@@ -595,7 +593,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ] = await Promise.all([
         db.fetchSales(),
         db.fetchStockMovements(),
-        db.fetchSuppliers(),
         db.fetchSupplierTransactions(),
         db.fetchExpenses(),
         db.fetchCategories(),
@@ -611,7 +608,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setSalesHistory(salesData);
       setStockHistory(stockData);
-      setSuppliers(suppliersData);
       setSupplierTransactions(supplierTxnData);
       setExpenses(expensesData);
       setCategories(categoriesData);
@@ -710,7 +706,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_transfers' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, onEvent)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'suppliers' }, onEvent)
+        // suppliers table excluded — lazy fetched on page open via refreshSuppliers()
         .on('postgres_changes', { event: '*', schema: 'public', table: 'supplier_transactions' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'damaged_goods' }, onEvent)
@@ -1743,18 +1739,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   // SUPPLIER ACTIONS
   // ============================================================
+  const refreshSuppliers = useCallback(async () => {
+    if (!useSupabase) return;
+    try {
+      const data = await db.fetchSuppliers();
+      setSuppliers(data);
+      saveLocalSuppliers(data);
+    } catch (err) {
+      console.error('Failed to refresh suppliers', err);
+    }
+  }, [useSupabase]);
+
   const addSupplier = (supplier: Supplier) => {
-    setSuppliers(prev => [...prev, supplier]);
+    setSuppliers(prev => { const next = [...prev, supplier]; saveLocalSuppliers(next); return next; });
     void executeWithOfflineQueue('ADD_SUPPLIER', { supplier }, () => db.insertSupplier(supplier), { fallback: 'Failed to add supplier' });
   };
 
   const updateSupplier = (id: string, updates: Partial<Supplier>) => {
-    setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    setSuppliers(prev => { const next = prev.map(s => s.id === id ? { ...s, ...updates } : s); saveLocalSuppliers(next); return next; });
     void executeWithOfflineQueue('UPDATE_SUPPLIER', { id, updates }, () => db.updateSupplier(id, updates), { fallback: 'Failed to update supplier' });
   };
 
   const deleteSupplier = (id: string) => {
-    setSuppliers(prev => prev.filter(s => s.id !== id));
+    setSuppliers(prev => { const next = prev.filter(s => s.id !== id); saveLocalSuppliers(next); return next; });
     void executeWithOfflineQueue('DELETE_SUPPLIER', { id }, () => db.deleteSupplier(id), { fallback: 'Failed to delete supplier' });
   };
 
@@ -2184,7 +2191,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
       completeSale, updateSale, deleteSale, completeExchange, adjustStock, transferStock, deleteTransfer, refreshTransfers,
       addCategory, removeCategory, addBrand, removeBrand,
-      addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
+      refreshSuppliers, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,
       addUser, updateUser, deleteUser,

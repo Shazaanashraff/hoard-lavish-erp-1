@@ -12,8 +12,8 @@ for how the agent selects and processes tasks.
 
 | ID  | Priority | Status | Task |
 | --- | -------- | ------ | ---- |
-| 001 | P1 | [ ] | Move branches to local storage and drop them from the fetch-all |
-| 002 | P1 | [ ] | Products — realtime qty deltas + daily catalog cache (drop from fetch-all/poll) |
+| 001 | P1 | [x] | Move branches to local storage and drop them from the fetch-all |
+| 002 | P1 | [x] | Products — realtime qty deltas + daily catalog cache (drop from fetch-all/poll) |
 | 003 | P2 | [ ] | Customers — lazy load + daily cache (drop from fetch-all) |
 | 004 | P1 | [ ] | Dashboard — central on-demand sales loaders (no mount fetch, scoped + cached) |
 | 005 | P1 | [ ] | Sales — migrate POS/Accounting/Customers/SalesHistory/Branches to scoped fetches, drop fetchSales from fetch-all (after 004 + 006) |

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---- Mock electron-store so localCustomers uses in-memory backend ----
-vi.mock('electron-store', () => ({ default: undefined }), { virtual: true });
+vi.mock('electron-store', () => ({ default: undefined }));
 
 // ---- Mock supabaseService ----
 vi.mock('../services/supabaseService', () => ({

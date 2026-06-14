@@ -332,11 +332,11 @@ const Dashboard: React.FC = () => {
     // Payment method breakdown
     const cashSales    = salesData.filter((s: any) => s.paymentMethod === 'Cash');
     const cardSales    = salesData.filter((s: any) => s.paymentMethod === 'Card');
-    const codSales     = filteredSales.filter(s => s.paymentMethod === 'COD');
-    const splitSales   = filteredSales.filter(s => s.paymentMethod === 'Cash+Card');
-    const payhereS     = filteredSales.filter(s => s.paymentMethod === 'PayHere');
-    const onlineS      = filteredSales.filter(s => s.paymentMethod === 'Online Transfer');
-    const mintpayS     = filteredSales.filter(s => s.paymentMethod === 'MintPay');
+    const codSales     = salesData.filter((s: any) => s.paymentMethod === 'COD');
+    const splitSales   = salesData.filter((s: any) => s.paymentMethod === 'Cash+Card');
+    const payhereS     = salesData.filter((s: any) => s.paymentMethod === 'PayHere');
+    const onlineS      = salesData.filter((s: any) => s.paymentMethod === 'Online Transfer');
+    const mintpayS     = salesData.filter((s: any) => s.paymentMethod === 'MintPay');
 
     const splitCashTotal = splitSales.reduce((s, x) => s + (x.cashAmount || 0), 0);
     const splitCardTotal = splitSales.reduce((s, x) => s + (x.cardAmount || 0), 0);
@@ -348,11 +348,11 @@ const Dashboard: React.FC = () => {
     const mintpayTotal = mintpayS.reduce((s, x) => s + x.totalAmount, 0);
     const allCardTotal = cardTotal + payhereTotal + onlineTotal + mintpayTotal;
 
-    const totalSalesRevenue  = filteredSales.reduce((s, x) => s + x.totalAmount, 0);
+    const totalSalesRevenue  = salesData.reduce((s: number, x: any) => s + x.totalAmount, 0);
     const exchangeNet         = filteredExchanges.reduce((s, e) => s + e.difference, 0);
     const grossSales          = totalSalesRevenue + exchangeNet;
-    const txCount             = filteredSales.length + filteredExchanges.length;
-    const totalItemsSold      = filteredSales.reduce((s, x) => s + x.items.reduce((a, i) => a + i.quantity, 0), 0);
+    const txCount             = salesData.length + filteredExchanges.length;
+    const totalItemsSold      = salesData.reduce((s: number, x: any) => s + (x.items ?? []).reduce((a: number, i: any) => a + i.quantity, 0), 0);
 
     // Expenses
     const totalOperatingExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
@@ -883,7 +883,7 @@ const Dashboard: React.FC = () => {
                               <tr key={sale.id} className="hover:bg-slate-50">
                                 <td className="p-3 font-medium text-slate-900">#{sale.invoiceNumber}</td>
                                 <td className="p-3 text-slate-500 whitespace-nowrap text-xs">{parseBusinessDate(sale.date).toLocaleDateString()}</td>
-                                <td className="p-3 text-slate-600 text-xs">{sale.items.length} items</td>
+                                <td className="p-3 text-slate-600 text-xs">{sale.items?.length ?? 0} items</td>
                                 <td className="p-3 text-right font-bold text-rose-600">-{fmtCurrency(sale.totalCost || 0)}</td>
                               </tr>
                             ))}
@@ -1174,7 +1174,7 @@ const Dashboard: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  generateDayEndReport(dayEndCashier, dayEndNote);
+                  void handleGenerateDayReport(dayEndCashier, dayEndNote);
                   setShowDayEndModal(false);
                   setDayEndCashier('');
                   setDayEndNote('');

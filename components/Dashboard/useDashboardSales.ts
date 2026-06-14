@@ -11,6 +11,7 @@ export type LoaderState<T> = {
 export interface PeriodSaleSummary {
   id: string; invoiceNumber: string; date: string;
   branchId: string; totalAmount: number; totalCost: number;
+  customerName?: string; items?: { quantity: number }[];
 }
 
 export interface DashboardSalesLoaders {

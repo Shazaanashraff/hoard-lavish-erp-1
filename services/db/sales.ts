@@ -307,10 +307,10 @@ export interface FetchSalesSummaryOptions {
     limit?: number;
 }
 
-export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}): Promise<Pick<SalesRecord, 'id' | 'invoiceNumber' | 'date' | 'branchId' | 'totalAmount' | 'totalCost'>[]> {
+export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}): Promise<Pick<SalesRecord, 'id' | 'invoiceNumber' | 'date' | 'branchId' | 'totalAmount' | 'totalCost' | 'customerName'>[]> {
     let query = supabase
         .from('sales')
-        .select('id, invoice_number, date, branch_id, total_amount, total_cost')
+        .select('id, invoice_number, date, branch_id, total_amount, total_cost, customer_name')
         .order('date', { ascending: false });
     if (options.branchId) query = query.eq('branch_id', options.branchId);
     if (options.dateFrom) query = query.gte('date', options.dateFrom);
@@ -325,5 +325,6 @@ export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}):
         branchId: r.branch_id,
         totalAmount: Number(r.total_amount),
         totalCost: Number(r.total_cost),
+        customerName: r.customer_name ?? undefined,
     }));
 }

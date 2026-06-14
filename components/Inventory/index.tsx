@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, Edit2, AlertCircle, AlertTriangle, Trash2, Search, Filter, History, Box, Tag, ArrowUpRight, ArrowDownRight, Save, X, Building2, Palette, Ruler, ArrowRightLeft, FileText, Printer, ChevronDown, ChevronUp, Minus, Barcode } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Plus, Edit2, AlertCircle, AlertTriangle, Trash2, Search, Filter, History, Box, Tag, ArrowUpRight, ArrowDownRight, Save, X, Building2, Palette, Ruler, ArrowRightLeft, FileText, Printer, ChevronDown, ChevronUp, Minus, Barcode, RefreshCw } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { Product, StockTransferItem, StockTransfer } from '../../types';
+import { Product, StockMovement, StockTransferItem, StockTransfer } from '../../types';
+import { fetchStockMovements } from '../../services/supabaseService';
 import JsBarcode from 'jsbarcode';
 import { parseBusinessDate } from '../../utils/dateTime';
 import { fmtCurrency } from '../../utils/formatters';
@@ -28,7 +29,7 @@ interface VariationRow {
 
 const Inventory: React.FC = () => {
   const {
-    products, categories, brands, stockHistory, currentBranch, branches,
+    products, categories, brands, currentBranch, branches,
     addProduct, updateProduct, deleteProduct, getProductSalesUsage, adjustStock, transferStock, deleteTransfer, refreshTransfers,
     addCategory, removeCategory, addBrand, removeBrand,
     currentUser, stockTransfers, settings, isLoading
@@ -38,6 +39,48 @@ const Inventory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<InventoryTab>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
+
+  // --- Lazy stock movement history (ADJUSTMENTS tab) ---
+  const PAGE_SIZE = 50;
+  const [tabMovements, setTabMovements] = useState<StockMovement[]>([]);
+  const [tabPage, setTabPage] = useState(0);
+  const [tabLoading, setTabLoading] = useState(false);
+  const [tabHasMore, setTabHasMore] = useState(true);
+  const tabBranchRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'ADJUSTMENTS') return;
+    const branchId = currentBranch.id;
+    if (tabBranchRef.current !== branchId) {
+      tabBranchRef.current = branchId;
+      setTabMovements([]);
+      setTabPage(0);
+      setTabHasMore(true);
+    }
+    setTabLoading(true);
+    fetchStockMovements({ branchId, limit: PAGE_SIZE, offset: 0 })
+      .then(data => {
+        setTabMovements(data);
+        setTabHasMore(data.length === PAGE_SIZE);
+      })
+      .catch(err => console.error('Failed to load stock movements', err))
+      .finally(() => setTabLoading(false));
+  }, [activeTab, currentBranch.id]);
+
+  const loadMoreMovements = async () => {
+    const nextPage = tabPage + 1;
+    setTabLoading(true);
+    try {
+      const data = await fetchStockMovements({ branchId: currentBranch.id, limit: PAGE_SIZE, offset: nextPage * PAGE_SIZE });
+      setTabMovements(prev => [...prev, ...data]);
+      setTabPage(nextPage);
+      setTabHasMore(data.length === PAGE_SIZE);
+    } catch (err) {
+      console.error('Failed to load more movements', err);
+    } finally {
+      setTabLoading(false);
+    }
+  };
 
   // Modal States
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -224,7 +267,8 @@ const Inventory: React.FC = () => {
       : adjustmentQty > 0;
 
     if (adjustingProduct && isValidQuantity) {
-      adjustStock(adjustingProduct.id, adjustmentQty, adjustmentType, adjustmentReason || 'Manual Adjustment');
+      const movement = adjustStock(adjustingProduct.id, adjustmentQty, adjustmentType, adjustmentReason || 'Manual Adjustment');
+      if (movement) setTabMovements(prev => [movement, ...prev]);
       setIsStockModalOpen(false);
       setAdjustingProduct(null);
     }
@@ -843,7 +887,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {stockHistory.filter(h => h.branchId === currentBranch.id).map(log => (
+                {tabMovements.map(log => (
                   <tr key={log.id} className="hover:bg-slate-50">
                     <td className="p-4 text-slate-500 whitespace-nowrap">
                       {parseBusinessDate(log.date).toLocaleString()}
@@ -868,8 +912,28 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                 ))}
               </tbody>
             </table>
-            {stockHistory.filter(h => h.branchId === currentBranch.id).length === 0 && (
+            {tabLoading && tabMovements.length === 0 && (
+              <div className="p-8 text-center text-slate-400 flex items-center justify-center gap-2">
+                <RefreshCw size={16} className="animate-spin" /> Loading movements…
+              </div>
+            )}
+            {!tabLoading && tabMovements.length === 0 && (
               <div className="p-8 text-center text-slate-400">No stock movement history available for this branch.</div>
+            )}
+            {tabHasMore && !tabLoading && tabMovements.length > 0 && (
+              <div className="p-4 text-center">
+                <button
+                  onClick={loadMoreMovements}
+                  className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Show more
+                </button>
+              </div>
+            )}
+            {tabLoading && tabMovements.length > 0 && (
+              <div className="p-4 text-center text-slate-400 flex items-center justify-center gap-2">
+                <RefreshCw size={14} className="animate-spin" /> Loading more…
+              </div>
             )}
           </div>
         )}

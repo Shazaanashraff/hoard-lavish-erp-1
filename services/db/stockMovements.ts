@@ -20,19 +20,24 @@ export interface FetchStockMovementsOptions {
     dateFrom?: string;
     dateTo?: string;
     limit?: number;
+    offset?: number;
+    excludeSaleOuts?: boolean;
 }
 
 export async function fetchStockMovements(options: FetchStockMovementsOptions = {}): Promise<StockMovement[]> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
     let query = supabase
         .from('stock_movements')
         .select('*')
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .range(offset, offset + limit - 1);
     if (options.branchId) query = query.eq('branch_id', options.branchId);
     if (options.productId) query = query.eq('product_id', options.productId);
     if (options.type) query = query.eq('type', options.type);
     if (options.dateFrom) query = query.gte('date', options.dateFrom);
     if (options.dateTo) query = query.lte('date', options.dateTo);
-    if (options.limit) query = query.limit(options.limit);
+    if (options.excludeSaleOuts) query = query.not('reason', 'like', 'Sale%');
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapStockMovement);

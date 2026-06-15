@@ -311,6 +311,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await db.insertStockTransfer(p.transfer as StockTransfer);
         return;
       }
+      case 'DELETE_TRANSFER': {
+        const stockRows = p.stockRows as Array<{ productId: string; branchId: string; quantity: number }>;
+        for (const row of stockRows) {
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
+        }
+        return;
+      }
       case 'ADD_CATEGORY':
         await db.insertCategory(p.category as string);
         return;
@@ -609,6 +616,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: errorMsg };
     }
   }, [useSupabase]);
+
+  // When the browser reports the network has returned, re-connect to Supabase so
+  // isCloudConnected flips to true and the auto-sync useEffect can fire.
+  useEffect(() => {
+    if (!useSupabase) return;
+    const handleOnline = () => { void refreshFromSupabase(); };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [useSupabase, refreshFromSupabase]);
 
   // Debounced refresh to avoid flooding on rapid changes
   const debouncedRefresh = useCallback(() => {
@@ -1692,21 +1708,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Persist deletion to Supabase
     if (useSupabase) {
-      void executeWithOfflineQueue('DELETE_TRANSFER', { transferId, transferNumber: transfer.transferNumber }, async () => {
-        // Update branch stock for all items
-        for (const item of transfer.items) {
-          const product = newProducts.find(p => p.id === item.productId);
-          if (!product) continue;
-          await db.upsertBranchStock(item.productId, transfer.fromBranchId, product.branchStock[transfer.fromBranchId] || 0);
-          await db.upsertBranchStock(item.productId, transfer.toBranchId, product.branchStock[transfer.toBranchId] || 0);
-        }
-        // Delete stock movements related to this transfer
-        for (const movement of stockHistory) {
-          if (movement.reason?.includes(transfer.transferNumber)) {
-            // Note: There's no deleteStockMovement function, so we'll just log it
-            // In a production system, you'd want to soft-delete or have a removal mechanism
-            console.log('Stock movement to be removed:', movement.id);
-          }
+      const stockRows = transfer.items.flatMap(item => {
+        const product = newProducts.find(p => p.id === item.productId);
+        if (!product) return [];
+        return [
+          { productId: item.productId, branchId: transfer.fromBranchId, quantity: product.branchStock[transfer.fromBranchId] || 0 },
+          { productId: item.productId, branchId: transfer.toBranchId, quantity: product.branchStock[transfer.toBranchId] || 0 },
+        ];
+      });
+
+      void executeWithOfflineQueue('DELETE_TRANSFER', { transferId, transferNumber: transfer.transferNumber, stockRows }, async () => {
+        for (const row of stockRows) {
+          await db.upsertBranchStock(row.productId, row.branchId, row.quantity);
         }
       }, { fallback: `Failed to delete transfer ${transfer.transferNumber}` });
     }

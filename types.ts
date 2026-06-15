@@ -212,6 +212,7 @@ export type OfflineOperationType =
   | 'COMPLETE_EXCHANGE'
   | 'ADJUST_STOCK'
   | 'TRANSFER_STOCK'
+  | 'DELETE_TRANSFER'
   | 'ADD_CATEGORY'
   | 'REMOVE_CATEGORY'
   | 'ADD_BRAND'

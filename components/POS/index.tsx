@@ -4,6 +4,7 @@ import { useStore } from '../../context/StoreContext';
 import { fetchSales } from '../../services/supabaseService';
 import { Product, Customer, SalesRecord, CartItem, ExchangeRecord, ExchangeLineItem } from '../../types';
 import { parseBusinessDate } from '../../utils/dateTime';
+import { buildSaleReceiptHtml, buildExchangeReceiptHtml, openReceiptWindow } from '../../utils/receiptHtml';
 import { fmtCurrency } from '../../utils/formatters';
 import { CUR } from '../../constants';
 import AlertPopup from '../shared/AlertPopup';
@@ -695,9 +696,6 @@ const POS: React.FC = () => {
 
   const printReceiptForSale = async (sale: SalesRecord) => {
     const isElectron = !!(window as any).electronAPI?.printReceipt;
-    const fmtRs = (n: number) => `Rs. ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const discountPercent = sale.subtotal > 0 ? ((sale.discount / sale.subtotal) * 100).toFixed(2) : '0.00';
-    const totalSavings = sale.items.reduce((s, i) => s + (i.discount || 0) * i.quantity, 0) + sale.discount;
 
     let logoUrl = window.location.origin + '/logo.png';
     if (isElectron && (window as any).electronAPI?.getLogoBase64) {
@@ -705,146 +703,11 @@ const POS: React.FC = () => {
       if (b64) logoUrl = b64;
     }
 
-    const sd = parseBusinessDate(sale.date);
-    const metaDate = `${String(sd.getDate()).padStart(2, '0')}/${String(sd.getMonth() + 1).padStart(2, '0')}/${sd.getFullYear()} ${sd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-
-    const now = new Date();
-    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const footerDate = `${now.getFullYear()}.${MONTHS[now.getMonth()]}.${String(now.getDate()).padStart(2, '0')} AD ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-
-    const barcodeStr = sale.invoiceNumber.replace(/\D/g, '').slice(-4).padStart(4, '0');
-    let barsHtml = '<div style="display:flex;align-items:flex-end;justify-content:center;gap:0;">';
-    barsHtml += '<div style="width:3px;height:50px;background:#000;"></div><div style="width:1px;height:50px;background:#fff;"></div><div style="width:2px;height:50px;background:#000;"></div><div style="width:1px;height:50px;background:#fff;"></div>';
-    for (let bi = 0; bi < 32; bi++) {
-      const d = parseInt(barcodeStr[bi % barcodeStr.length]) || (bi % 5);
-      barsHtml += `<div style="width:${(d % 3) + 1}px;height:${bi % 3 === 0 ? 50 : 48}px;background:#000;"></div>`;
-      barsHtml += `<div style="width:${(d % 2) + 1}px;height:${bi % 3 === 0 ? 50 : 48}px;background:#fff;"></div>`;
-    }
-    barsHtml += '<div style="width:2px;height:50px;background:#000;"></div><div style="width:1px;height:50px;background:#fff;"></div><div style="width:3px;height:50px;background:#000;"></div></div>';
-
-    const itemsHtml = sale.items.map(item => {
-      const discountedTotal = (item.price - (item.discount || 0)) * item.quantity;
-      const variantLine = [item.size, item.color].filter(Boolean).join(' / ');
-      return `<tr>
-        <td style="padding:7px 0;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;line-height:1.4;"><strong>${item.name}</strong>${variantLine ? `<br><span style="font-size:11px;color:#555;">${variantLine}</span>` : ''}</td>
-        <td style="padding:7px 3px;text-align:center;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${item.quantity}</td>
-        <td style="padding:7px 3px;text-align:right;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${item.price.toFixed(2)}</td>
-        <td style="padding:7px 0;text-align:right;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${discountedTotal.toFixed(2)}</td>
-      </tr>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html>
-<html><head>
-<title>Receipt ${sale.invoiceNumber}</title>
-<meta charset="utf-8"/>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:Arial,Helvetica,sans-serif; width:70mm; margin:0 auto; padding:0; background:#fff; color:#000; font-size:12px; }
-  .wrap { width:100%; padding:2mm 1.5mm 8mm 1.5mm; }
-.meta { display:flex; justify-content:space-between; font-size:10px; color:#555; margin-bottom:4px; }
-.logo-wrap { text-align:center; margin:2px 0 4px; }
-.logo-wrap img { width:52mm; max-width:100%; height:auto; display:block; margin:0 auto; }
-.store-info { text-align:center; font-size:11.5px; line-height:1.6; margin-bottom:8px; }
-.cashier { font-size:13px; margin-bottom:4px; }
-table.items { width:100%; border-collapse:collapse; }
-  table.items thead th { font-size:11px; font-weight:700; padding:4px 0; border-top:2px solid #000; border-bottom:2px solid #000; }
-  .th-item { text-align:left; width:45%; }
-  .th-qty { text-align:center; width:8%; }
-  .th-price { text-align:right; width:23%; }
-  .th-total { text-align:right; width:22%; }
-table.totals { width:100%; border-collapse:collapse; }
-  table.totals td { font-size:12px; padding:3px 0; }
-table.totals .lbl { text-align:right; padding-right:8px; }
-table.totals .val { text-align:right; white-space:nowrap; }
-  .grand td { font-size:14px; font-weight:900; padding:4px 0; }
-.divider { border-top:2px solid #000; margin:5px 0; }
-.divider-dot { border-top:1px dotted #999; margin:5px 0; }
-  .tender { font-size:12px; padding:2px 0; }
-  .disc-total { text-align:center; font-weight:700; font-size:13px; padding:5px 0; }
-  .footer-note { text-align:center; font-size:10px; color:#111; line-height:1.5; margin:5px 0; }
-.footer-box { background:#1c1c1c; color:#fff; text-align:center; font-size:15px; font-weight:700; padding:8px 4px; margin:8px 0 5px; }
-.barcode-wrap { text-align:center; margin-top:6px; }
-  .barcode-num { font-size:11px; letter-spacing:2px; margin-top:4px; font-family:'Courier New',monospace; }
-.credit { text-align:center; font-size:10px; color:#444; margin-top:7px; line-height:1.6; }
-  @media print { body { margin:0 auto; padding:0; } .wrap { padding:2mm 1.5mm 7mm 1.5mm; } @page { size:70mm auto; margin:0; } }
-</style>
-</head><body>
-<div class="wrap">
-<div class="meta">
-  <span>${metaDate}</span>
-  <span>Sales Receipt ${sale.invoiceNumber}</span>
-</div>
-
-<div class="logo-wrap"><img src="${logoUrl}" alt="Hoard Lavish"/></div>
-
-<div class="store-info">
-  Veediya bandara road, Ethulkotte<br>
-  Tel : 074 177 4321<br>
-  Web : www.hoardlavish.com
-</div>
-
-<div class="cashier">Cashier : ${currentUser?.name || 'Admin'}</div>
-
-<table class="items">
-  <thead>
-    <tr>
-      <th class="th-item">Item</th>
-      <th class="th-qty">Qty</th>
-      <th class="th-price">Org Price<br>Rs.</th>
-      <th class="th-total">Total<br>Rs.</th>
-    </tr>
-  </thead>
-  <tbody>${itemsHtml}</tbody>
-</table>
-
-<div class="divider"></div>
-
-<table class="totals">
-  <tr><td class="lbl">Sub Total</td><td class="val">${fmtRs(sale.subtotal)}</td></tr>
-  <tr><td class="lbl">${discountPercent} % Disc</td><td class="val">${fmtRs(sale.discount)}</td></tr>
-</table>
-
-<div class="divider"></div>
-
-<table class="totals">
-  <tr class="grand"><td class="lbl">RECEIPT TOTAL</td><td class="val">${fmtRs(sale.totalAmount)}</td></tr>
-</table>
-
-<div class="divider"></div>
-
-<div class="tender">Amount Tendered: ${fmtRs(sale.totalAmount)}</div>
-${sale.paymentMethod === 'Cash+Card'
-  ? `<div class="tender">Cash: ${fmtRs(sale.cashAmount || 0)}</div><div class="tender">Card: ${fmtRs(sale.cardAmount || 0)}</div>`
-  : `<div class="tender">${sale.paymentMethod}: ${fmtRs(sale.totalAmount)}</div>`}
-
-<div class="divider-dot"></div>
-
-<div class="disc-total">Total Sales Discounts: ${fmtRs(totalSavings)}</div>
-
-<div class="divider-dot"></div>
-
-<div class="footer-note">
-  For any exchange please produce the bill the<br>
-  garment within original tag intact within 07days<br>
-  NO EXCHANGE OR RETURN ACCEPTED FOR<br>
-  ITEM SOLD IN OFFERS AND SALE
-</div>
-
-<div class="footer-box">*** Thank You, Come Again***</div>
-
-<div class="barcode-wrap">
-  ${barsHtml}
-  <div class="barcode-num">${barcodeStr}</div>
-</div>
-
-<div class="credit">
-  Hoard Lavish Pvt Ltd<br>
-  ${footerDate}
-</div>
-</div>
-
-${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script>'}
-</body></html>`;
+    const html = buildSaleReceiptHtml(sale, {
+      cashierName: currentUser?.name || 'Admin',
+      logoUrl,
+      withPrintScript: !isElectron,
+    });
 
     if (isElectron) {
       const printerName = getThermalPrinterName();
@@ -852,17 +715,11 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
       return Boolean(printResult?.success);
     }
 
-    const printWindow = window.open('', '_blank', 'width=400,height=700');
-    if (!printWindow) return false;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    return true;
+    return openReceiptWindow(html);
   };
 
   const printReceiptForExchange = async (exchange: ExchangeRecord) => {
     const isElectron = !!(window as any).electronAPI?.printReceipt;
-    const fmtRs = (n: number) => `Rs. ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const discountPercent = exchange.returnedTotal > 0 ? ((exchange.exchangeBillDiscount || 0) / exchange.returnedTotal * 100).toFixed(2) : '0.00';
 
     let logoUrl = window.location.origin + '/logo.png';
     if (isElectron && (window as any).electronAPI?.getLogoBase64) {
@@ -870,176 +727,11 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
       if (b64) logoUrl = b64;
     }
 
-    const sd = parseBusinessDate(exchange.date);
-    const metaDate = `${String(sd.getDate()).padStart(2, '0')}/${String(sd.getMonth() + 1).padStart(2, '0')}/${sd.getFullYear()} ${sd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-
-    const now = new Date();
-    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const footerDate = `${now.getFullYear()}.${MONTHS[now.getMonth()]}.${String(now.getDate()).padStart(2, '0')} AD ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
-
-    const barcodeStr = exchange.exchangeNumber.replace(/\D/g, '').slice(-4).padStart(4, '0');
-    let barsHtml = '<div style="display:flex;align-items:flex-end;justify-content:center;gap:0;">';
-    barsHtml += '<div style="width:3px;height:50px;background:#000;"></div><div style="width:1px;height:50px;background:#fff;"></div><div style="width:2px;height:50px;background:#000;"></div><div style="width:1px;height:50px;background:#fff;"></div>';
-    for (let bi = 0; bi < 32; bi++) {
-      const d = parseInt(barcodeStr[bi % barcodeStr.length]) || (bi % 5);
-      barsHtml += `<div style="width:${(d % 3) + 1}px;height:${bi % 3 === 0 ? 50 : 48}px;background:#000;"></div>`;
-      barsHtml += `<div style="width:${(d % 2) + 1}px;height:${bi % 3 === 0 ? 50 : 48}px;background:#fff;"></div>`;
-    }
-    barsHtml += '<div style="width:2px;height:50px;background:#000;"></div><div style="width:1px;height:50px;background:#fff;"></div><div style="width:3px;height:50px;background:#000;"></div></div>';
-
-    const returnedItemsHtml = exchange.returnedItems.map(item => {
-      const variantLine = [item.size, item.color].filter(Boolean).join(' / ');
-      return `<tr>
-        <td style="padding:7px 0;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;line-height:1.4;"><strong>${item.name}</strong>${variantLine ? `<br><span style="font-size:11px;color:#555;">${variantLine}</span>` : ''}</td>
-        <td style="padding:7px 3px;text-align:center;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${item.quantity}</td>
-        <td style="padding:7px 3px;text-align:right;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${item.effectiveUnitPrice?.toFixed(2) ?? item.price.toFixed(2)}</td>
-        <td style="padding:7px 0;text-align:right;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${fmtRs(item.lineEffectiveTotal ?? ((item.effectiveUnitPrice ?? item.price) * item.quantity))}</td>
-      </tr>`;
-    }).join('');
-
-    const newItemsHtml = exchange.newItems.map(item => {
-      const variantLine = [item.size, item.color].filter(Boolean).join(' / ');
-      return `<tr>
-        <td style="padding:7px 0;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;line-height:1.4;"><strong>${item.name}</strong>${variantLine ? `<br><span style="font-size:11px;color:#555;">${variantLine}</span>` : ''}</td>
-        <td style="padding:7px 3px;text-align:center;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${item.quantity}</td>
-        <td style="padding:7px 3px;text-align:right;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${item.effectiveUnitPrice?.toFixed(2) ?? item.price.toFixed(2)}</td>
-        <td style="padding:7px 0;text-align:right;font-size:13px;border-bottom:1px dotted #bbb;vertical-align:top;">${fmtRs(item.lineEffectiveTotal ?? ((item.effectiveUnitPrice ?? item.price) * item.quantity))}</td>
-      </tr>`;
-    }).join('');
-
-    const html = `<!DOCTYPE html>
-<html><head>
-<title>Exchange ${exchange.exchangeNumber}</title>
-<meta charset="utf-8"/>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:Arial,Helvetica,sans-serif; width:70mm; margin:0 auto; padding:0; background:#fff; color:#000; font-size:12px; }
-  .wrap { width:100%; padding:2mm 1.5mm 8mm 1.5mm; }
-.meta { display:flex; justify-content:space-between; font-size:10px; color:#555; margin-bottom:4px; }
-.logo-wrap { text-align:center; margin:2px 0 4px; }
-.logo-wrap img { width:52mm; max-width:100%; height:auto; display:block; margin:0 auto; }
-.store-info { text-align:center; font-size:11.5px; line-height:1.6; margin-bottom:8px; }
-.cashier { font-size:13px; margin-bottom:4px; }
-table.items { width:100%; border-collapse:collapse; }
-  table.items thead th { font-size:11px; font-weight:700; padding:4px 0; border-top:2px solid #000; border-bottom:2px solid #000; }
-  .th-item { text-align:left; width:45%; }
-  .th-qty { text-align:center; width:8%; }
-  .th-price { text-align:right; width:23%; }
-  .th-total { text-align:right; width:22%; }
-table.totals { width:100%; border-collapse:collapse; }
-  table.totals td { font-size:12px; padding:3px 0; }
-table.totals .lbl { text-align:right; padding-right:8px; }
-table.totals .val { text-align:right; white-space:nowrap; }
-  .grand td { font-size:14px; font-weight:900; padding:4px 0; }
-.divider { border-top:2px solid #000; margin:5px 0; }
-.divider-dot { border-top:1px dotted #999; margin:5px 0; }
-  .tender { font-size:12px; padding:2px 0; }
-  .disc-total { text-align:center; font-weight:700; font-size:13px; padding:5px 0; }
-  .footer-note { text-align:center; font-size:10px; color:#111; line-height:1.5; margin:5px 0; }
-.footer-box { background:#1c1c1c; color:#fff; text-align:center; font-size:15px; font-weight:700; padding:8px 4px; margin:8px 0 5px; }
-.barcode-wrap { text-align:center; margin-top:6px; }
-  .barcode-num { font-size:11px; letter-spacing:2px; margin-top:4px; font-family:'Courier New',monospace; }
-.credit { text-align:center; font-size:10px; color:#444; margin-top:7px; line-height:1.6; }
-  @media print { body { margin:0 auto; padding:0; } .wrap { padding:2mm 1.5mm 7mm 1.5mm; } @page { size:70mm auto; margin:0; } }
-</style>
-</head><body>
-<div class="wrap">
-<div class="meta">
-  <span>${metaDate}</span>
-  <span>Exchange Receipt ${exchange.exchangeNumber}</span>
-</div>
-
-<div class="logo-wrap"><img src="${logoUrl}" alt="Hoard Lavish"/></div>
-
-<div class="store-info">
-  Veediya bandara road, Ethulkotte<br>
-  Tel : 074 177 4321<br>
-  Web : www.hoardlavish.com
-</div>
-
-<div class="cashier">Cashier : ${currentUser?.name || 'Admin'}</div>
-
-<div class="divider"></div>
-
-<div class="tender">Original Invoice: ${exchange.originalInvoiceNumber || 'N/A'}</div>
-<div class="tender">Branch: ${exchange.branchName}</div>
-<div class="tender">Payment / Settlement: ${exchange.paymentMethod}${exchange.refundMethod ? ` | Refund: ${exchange.refundMethod}` : ''}</div>
-
-${exchange.returnedItems.length > 0 ? `
-<table class="items">
-  <thead>
-    <tr>
-      <th class="th-item">Returned Item</th>
-      <th class="th-qty">Qty</th>
-      <th class="th-price">Price<br>Rs.</th>
-      <th class="th-total">Total<br>Rs.</th>
-    </tr>
-  </thead>
-  <tbody>${returnedItemsHtml}</tbody>
-</table>
-<div class="tender" style="text-align:right;font-weight:700;color:#b91c1c;">Returned Total: -${fmtRs(exchange.returnedTotal)}</div>
-<div class="divider"></div>
-` : ''}
-
-${exchange.newItems.length > 0 ? `
-<table class="items">
-  <thead>
-    <tr>
-      <th class="th-item">New Item</th>
-      <th class="th-qty">Qty</th>
-      <th class="th-price">Price<br>Rs.</th>
-      <th class="th-total">Total<br>Rs.</th>
-    </tr>
-  </thead>
-  <tbody>${newItemsHtml}</tbody>
-</table>
-<div class="tender" style="text-align:right;font-weight:700;color:#166534;">New Items Total: ${fmtRs(exchange.newTotal)}</div>
-<div class="divider"></div>
-` : ''}
-
-<table class="totals">
-  <tr><td class="lbl">Returned Value</td><td class="val">-${fmtRs(exchange.returnedTotal)}</td></tr>
-  <tr><td class="lbl">New Items Value</td><td class="val">${fmtRs(exchange.newTotal)}</td></tr>
-  ${exchange.exchangeBillDiscount ? `<tr><td class="lbl">Exchange Bill Discount</td><td class="val">-${fmtRs(exchange.exchangeBillDiscount)}</td></tr>` : ''}
-</table>
-
-<div class="divider"></div>
-
-<table class="totals">
-  <tr class="grand"><td class="lbl">EXCHANGE TOTAL</td><td class="val">${fmtRs(Math.abs(exchange.difference))}</td></tr>
-</table>
-
-<div class="tender">${exchange.difference >= 0 ? 'Customer Pays' : 'Customer Credit'}: ${fmtRs(Math.abs(exchange.difference))}</div>
-${exchange.settlementType ? `<div class="tender">Settlement: ${exchange.settlementType}</div>` : ''}
-
-<div class="divider-dot"></div>
-
-<div class="disc-total">Exchange Discount: ${fmtRs(exchange.exchangeBillDiscount || 0)} (${discountPercent} %)</div>
-
-<div class="divider-dot"></div>
-
-<div class="footer-note">
-  For any exchange please produce the bill the<br>
-  garment within original tag intact within 07days<br>
-  NO EXCHANGE OR RETURN ACCEPTED FOR<br>
-  ITEM SOLD IN OFFERS AND SALE
-</div>
-
-<div class="footer-box">*** Thank You, Come Again***</div>
-
-<div class="barcode-wrap">
-  ${barsHtml}
-  <div class="barcode-num">${barcodeStr}</div>
-</div>
-
-<div class="credit">
-  Hoard Lavish Pvt Ltd<br>
-  ${footerDate}
-</div>
-</div>
-
-${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script>'}
-</body></html>`;
+    const html = buildExchangeReceiptHtml(exchange, {
+      cashierName: currentUser?.name || 'Admin',
+      logoUrl,
+      withPrintScript: !isElectron,
+    });
 
     if (isElectron) {
       const printerName = getThermalPrinterName();
@@ -1047,11 +739,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();};<\/script
       return Boolean(printResult?.success);
     }
 
-    const printWindow = window.open('', '_blank', 'width=400,height=700');
-    if (!printWindow) return false;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    return true;
+    return openReceiptWindow(html);
   };
 
   const handlePrint = async () => {

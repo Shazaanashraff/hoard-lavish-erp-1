@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Printer, User, Calendar, DollarSign, X, Building2, ArrowLeftRight, Package, FileText, Filter, RefreshCw } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { fetchSales } from '../services/supabaseService';
@@ -6,6 +6,7 @@ import { SalesRecord, ExchangeRecord } from '../types';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { parseBusinessDate } from '../utils/dateTime';
+import { buildSaleReceiptHtml, buildExchangeReceiptHtml, openReceiptWindow } from '../utils/receiptHtml';
 import { fmtCurrency } from '../utils/formatters';
 
 type TimePeriod = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL' | 'CUSTOM';
@@ -46,7 +47,7 @@ type ListItem =
   | { recordType: 'exchange'; data: ExchangeRecord };
 
 const SalesHistory: React.FC = () => {
-  const { exchangeHistory, branches, products } = useStore();
+  const { exchangeHistory, branches, products, currentUser } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<ListItem | null>(null);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('ALL');
@@ -58,7 +59,6 @@ const SalesHistory: React.FC = () => {
   const [itemDateFrom, setItemDateFrom] = useState<string>('');
   const [itemDateTo, setItemDateTo] = useState<string>('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState<string>('ALL');
-  const invoiceRef = useRef<HTMLDivElement>(null);
   const SALES_PAGE_SIZE = 20;
 
   // --- Paginated server-side sales list ---
@@ -345,44 +345,17 @@ const SalesHistory: React.FC = () => {
 
   // --- Print invoice ---
   const handlePrint = () => {
-    if (!invoiceRef.current) return;
-    const printContents = invoiceRef.current.innerHTML;
-    const title = selectedItem?.recordType === 'exchange'
-      ? `Exchange ${(selectedItem.data as ExchangeRecord).exchangeNumber}`
-      : `Invoice ${(selectedItem?.data as SalesRecord)?.invoiceNumber || ''}`;
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-            body { padding: 32px; color: #1e293b; }
-            .inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #e2e8f0; }
-            .inv-title { font-size: 22px; font-weight: 700; }
-            .inv-num { font-size: 12px; color: #64748b; font-family: monospace; }
-            .inv-badge { display: inline-block; padding: 4px 12px; background: #dcfce7; color: #166534; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-            .inv-date { font-size: 11px; color: #94a3b8; margin-top: 6px; }
-            .inv-customer { background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
-            .inv-customer-title { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 8px; }
-            .inv-customer-name { font-weight: 700; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th { background: #f1f5f9; color: #64748b; font-size: 11px; text-transform: uppercase; padding: 8px 12px; text-align: left; }
-            th:last-child, th:nth-child(2), th:nth-child(3) { text-align: right; }
-            td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
-            td:last-child, td:nth-child(2), td:nth-child(3) { text-align: right; }
-            .totals { max-width: 260px; margin-left: auto; }
-            .totals .row { display: flex; justify-content: space-between; font-size: 13px; color: #64748b; padding: 4px 0; }
-            .totals .grand { font-weight: 700; font-size: 16px; color: #0f172a; border-top: 2px solid #e2e8f0; padding-top: 8px; margin-top: 4px; }
-            .footer { text-align: center; margin-top: 32px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; }
-          </style>
-        </head>
-        <body>${printContents}<script>window.onload=function(){window.print();window.close();}<\/script></body>
-      </html>
-    `);
-    printWindow.document.close();
+    if (!selectedItem) return;
+    const logoUrl = window.location.origin + '/logo.png';
+    const cashierName = currentUser?.name || 'Admin';
+
+    let html: string;
+    if (selectedItem.recordType === 'exchange') {
+      html = buildExchangeReceiptHtml(selectedItem.data as ExchangeRecord, { cashierName, logoUrl, withPrintScript: true });
+    } else {
+      html = buildSaleReceiptHtml(selectedItem.data as SalesRecord, { cashierName, logoUrl, withPrintScript: true });
+    }
+    openReceiptWindow(html);
   };
 
   const selectedIsExchange = selectedItem?.recordType === 'exchange';
@@ -744,7 +717,7 @@ const SalesHistory: React.FC = () => {
           </div>
 
           {/* Printable Content */}
-          <div className="flex-1 overflow-y-auto p-8" ref={invoiceRef}>
+          <div className="flex-1 overflow-y-auto p-8">
             {selectedIsExchange && selectedExchange ? (
               /* --- Exchange Detail --- */
               <>

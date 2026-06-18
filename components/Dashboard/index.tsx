@@ -223,9 +223,11 @@ const Dashboard: React.FC = () => {
     return all.sort((a, b) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime());
   }, [filteredSales, filteredExpenses, filteredTransfers, filteredExchanges]);
 
-  // --- Recent Sales (today, current branch — editable within 10 min) ---
-  const TEN_MIN = 10 * 60 * 1000;
-  const isSaleEditable = (sale: SalesRecord) => Date.now() - parseBusinessDate(sale.date).getTime() <= TEN_MIN;
+  // --- Recent Sales (today, current branch — voidable any time today) ---
+  const isSaleEditable = (sale: SalesRecord) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return sale.date.startsWith(todayStr);
+  };
   const recentEditableSales = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return dashSales.recentWithItems.data
@@ -322,10 +324,10 @@ const Dashboard: React.FC = () => {
 
   // --- Day End Report (PDF) ---
   const handleGenerateDayReport = async (cashierName: string, note: string) => {
-    if (!dashSales.dayReport.loaded) {
-      await dashSales.dayReport.load();
-    }
-    generateDayEndReport(cashierName, note, dashSales.dayReport.data);
+    const data = dashSales.dayReport.loaded
+      ? dashSales.dayReport.data
+      : await dashSales.dayReport.load();
+    generateDayEndReport(cashierName, note, data);
   };
 
   const generateDayEndReport = (cashierName: string, note: string, salesData: any[]) => {
@@ -1282,9 +1284,19 @@ const Dashboard: React.FC = () => {
               <Trophy size={16} className="text-amber-500" />
               Top Performers
             </h3>
-            <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-              <Calendar size={13} /> {periodLabel}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                <Calendar size={13} /> {periodLabel}
+              </span>
+              <button
+                onClick={() => void dashSales.topPerformers.reload()}
+                disabled={dashSales.topPerformers.loading}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                title="Refresh top performers"
+              >
+                <RefreshCw size={13} className={dashSales.topPerformers.loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
           <div className="space-y-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -1320,6 +1332,14 @@ const Dashboard: React.FC = () => {
                 {filterMode === 'daily' ? 'Last 7 days — per branch' : `Daily breakdown — per branch`}
               </p>
             </div>
+            <button
+              onClick={() => void dashSales.chart.reload()}
+              disabled={dashSales.chart.loading}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              title="Refresh chart"
+            >
+              <RefreshCw size={14} className={dashSales.chart.loading ? 'animate-spin' : ''} />
+            </button>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -1417,11 +1437,11 @@ const Dashboard: React.FC = () => {
               <div className="p-2 bg-amber-100 rounded-lg text-amber-600"><Edit2 size={18} /></div>
               <div>
                 <h3 className="font-bold text-slate-800">Edit / Void Bills</h3>
-                <p className="text-xs text-slate-400">Today's sales at {currentBranch.name} — edit or delete within 10 min of checkout</p>
+                <p className="text-xs text-slate-400">Today's sales at {currentBranch.name} — edit or void any time today</p>
               </div>
             </div>
             <span className="text-xs text-slate-400 font-medium bg-amber-50 px-3 py-1 rounded-full">
-              {recentEditableSales.filter(isSaleEditable).length} editable
+              {recentEditableSales.length} today
             </span>
           </div>
           {recentEditableSales.length === 0 ? (
@@ -1442,14 +1462,11 @@ const Dashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {recentEditableSales.map((sale) => {
-                const editable = isSaleEditable(sale);
-                return (
-                  <tr key={sale.id} className={`hover:bg-slate-50 ${!editable ? 'opacity-50' : ''}`}>
+              {recentEditableSales.map((sale) => (
+                  <tr key={sale.id} className="hover:bg-slate-50">
                     <td className="p-4 font-medium text-slate-900">#{sale.invoiceNumber}</td>
                     <td className="p-4 text-slate-500 text-xs">
                       {parseBusinessDate(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      {!editable && <span className="ml-1.5 text-rose-400 font-medium">Expired</span>}
                     </td>
                     <td className="p-4 text-slate-600">{sale.customerName || 'Walk-in'}</td>
                     <td className="p-4 text-slate-500">{sale.items.length} item(s)</td>
@@ -1457,24 +1474,21 @@ const Dashboard: React.FC = () => {
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          onClick={() => editable && handleEditSale(sale)}
-                          disabled={!editable}
-                          className="inline-flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          onClick={() => handleEditSale(sale)}
+                          className="inline-flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors"
                         >
                           <Edit2 size={12} /> Edit
                         </button>
                         <button
-                          onClick={() => editable && setDeleteSaleConfirm(sale)}
-                          disabled={!editable}
-                          className="inline-flex items-center gap-1.5 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          onClick={() => setDeleteSaleConfirm(sale)}
+                          className="inline-flex items-center gap-1.5 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 transition-colors"
                         >
                           <Trash2 size={12} /> Void
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
           )}

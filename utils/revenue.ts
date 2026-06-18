@@ -1,4 +1,7 @@
-import type { SalesRecord } from '../types';
+type LeanSaleForStats = {
+  totalAmount: number;
+  items: { id: string; name: string; price: number; quantity: number }[];
+};
 
 export type ProductRevenueStat = {
   name: string;
@@ -6,7 +9,7 @@ export type ProductRevenueStat = {
   quantity: number;
 };
 
-export const buildProductRevenueStats = (sales: SalesRecord[]): Map<string, ProductRevenueStat> => {
+export const buildProductRevenueStats = (sales: LeanSaleForStats[]): Map<string, ProductRevenueStat> => {
   const stats = new Map<string, ProductRevenueStat>();
 
   sales.forEach(sale => {
@@ -32,7 +35,7 @@ export const buildProductRevenueStats = (sales: SalesRecord[]): Map<string, Prod
   return stats;
 };
 
-export const getTopRevenueAndQuantityProducts = (sales: SalesRecord[]) => {
+export const getTopRevenueAndQuantityProducts = (sales: LeanSaleForStats[]) => {
   const stats = buildProductRevenueStats(sales);
 
   let bestRev = { name: 'No Sales Yet', value: 0 };

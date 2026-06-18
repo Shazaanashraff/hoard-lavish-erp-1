@@ -300,17 +300,48 @@ export async function fetchSalesDailyTotals(
     }));
 }
 
+export async function fetchSalesForTopPerformers(options: {
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+} = {}): Promise<{ id: string; totalAmount: number; items: { id: string; name: string; price: number; quantity: number }[] }[]> {
+    let query = supabase
+        .from('sales')
+        .select('id, total_amount, sale_items(product_id, product_name, price, quantity)')
+        .order('date', { ascending: false });
+    if (options.branchId) query = query.eq('branch_id', options.branchId);
+    if (options.dateFrom) query = query.gte('date', options.dateFrom);
+    if (options.dateTo) query = query.lte('date', options.dateTo);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+        id: r.id,
+        totalAmount: Number(r.total_amount),
+        items: (r.sale_items ?? []).map((si: any) => ({
+            id: si.product_id as string,
+            name: si.product_name as string,
+            price: Number(si.price),
+            quantity: Number(si.quantity),
+        })),
+    }));
+}
+
 export interface FetchSalesSummaryOptions {
     branchId?: string;
     dateFrom?: string;
     dateTo?: string;
     limit?: number;
+    /** Include payment_method, cash_amount, card_amount, and sale_items(quantity) for reporting */
+    extended?: boolean;
 }
 
-export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}): Promise<Pick<SalesRecord, 'id' | 'invoiceNumber' | 'date' | 'branchId' | 'totalAmount' | 'totalCost' | 'customerName'>[]> {
+export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}): Promise<Pick<SalesRecord, 'id' | 'invoiceNumber' | 'date' | 'branchId' | 'totalAmount' | 'totalCost' | 'customerName'> & { paymentMethod?: string; cashAmount?: number; cardAmount?: number; items?: { quantity: number }[] }[]> {
+    const selectCols = options.extended
+        ? 'id, invoice_number, date, branch_id, total_amount, total_cost, customer_name, payment_method, cash_amount, card_amount, sale_items(quantity)'
+        : 'id, invoice_number, date, branch_id, total_amount, total_cost, customer_name';
     let query = supabase
         .from('sales')
-        .select('id, invoice_number, date, branch_id, total_amount, total_cost, customer_name')
+        .select(selectCols)
         .order('date', { ascending: false });
     if (options.branchId) query = query.eq('branch_id', options.branchId);
     if (options.dateFrom) query = query.gte('date', options.dateFrom);
@@ -326,5 +357,11 @@ export async function fetchSalesSummary(options: FetchSalesSummaryOptions = {}):
         totalAmount: Number(r.total_amount),
         totalCost: Number(r.total_cost),
         customerName: r.customer_name ?? undefined,
+        ...(options.extended ? {
+            paymentMethod: r.payment_method,
+            cashAmount: r.cash_amount != null ? Number(r.cash_amount) : undefined,
+            cardAmount: r.card_amount != null ? Number(r.card_amount) : undefined,
+            items: (r.sale_items ?? []).map((si: any) => ({ quantity: Number(si.quantity) })),
+        } : {}),
     }));
 }

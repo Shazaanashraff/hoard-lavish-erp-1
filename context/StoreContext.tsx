@@ -292,7 +292,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const cu = p.customerUpdate as { id: string; updates: Partial<Customer> };
           await db.updateCustomer(cu.id, cu.updates);
         }
-        await db.insertExchange(p.exchange as ExchangeRecord);
+        const voidSaleId = p.voidSaleId as string | null;
+        const exchangeRecord = p.exchange as ExchangeRecord;
+        const exchangeToSave = voidSaleId ? {
+          ...exchangeRecord,
+          originalSaleId: undefined,
+          returnedItems: exchangeRecord.returnedItems.map(i => ({ ...i, sourceSaleId: undefined })),
+        } : exchangeRecord;
+        await db.insertExchange(exchangeToSave);
+        if (voidSaleId) {
+          const { error: voidErr } = await supabase.from('sales').delete().eq('id', voidSaleId);
+          if (voidErr) throw voidErr;
+        }
         return;
       }
       case 'ADJUST_STOCK':
@@ -1421,6 +1432,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts(updatedProducts);
     setStockHistory(prev => [...newStockLogs, ...prev]);
     setExchangeHistory(prev => [exchange, ...prev]);
+    if (exchangeData.voidSaleId) {
+      setSalesHistory(prev => prev.filter(s => s.id !== exchangeData.voidSaleId));
+    }
 
     const allItems = [...exchange.returnedItems, ...exchange.newItems];
     const stockRows = allItems
@@ -1459,6 +1473,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       stockRows,
       stockMovements: newStockLogs,
       customerUpdate,
+      voidSaleId: exchangeData.voidSaleId ?? null,
     }, async () => {
       // Update branch stock for all affected products
       for (const item of allItems) {
@@ -1485,7 +1500,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
 
-      await db.insertExchange(exchange);
+      // When voiding the original sale, null out its FK refs in the exchange record
+      // so we can delete the sale afterwards without triggering ON DELETE SET NULL
+      // on the just-inserted row. The original_invoice_number text field is the display backup.
+      const exchangeToSave = exchangeData.voidSaleId ? {
+        ...exchange,
+        originalSaleId: undefined,
+        returnedItems: exchange.returnedItems.map(i => ({ ...i, sourceSaleId: undefined })),
+      } : exchange;
+      await db.insertExchange(exchangeToSave);
+
+      if (exchangeData.voidSaleId) {
+        // Direct delete — stock and loyalty are already corrected by upsertBranchStock /
+        // updateCustomer above, so we skip fn_void_sale to avoid double-counting.
+        const { error: voidErr } = await supabase.from('sales').delete().eq('id', exchangeData.voidSaleId);
+        if (voidErr) throw voidErr;
+      }
     }, { fallback: 'Failed to save exchange' });
 
     return exchange;

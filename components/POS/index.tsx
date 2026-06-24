@@ -14,7 +14,7 @@ type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
 
 const POS: React.FC = () => {
-  const { products, customers, cart, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, deleteSale, clearCart, addCustomer, loadCustomers, adjustStock, currentBranch, currentUser, settings } = useStore();
+  const { products, customers, cart, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, clearCart, addCustomer, loadCustomers, adjustStock, currentBranch, currentUser, settings } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   // Keep a ref in sync with barcodeInput so the submit handler always reads
@@ -992,11 +992,6 @@ const POS: React.FC = () => {
         description: exchangeDescription || 'Product Exchange',
         voidSaleId: shouldVoidSale ? selectedExchangeSale.id : undefined,
       });
-
-      // If sale should be voided, do it after exchange is created
-      if (shouldVoidSale && selectedExchangeSale) {
-        deleteSale(selectedExchangeSale.id).catch(console.error);
-      }
 
       setLastExchange(exchange);
       setIsExchangeInvoiceOpen(true);

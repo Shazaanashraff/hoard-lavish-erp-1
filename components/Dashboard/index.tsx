@@ -357,7 +357,8 @@ const Dashboard: React.FC = () => {
     const exchangeNet         = filteredExchanges.reduce((s, e) => s + e.difference, 0);
     const grossSales          = totalSalesRevenue + exchangeNet;
     const txCount             = salesData.length + filteredExchanges.length;
-    const totalItemsSold      = salesData.reduce((s: number, x: any) => s + (x.items ?? []).reduce((a: number, i: any) => a + i.quantity, 0), 0);
+    const totalItemsSold      = salesData.reduce((s: number, x: any) => s + (x.items ?? []).reduce((a: number, i: any) => a + i.quantity, 0), 0)
+                             + filteredExchanges.reduce((s, e) => s + (e.newItems ?? []).reduce((a, i) => a + i.quantity, 0), 0);
 
     // Expenses
     const totalOperatingExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);

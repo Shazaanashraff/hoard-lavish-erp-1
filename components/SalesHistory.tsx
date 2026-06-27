@@ -117,6 +117,39 @@ const SalesHistory: React.FC = () => {
 
   useEffect(() => { void loadSales(); }, [loadSales]);
 
+  // --- Item-wise sales: dedicated full fetch, not limited by main list pagination ---
+  const [itemSales, setItemSales] = useState<SalesRecord[]>([]);
+  const [itemSalesLoading, setItemSalesLoading] = useState(false);
+
+  const loadItemSales = useCallback(async () => {
+    setItemSalesLoading(true);
+    try {
+      const now = new Date();
+      let dFrom: string | undefined;
+      let dTo: string | undefined;
+      if (itemTimePeriod === 'TODAY') {
+        dFrom = now.toISOString().split('T')[0];
+      } else if (itemTimePeriod === 'WEEK') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 7);
+        dFrom = d.toISOString().split('T')[0];
+      } else if (itemTimePeriod === 'MONTH') {
+        dFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      } else if (itemTimePeriod === 'CUSTOM') {
+        dFrom = itemDateFrom || undefined;
+        dTo = itemDateTo || undefined;
+      }
+      const data = await fetchSales({ dateFrom: dFrom, dateTo: dTo, limit: 5000 });
+      setItemSales(data);
+    } catch (err) {
+      console.error('Failed to load item sales stats', err);
+    } finally {
+      setItemSalesLoading(false);
+    }
+  }, [itemTimePeriod, itemDateFrom, itemDateTo]);
+
+  useEffect(() => { void loadItemSales(); }, [loadItemSales]);
+
   // --- Combined filtered list ---
   const filteredItems = useMemo((): ListItem[] => {
     const sales: ListItem[] = pageSales
@@ -138,18 +171,16 @@ const SalesHistory: React.FC = () => {
     );
   }, [pageSales, exchangeHistory, searchTerm, timePeriod, branchFilter, dateFrom, dateTo]);
 
-  // --- Item-wise filtered list (independent from main list) ---
+  // --- Item-wise filtered list (uses dedicated full fetch, not the paginated list) ---
   const itemFilteredItems = useMemo((): ListItem[] => {
-    const sales: ListItem[] = pageSales
-      .filter(s => isInPeriod(s.date, itemTimePeriod, itemDateFrom, itemDateTo))
-      .map(s => ({ recordType: 'sale', data: s }));
+    const sales: ListItem[] = itemSales.map(s => ({ recordType: 'sale', data: s }));
 
     const exchanges: ListItem[] = (exchangeHistory || [])
       .filter(e => isInPeriod(e.date, itemTimePeriod, itemDateFrom, itemDateTo))
       .map(e => ({ recordType: 'exchange', data: e }));
 
     return [...sales, ...exchanges];
-  }, [pageSales, exchangeHistory, itemTimePeriod, itemDateFrom, itemDateTo]);
+  }, [itemSales, exchangeHistory, itemTimePeriod, itemDateFrom, itemDateTo]);
 
   const productCategoryById = useMemo(() => {
     const categoryMap = new Map<string, string>();
@@ -588,6 +619,7 @@ const SalesHistory: React.FC = () => {
             <div className="flex items-center gap-2">
               <Package size={20} className="text-slate-600" />
               <h3 className="font-bold text-slate-900">Items Sold</h3>
+              {itemSalesLoading && <RefreshCw size={14} className="animate-spin text-slate-400" />}
             </div>
             <button
               onClick={generateItemStatsReport}
@@ -648,7 +680,11 @@ const SalesHistory: React.FC = () => {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4">
-          {filteredItemStats.length === 0 ? (
+          {itemSalesLoading ? (
+            <div className="text-center py-10 text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw size={16} className="animate-spin" /> Loading…
+            </div>
+          ) : filteredItemStats.length === 0 ? (
             <div className="text-center py-10 text-slate-400">
               <Package size={32} className="mx-auto mb-2 opacity-40" />
               <p className="text-sm">No items sold yet</p>

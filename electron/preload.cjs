@@ -42,4 +42,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getPrinters: () => ipcRenderer.invoke('get-printers'),
     printReceipt: (html, printerName, options) => ipcRenderer.invoke('print-receipt', html, printerName, options),
     getLogoBase64: () => ipcRenderer.invoke('get-logo-base64'),
+
+    // Local persistent key/value store (categories/brands local-first cache, etc.)
+    localStore: {
+        get: (namespace) => ipcRenderer.invoke('local-store:get', namespace),
+        set: (namespace, value) => ipcRenderer.invoke('local-store:set', namespace, value),
+    },
 });

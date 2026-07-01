@@ -31,7 +31,7 @@ const Inventory: React.FC = () => {
   const {
     products, categories, brands, currentBranch, branches,
     addProduct, updateProduct, deleteProduct, getProductSalesUsage, adjustStock, transferStock, deleteTransfer, refreshTransfers,
-    addCategory, removeCategory, addBrand, removeBrand,
+    addCategory, removeCategory, updateCategory, addBrand, removeBrand, updateBrand,
     currentUser, stockTransfers, settings, isLoading
   } = useStore();
   const isCashier = currentUser?.role === 'CASHIER';
@@ -100,6 +100,11 @@ const Inventory: React.FC = () => {
   // Variation builder state (for new products)
   const [useVariations, setUseVariations] = useState(false);
   const [variations, setVariations] = useState<VariationRow[]>([]);
+
+  // Category/brand rename state
+  const [renamingTag, setRenamingTag] = useState<{ type: 'category' | 'brand'; oldName: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [tagError, setTagError] = useState<string | null>(null);
 
   // Stock Adjustment State
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
@@ -1253,6 +1258,12 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
         {/* CATEGORIES & BRANDS TAB */}
         {activeTab === 'CATEGORIES' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {tagError && (
+              <div className="md:col-span-2 flex items-center justify-between bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
+                {tagError}
+                <button onClick={() => setTagError(null)} className="text-red-400 hover:text-red-600"><X size={14} /></button>
+              </div>
+            )}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="font-bold text-lg mb-4 text-slate-800">Product Categories</h3>
               <div className="flex gap-2 mb-4">
@@ -1267,10 +1278,38 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
               </div>
               <div className="flex flex-wrap gap-2">
                 {categories.map(cat => (
-                  <div key={cat} className="group flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-sm text-slate-700">
-                    {cat}
-                    <button onClick={() => removeCategory(cat)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
-                  </div>
+                  renamingTag?.type === 'category' && renamingTag.oldName === cat ? (
+                    <div key={cat} className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-full text-sm">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            updateCategory(cat, renameValue).then(() => setRenamingTag(null)).catch(err => setTagError(err.message));
+                          } else if (e.key === 'Escape') {
+                            setRenamingTag(null);
+                          }
+                        }}
+                        className="w-28 p-1 border border-slate-300 rounded text-sm"
+                      />
+                      <button
+                        onClick={() => updateCategory(cat, renameValue).then(() => setRenamingTag(null)).catch(err => setTagError(err.message))}
+                        className="text-emerald-600 hover:text-emerald-700"
+                      ><Save size={14} /></button>
+                      <button onClick={() => setRenamingTag(null)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <div key={cat} className="group flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-sm text-slate-700">
+                      {cat}
+                      <button
+                        onClick={() => { setRenamingTag({ type: 'category', oldName: cat }); setRenameValue(cat); setTagError(null); }}
+                        className="text-slate-400 hover:text-slate-700"
+                      ><Edit2 size={13} /></button>
+                      <button onClick={() => removeCategory(cat)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                    </div>
+                  )
                 ))}
               </div>
             </div>
@@ -1288,10 +1327,38 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
               </div>
               <div className="flex flex-wrap gap-2">
                 {brands.map(brand => (
-                  <div key={brand} className="group flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-sm text-slate-700">
-                    {brand}
-                    <button onClick={() => removeBrand(brand)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
-                  </div>
+                  renamingTag?.type === 'brand' && renamingTag.oldName === brand ? (
+                    <div key={brand} className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-full text-sm">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renameValue}
+                        onChange={e => setRenameValue(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            updateBrand(brand, renameValue).then(() => setRenamingTag(null)).catch(err => setTagError(err.message));
+                          } else if (e.key === 'Escape') {
+                            setRenamingTag(null);
+                          }
+                        }}
+                        className="w-28 p-1 border border-slate-300 rounded text-sm"
+                      />
+                      <button
+                        onClick={() => updateBrand(brand, renameValue).then(() => setRenamingTag(null)).catch(err => setTagError(err.message))}
+                        className="text-emerald-600 hover:text-emerald-700"
+                      ><Save size={14} /></button>
+                      <button onClick={() => setRenamingTag(null)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <div key={brand} className="group flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-sm text-slate-700">
+                      {brand}
+                      <button
+                        onClick={() => { setRenamingTag({ type: 'brand', oldName: brand }); setRenameValue(brand); setTagError(null); }}
+                        className="text-slate-400 hover:text-slate-700"
+                      ><Edit2 size={13} /></button>
+                      <button onClick={() => removeBrand(brand)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                    </div>
+                  )
                 ))}
               </div>
             </div>

@@ -7,6 +7,20 @@ export interface Branch {
   barcodePrinterName?: string;
 }
 
+export interface CategoryRecord {
+  id: string;
+  name: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface BrandRecord {
+  id: string;
+  name: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -215,8 +229,10 @@ export type OfflineOperationType =
   | 'DELETE_TRANSFER'
   | 'ADD_CATEGORY'
   | 'REMOVE_CATEGORY'
+  | 'UPDATE_CATEGORY'
   | 'ADD_BRAND'
   | 'REMOVE_BRAND'
+  | 'UPDATE_BRAND'
   | 'ADD_SUPPLIER'
   | 'UPDATE_SUPPLIER'
   | 'DELETE_SUPPLIER'

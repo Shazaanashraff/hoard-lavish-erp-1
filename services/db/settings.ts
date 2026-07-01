@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import type { AppSettings } from '../../types';
+import type { AppSettings, CategoryRecord, BrandRecord } from '../../types';
 
 export const mapSettings = (r: any): AppSettings => ({
     storeName: r.store_name,
@@ -28,10 +28,26 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<voi
     if (error) throw error;
 }
 
-export async function fetchCategories(): Promise<string[]> {
-    const { data, error } = await supabase.from('categories').select('name').order('name');
+const mapCategoryRow = (r: any): CategoryRecord => ({
+    id: r.id,
+    name: r.name,
+    updatedAt: r.updated_at,
+    deletedAt: r.deleted_at,
+});
+
+const mapBrandRow = (r: any): BrandRecord => ({
+    id: r.id,
+    name: r.name,
+    updatedAt: r.updated_at,
+    deletedAt: r.deleted_at,
+});
+
+export async function fetchCategories(opts?: { since?: string }): Promise<CategoryRecord[]> {
+    let query = supabase.from('categories').select('id, name, updated_at, deleted_at');
+    if (opts?.since) query = query.gt('updated_at', opts.since);
+    const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []).map(r => r.name);
+    return (data ?? []).map(mapCategoryRow);
 }
 
 export async function insertCategory(name: string): Promise<void> {
@@ -39,15 +55,23 @@ export async function insertCategory(name: string): Promise<void> {
     if (error && error.code !== '23505') throw error;
 }
 
+export async function updateCategory(oldName: string, newName: string): Promise<CategoryRecord> {
+    const { data, error } = await supabase.rpc('fn_rename_category', { p_old_name: oldName, p_new_name: newName }).single();
+    if (error) throw error;
+    return mapCategoryRow(data);
+}
+
 export async function deleteCategory(name: string): Promise<void> {
-    const { error } = await supabase.from('categories').delete().eq('name', name);
+    const { error } = await supabase.from('categories').update({ deleted_at: new Date().toISOString() }).eq('name', name);
     if (error) throw error;
 }
 
-export async function fetchBrands(): Promise<string[]> {
-    const { data, error } = await supabase.from('brands').select('name').order('name');
+export async function fetchBrands(opts?: { since?: string }): Promise<BrandRecord[]> {
+    let query = supabase.from('brands').select('id, name, updated_at, deleted_at');
+    if (opts?.since) query = query.gt('updated_at', opts.since);
+    const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []).map(r => r.name);
+    return (data ?? []).map(mapBrandRow);
 }
 
 export async function insertBrand(name: string): Promise<void> {
@@ -55,7 +79,13 @@ export async function insertBrand(name: string): Promise<void> {
     if (error && error.code !== '23505') throw error;
 }
 
+export async function updateBrand(oldName: string, newName: string): Promise<BrandRecord> {
+    const { data, error } = await supabase.rpc('fn_rename_brand', { p_old_name: oldName, p_new_name: newName }).single();
+    if (error) throw error;
+    return mapBrandRow(data);
+}
+
 export async function deleteBrand(name: string): Promise<void> {
-    const { error } = await supabase.from('brands').delete().eq('name', name);
+    const { error } = await supabase.from('brands').update({ deleted_at: new Date().toISOString() }).eq('name', name);
     if (error) throw error;
 }

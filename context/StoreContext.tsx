@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType, CategoryRecord, BrandRecord } from '../types';
 import { INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
 import { supabase } from '../services/supabaseClient';
@@ -9,14 +9,48 @@ import { isLikelyConnectivityIssue, extractDbErrorMessage, DbLikeError } from '.
 import { isUuid, makeUuid } from '../utils/ids';
 import { loadLocalBranches, saveLocalBranches } from '../services/localBranches';
 import { loadCachedProducts, saveCachedProducts, applyStockDelta, mergeBranchStock } from '../services/localProducts';
+import {
+  loadCachedExchanges,
+  saveCachedExchanges,
+  mergeExchangesById,
+  exchangesDiffer,
+  twoWeeksAgoDate,
+  isRangeWithinCache,
+  shouldPoll,
+} from '../services/localExchanges';
 import * as localCustomers from '../services/localCustomers';
 import { loadLocalSuppliers, saveLocalSuppliers } from '../services/localSuppliers';
 import { loadLocalSettings, saveLocalSettings, setLocalSettings } from '../services/localSettings';
 import { loadLocalUsers, saveLocalUsers, setLocalUsers } from '../services/localUsers';
+import {
+  loadLocalCategories,
+  saveLocalCategories,
+  activeCategoryNames,
+  pruneCategoryTombstones,
+  findActiveCategoryByName,
+  mergeCategoriesLWW,
+} from '../services/localCategories';
+import {
+  loadLocalBrands,
+  saveLocalBrands,
+  activeBrandNames,
+  pruneBrandTombstones,
+  findActiveBrandByName,
+  mergeBrandsLWW,
+} from '../services/localBrands';
 
 const getTodayDate = (): string => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Converts a legacy plain string[] (from the older hoard_data_v2 blob / JSON
+// import) into tagged records so it can be merged into the record-based state.
+const recordsFromNames = <T extends { id: string; name: string; updatedAt: string; deletedAt: string | null }>(
+  names: string[]
+): T[] => {
+  const now = new Date().toISOString();
+  return names.map(name => ({ id: makeUuid(), name, updatedAt: now, deletedAt: null } as T));
 };
 
 interface StoreContextType {
@@ -76,6 +110,11 @@ interface StoreContextType {
   deleteSale: (saleId: string) => Promise<void>;
   refreshSalesHistory: (options?: import('../services/db/sales').FetchSalesOptions) => Promise<void>;
   completeExchange: (exchange: Omit<ExchangeRecord, 'id' | 'exchangeNumber' | 'date' | 'branchId' | 'branchName'> & { voidSaleId?: string; originalSale?: SalesRecord }) => ExchangeRecord;
+  // Load exchanges for a report range older than the cached 2-week window (merged into exchangeHistory).
+  loadExchangesForPeriod: (from?: string, to?: string) => Promise<void>;
+  // Manual refresh of the recent (2-week) exchange window; rate-limited by a shared 60s cooldown.
+  refreshRecentExchanges: () => Promise<{ success: boolean; changed: boolean; error?: string }>;
+  exchangeRefreshCooldownUntil: number | null;
   adjustStock: (productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string) => StockMovement | null;
   transferStock: (toBranchId: string, items: StockTransferItem[], notes: string) => StockTransfer;
   deleteTransfer: (transferId: string) => void;
@@ -83,8 +122,10 @@ interface StoreContextType {
 
   addCategory: (category: string) => void;
   removeCategory: (category: string) => void;
+  updateCategory: (oldName: string, newName: string) => Promise<void>;
   addBrand: (brand: string) => void;
   removeBrand: (brand: string) => void;
+  updateBrand: (oldName: string, newName: string) => Promise<void>;
 
   refreshSuppliers: () => Promise<void>;
   addSupplier: (supplier: Supplier) => void;
@@ -150,8 +191,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [stockHistory, setStockHistory] = useState<StockMovement[]>([]);
   const [stockTransfers, setStockTransfers] = useState<StockTransfer[]>([]);
   const [exchangeHistory, setExchangeHistory] = useState<ExchangeRecord[]>([]);
-  const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
-  const [brands, setBrands] = useState<string[]>(INITIAL_BRANDS);
+  // Epoch ms until which the manual "refresh recent exchanges" button is on cooldown
+  // (null = ready). Kept in context so the 60s gate survives component unmounts.
+  const [exchangeRefreshCooldownUntil, setExchangeRefreshCooldownUntil] = useState<number | null>(null);
+  const [categoryRecords, setCategoryRecords] = useState<CategoryRecord[]>([]);
+  const [brandRecords, setBrandRecords] = useState<BrandRecord[]>([]);
+  const categoryRecordsRef = useRef<CategoryRecord[]>([]);
+  useEffect(() => { categoryRecordsRef.current = categoryRecords; }, [categoryRecords]);
+  const brandRecordsRef = useRef<BrandRecord[]>([]);
+  useEffect(() => { brandRecordsRef.current = brandRecords; }, [brandRecords]);
+  // Derived, name-only, active-only views for backward compatibility with every
+  // existing consumer that expects categories/brands as plain string[].
+  const categories = useMemo(() => activeCategoryNames(categoryRecords), [categoryRecords]);
+  const brands = useMemo(() => activeBrandNames(brandRecords), [brandRecords]);
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadLocalSuppliers());
   const [supplierTransactions, setSupplierTransactions] = useState<SupplierTransaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -168,6 +220,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR' | null>(null);
+  // Mirror of realtimeStatus for use inside the polling interval without re-running
+  // the effect. Lets the fallback poll skip work while realtime is live (SUBSCRIBED).
+  const realtimeStatusRef = useRef(realtimeStatus);
+  useEffect(() => { realtimeStatusRef.current = realtimeStatus; }, [realtimeStatus]);
   const [offlineQueue, setOfflineQueue] = useState<OfflineQueueItem[]>([]);
   const [offlinePopup, setOfflinePopup] = useState<OfflinePopupState | null>(null);
   const [isSyncingOfflineQueue, setIsSyncingOfflineQueue] = useState(false);
@@ -192,8 +248,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       case 'TRANSFER_STOCK': return 'Transfer Stock';
       case 'ADD_CATEGORY': return 'Add Category';
       case 'REMOVE_CATEGORY': return 'Remove Category';
+      case 'UPDATE_CATEGORY': return 'Rename Category';
       case 'ADD_BRAND': return 'Add Brand';
       case 'REMOVE_BRAND': return 'Remove Brand';
+      case 'UPDATE_BRAND': return 'Rename Brand';
       case 'ADD_SUPPLIER': return 'Add Supplier';
       case 'UPDATE_SUPPLIER': return 'Update Supplier';
       case 'DELETE_SUPPLIER': return 'Delete Supplier';
@@ -335,11 +393,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       case 'REMOVE_CATEGORY':
         await db.deleteCategory(p.category as string);
         return;
+      case 'UPDATE_CATEGORY':
+        await db.updateCategory(p.oldName as string, p.newName as string);
+        return;
       case 'ADD_BRAND':
         await db.insertBrand(p.brand as string);
         return;
       case 'REMOVE_BRAND':
         await db.deleteBrand(p.brand as string);
+        return;
+      case 'UPDATE_BRAND':
+        await db.updateBrand(p.oldName as string, p.newName as string);
         return;
       case 'ADD_SUPPLIER':
         await db.insertSupplier(p.supplier as Supplier);
@@ -481,8 +545,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (data.salesHistory) setSalesHistory(data.salesHistory);
           if (data.customers) setCustomers(data.customers);
           if (data.products) setProducts(data.products);
-          if (data.categories) setCategories(data.categories);
-          if (data.brands) setBrands(data.brands);
+          if (data.categories) setCategoryRecords(recordsFromNames<CategoryRecord>(data.categories));
+          if (data.brands) setBrandRecords(recordsFromNames<BrandRecord>(data.brands));
           if (data.stockHistory) setStockHistory(data.stockHistory);
           if (data.stockTransfers) setStockTransfers(data.stockTransfers);
           if (data.exchangeHistory) setExchangeHistory(data.exchangeHistory);
@@ -501,6 +565,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
+    // Categories/brands: local cache is the sole read source. Load and paint
+    // from it immediately, independent of the Supabase round-trip below.
+    (async () => {
+      const [localCats, localBrandsData] = await Promise.all([loadLocalCategories(), loadLocalBrands()]);
+      setCategoryRecords(pruneCategoryTombstones(localCats));
+      setBrandRecords(pruneBrandTombstones(localBrandsData));
+    })();
+
     // Load from Supabase
     const loadAll = async () => {
       setIsLoading(true);
@@ -512,11 +584,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? Promise.resolve(cached.products)
           : db.fetchProductsWithStock();
 
+        // Exchanges: serve from daily cache if available, otherwise fetch only the
+        // last 2 weeks. Older ranges are fetched on demand by reports. This avoids
+        // re-downloading all-time exchanges + nested items on every app open.
+        const cachedEx = loadCachedExchanges();
+        const exchangesPromise: Promise<ExchangeRecord[]> = (cachedEx && cachedEx.cachedDate === today)
+          ? Promise.resolve(cachedEx.exchanges)
+          : db.fetchExchanges({ dateFrom: twoWeeksAgoDate(today) }).catch(() => [] as ExchangeRecord[]);
+
         const [
           catalogData,
           freshStockRows,
-          categoriesData,
-          brandsData,
+          remoteCategories,
+          remoteBrands,
           damagedGoodsData,
           exchangesData,
         ] = await Promise.all([
@@ -526,15 +606,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
           // supplier_transactions excluded — lazy fetched on the Suppliers page
           // suppliers / expenses / users / settings excluded — local-first or lazy
+          // categories/brands: fetched here for background reconciliation only —
+          // the UI never reads this directly, it's merged into the local cache below.
           db.fetchCategories(),
           db.fetchBrands(),
           db.fetchDamagedGoods(),
-          db.fetchExchanges().catch(() => []),
+          exchangesPromise,
         ]);
 
         // Merge fresh qty into catalog and persist
         const productsData = mergeBranchStock(catalogData, freshStockRows);
         saveCachedProducts(productsData, today);
+
+        // Reconcile categories/brands: merge cloud state into whatever is
+        // currently in the local cache (last-write-wins by updatedAt) and
+        // persist the result — never overwrite local state directly.
+        const mergedCategories = pruneCategoryTombstones(mergeCategoriesLWW(categoryRecordsRef.current, remoteCategories));
+        setCategoryRecords(mergedCategories);
+        void saveLocalCategories(mergedCategories);
+        const mergedBrands = pruneBrandTombstones(mergeBrandsLWW(brandRecordsRef.current, remoteBrands));
+        setBrandRecords(mergedBrands);
+        void saveLocalBrands(mergedBrands);
 
         // Load stock transfers separately (table may not exist yet)
         let stockTransfersData: StockTransfer[] = [];
@@ -564,10 +656,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         setProducts(productsData);
-        setCategories(categoriesData);
-        setBrands(brandsData);
         setDamagedGoods(damagedGoodsData);
         setStockTransfers(stockTransfersData);
+        saveCachedExchanges(exchangeData, today);
         setExchangeHistory(exchangeData);
 
         setIsCloudConnected(true);
@@ -592,18 +683,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!useSupabase) return { success: false, error: 'Cloud database not configured. Using local storage only.' };
     try {
       const [
-        categoriesData,
-        brandsData,
+        remoteCategories,
+        remoteBrands,
         damagedGoodsData,
-        exchangesData,
       ] = await Promise.all([
         // sales excluded — lazy fetched per-page via scoped fetchSales()
         // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
         // supplier_transactions excluded — lazy fetched on the Suppliers page
+        // exchanges excluded — default-loaded for 2 weeks + cached daily; recent
+        //   changes arrive via the dedicated realtime handler / manual refresh
+        // categories/brands: fetched for background reconciliation only, merged
+        // into the local cache below — never overwrites local state directly.
         db.fetchCategories(),
         db.fetchBrands(),
         db.fetchDamagedGoods(),
-        db.fetchExchanges().catch(() => []),
       ]);
 
       let stockTransfersData: StockTransfer[] = [];
@@ -611,10 +704,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         stockTransfersData = await db.fetchStockTransfers();
       } catch (_) { /* table may not exist */ }
 
-      setCategories(categoriesData);
-      setBrands(brandsData);
+      const mergedCategories = pruneCategoryTombstones(mergeCategoriesLWW(categoryRecordsRef.current, remoteCategories));
+      setCategoryRecords(mergedCategories);
+      void saveLocalCategories(mergedCategories);
+      const mergedBrands = pruneBrandTombstones(mergeBrandsLWW(brandRecordsRef.current, remoteBrands));
+      setBrandRecords(mergedBrands);
+      void saveLocalBrands(mergedBrands);
       setDamagedGoods(damagedGoodsData);
-      setExchangeHistory(exchangesData);
       setStockTransfers(stockTransfersData);
       setLastSyncTime(new Date());
       setIsCloudConnected(true);
@@ -648,6 +744,67 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Keep stable refs so the realtime effect doesn't re-run on every render
   const debouncedRefreshRef = useRef(debouncedRefresh);
   useEffect(() => { debouncedRefreshRef.current = debouncedRefresh; }, [debouncedRefresh]);
+
+  // ── Scoped exchange loading (egress-conscious) ────────────────────────────────
+  // Tracks older date-ranges already fetched this session so re-renders and
+  // overlapping report effects don't refetch the same slice.
+  const fetchedRangesRef = useRef<Set<string>>(new Set());
+  const exchangeRealtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch the recent (last 2 weeks) window, merge into state + cache, and only
+  // trigger a re-render/cache write when the data actually changed. Shared by the
+  // manual refresh button and the realtime exchange handler. Does NOT arm cooldown.
+  const fetchRecentAndMerge = useCallback(async (): Promise<{ success: boolean; changed: boolean; error?: string }> => {
+    if (!useSupabase) return { success: false, changed: false, error: 'Cloud database not configured.' };
+    try {
+      const today = getTodayDate();
+      const recent = await db.fetchExchanges({ dateFrom: twoWeeksAgoDate(today) });
+      let changed = false;
+      setExchangeHistory(prev => {
+        const merged = mergeExchangesById(prev, recent);
+        changed = exchangesDiffer(prev, merged);
+        if (changed) saveCachedExchanges(merged, today);
+        return changed ? merged : prev; // skip re-render when identical
+      });
+      return { success: true, changed };
+    } catch (err: unknown) {
+      return { success: false, changed: false, error: extractDbErrorMessage(err, 'Failed to refresh exchanges', 'general') };
+    }
+  }, [useSupabase]);
+
+  // Manual refresh button entry point — enforces a 60s cooldown shared across the app.
+  const refreshRecentExchanges = useCallback(async (): Promise<{ success: boolean; changed: boolean; error?: string }> => {
+    const now = Date.now();
+    if (exchangeRefreshCooldownUntil && now < exchangeRefreshCooldownUntil) {
+      return { success: false, changed: false, error: 'cooldown' };
+    }
+    setExchangeRefreshCooldownUntil(now + 60_000);
+    return fetchRecentAndMerge();
+  }, [exchangeRefreshCooldownUntil, fetchRecentAndMerge]);
+
+  // On-demand loader for report date-ranges older than the cached 2-week window.
+  // Merges the older slice into the single shared exchangeHistory array so existing
+  // consumers keep reading one source. Branch-agnostic (filtering stays client-side).
+  const loadExchangesForPeriod = useCallback(async (from?: string, to?: string): Promise<void> => {
+    if (!useSupabase) return;
+    if (isRangeWithinCache(from, twoWeeksAgoDate(getTodayDate()))) return; // 2-week cache already covers it
+    const key = `${from ?? 'MIN'}|${to ?? 'MAX'}`;
+    if (fetchedRangesRef.current.has(key)) return; // already fetched this slice
+    fetchedRangesRef.current.add(key);
+    try {
+      const older = await db.fetchExchanges({
+        dateFrom: from,
+        dateTo: to ? `${to}T23:59:59.999` : undefined, // inclusive end-of-day
+      });
+      setExchangeHistory(prev => mergeExchangesById(prev, older));
+    } catch {
+      fetchedRangesRef.current.delete(key); // allow retry on failure
+    }
+  }, [useSupabase]);
+
+  // Stable ref for the realtime effect to call without re-subscribing on every render.
+  const fetchRecentAndMergeRef = useRef(fetchRecentAndMerge);
+  useEffect(() => { fetchRecentAndMergeRef.current = fetchRecentAndMerge; }, [fetchRecentAndMerge]);
 
   useEffect(() => {
     if (!useSupabase || !hasLoaded) return;
@@ -704,13 +861,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
       };
 
+      // Exchanges are no longer part of the polled refresh, so cross-device sync
+      // relies on this dedicated handler: debounce, then fetch+merge only the recent
+      // 2-week window (scoped, dedup by exchangeNumber) instead of all-time history.
+      const onExchangeEvent = () => {
+        if (exchangeRealtimeTimerRef.current) clearTimeout(exchangeRealtimeTimerRef.current);
+        exchangeRealtimeTimerRef.current = setTimeout(() => {
+          void fetchRecentAndMergeRef.current();
+        }, 1000);
+      };
+
       const channel = supabase
         .channel(`db-sync-${Date.now()}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, onProductsEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'product_branch_stock' }, onBranchStockEvent)
         // sales + sale_items excluded — lazy fetched per-page via scoped fetchSales()
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'exchanges' }, onEvent)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'exchange_items' }, onEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'exchanges' }, onExchangeEvent)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'exchange_items' }, onExchangeEvent)
         // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_transfers' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, onEvent)
@@ -751,15 +918,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setRealtimeStatus('CONNECTING');
     subscribe();
 
-    // Also set up periodic polling as fallback (every 30 seconds)
+    // Periodic polling as a FALLBACK only. While realtime is live (SUBSCRIBED),
+    // updates already arrive via the channel, so polling is skipped — this is the
+    // main egress win. The poll runs only when realtime is disconnected.
     const pollInterval = setInterval(() => {
-      debouncedRefreshRef.current();
+      if (shouldPoll(realtimeStatusRef.current)) {
+        debouncedRefreshRef.current();
+      }
     }, 30000);
     pollingRef.current = pollInterval;
 
     return () => {
       unmounted = true;
       if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      if (exchangeRealtimeTimerRef.current) clearTimeout(exchangeRealtimeTimerRef.current);
       if (pollingRef.current) clearInterval(pollingRef.current);
       if (retryTimeout) clearTimeout(retryTimeout);
       if (channelRef) supabase.removeChannel(channelRef);
@@ -1431,7 +1603,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setProducts(updatedProducts);
     setStockHistory(prev => [...newStockLogs, ...prev]);
-    setExchangeHistory(prev => [exchange, ...prev]);
+    setExchangeHistory(prev => {
+      const updated = [exchange, ...prev];
+      // Write through to the day cache so a same-day reload keeps this exchange
+      // even before the realtime echo reconciles it to its server id.
+      saveCachedExchanges(updated, getTodayDate());
+      return updated;
+    });
     if (exchangeData.voidSaleId) {
       setSalesHistory(prev => prev.filter(s => s.id !== exchangeData.voidSaleId));
     }
@@ -1749,20 +1927,75 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // CATEGORY / BRAND ACTIONS
   // ============================================================
   const addCategory = (category: string) => {
-    if (!categories.includes(category)) setCategories([...categories, category]);
-    void executeWithOfflineQueue('ADD_CATEGORY', { category }, () => db.insertCategory(category), { fallback: 'Failed to add category' });
+    const trimmed = category.trim();
+    if (!trimmed) return;
+    if (findActiveCategoryByName(categoryRecordsRef.current, trimmed)) return; // case-insensitive dedupe
+    const record: CategoryRecord = { id: makeUuid(), name: trimmed, updatedAt: new Date().toISOString(), deletedAt: null };
+    const updated = [...categoryRecordsRef.current, record];
+    setCategoryRecords(updated);
+    void saveLocalCategories(updated);
+    void executeWithOfflineQueue('ADD_CATEGORY', { category: trimmed }, () => db.insertCategory(trimmed), { fallback: 'Failed to add category' });
   };
   const removeCategory = (category: string) => {
-    setCategories(categories.filter(c => c !== category));
+    const now = new Date().toISOString();
+    const updated = categoryRecordsRef.current.map(c => c.name === category ? { ...c, deletedAt: now, updatedAt: now } : c);
+    setCategoryRecords(updated);
+    void saveLocalCategories(updated);
     void executeWithOfflineQueue('REMOVE_CATEGORY', { category }, () => db.deleteCategory(category), { fallback: 'Failed to remove category' });
   };
+  const updateCategory = async (oldName: string, newName: string): Promise<void> => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    if (findActiveCategoryByName(categoryRecordsRef.current, trimmed)) {
+      throw new Error('A category with that name already exists.');
+    }
+    const now = new Date().toISOString();
+    const updated = categoryRecordsRef.current.map(c => c.name === oldName ? { ...c, name: trimmed, updatedAt: now } : c);
+    setCategoryRecords(updated);
+    await saveLocalCategories(updated);
+    // Cascade to the local products/expenses cache immediately (the RPC does the same server-side)
+    setProducts(prev => {
+      const next = prev.map(p => p.category === oldName ? { ...p, category: trimmed } : p);
+      saveCachedProducts(next, getTodayDate());
+      return next;
+    });
+    setExpenses(prev => prev.map(e => e.category === oldName ? { ...e, category: trimmed } : e));
+    void executeWithOfflineQueue('UPDATE_CATEGORY', { oldName, newName: trimmed }, () => db.updateCategory(oldName, trimmed), { fallback: 'Failed to rename category' });
+  };
   const addBrand = (brand: string) => {
-    if (!brands.includes(brand)) setBrands([...brands, brand]);
-    void executeWithOfflineQueue('ADD_BRAND', { brand }, () => db.insertBrand(brand), { fallback: 'Failed to add brand' });
+    const trimmed = brand.trim();
+    if (!trimmed) return;
+    if (findActiveBrandByName(brandRecordsRef.current, trimmed)) return; // case-insensitive dedupe
+    const record: BrandRecord = { id: makeUuid(), name: trimmed, updatedAt: new Date().toISOString(), deletedAt: null };
+    const updated = [...brandRecordsRef.current, record];
+    setBrandRecords(updated);
+    void saveLocalBrands(updated);
+    void executeWithOfflineQueue('ADD_BRAND', { brand: trimmed }, () => db.insertBrand(trimmed), { fallback: 'Failed to add brand' });
   };
   const removeBrand = (brand: string) => {
-    setBrands(brands.filter(b => b !== brand));
+    const now = new Date().toISOString();
+    const updated = brandRecordsRef.current.map(b => b.name === brand ? { ...b, deletedAt: now, updatedAt: now } : b);
+    setBrandRecords(updated);
+    void saveLocalBrands(updated);
     void executeWithOfflineQueue('REMOVE_BRAND', { brand }, () => db.deleteBrand(brand), { fallback: 'Failed to remove brand' });
+  };
+  const updateBrand = async (oldName: string, newName: string): Promise<void> => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    if (findActiveBrandByName(brandRecordsRef.current, trimmed)) {
+      throw new Error('A brand with that name already exists.');
+    }
+    const now = new Date().toISOString();
+    const updated = brandRecordsRef.current.map(b => b.name === oldName ? { ...b, name: trimmed, updatedAt: now } : b);
+    setBrandRecords(updated);
+    await saveLocalBrands(updated);
+    // Cascade to the local products cache immediately (the RPC does the same server-side)
+    setProducts(prev => {
+      const next = prev.map(p => p.brand === oldName ? { ...p, brand: trimmed } : p);
+      saveCachedProducts(next, getTodayDate());
+      return next;
+    });
+    void executeWithOfflineQueue('UPDATE_BRAND', { oldName, newName: trimmed }, () => db.updateBrand(oldName, trimmed), { fallback: 'Failed to rename brand' });
   };
 
   // ============================================================
@@ -2121,8 +2354,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (data.salesHistory) setSalesHistory(data.salesHistory);
         if (data.customers) setCustomers(data.customers);
         if (data.products) setProducts(data.products);
-        if (data.categories) setCategories(data.categories);
-        if (data.brands) setBrands(data.brands);
+        if (data.categories) setCategoryRecords(recordsFromNames<CategoryRecord>(data.categories));
+        if (data.brands) setBrandRecords(recordsFromNames<BrandRecord>(data.brands));
         if (data.stockHistory) setStockHistory(data.stockHistory);
         if (data.suppliers) setSuppliers(data.suppliers);
         if (data.supplierTransactions) setSupplierTransactions(data.supplierTransactions);
@@ -2253,8 +2486,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addProduct, updateProduct, deleteProduct, getProductSalesUsage,
       addCustomer, updateCustomer, deleteCustomer, loadCustomers, refreshCustomers,
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
-      completeSale, updateSale, deleteSale, refreshSalesHistory, completeExchange, adjustStock, transferStock, deleteTransfer, refreshTransfers,
-      addCategory, removeCategory, addBrand, removeBrand,
+      completeSale, updateSale, deleteSale, refreshSalesHistory, completeExchange, loadExchangesForPeriod, refreshRecentExchanges, exchangeRefreshCooldownUntil, adjustStock, transferStock, deleteTransfer, refreshTransfers,
+      addCategory, removeCategory, updateCategory, addBrand, removeBrand, updateBrand,
       refreshSuppliers, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,

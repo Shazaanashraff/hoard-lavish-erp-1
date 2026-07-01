@@ -48,7 +48,7 @@ type ListItem =
 
 // v1.1.44
 const SalesHistory: React.FC = () => {
-  const { exchangeHistory, branches, products, currentUser } = useStore();
+  const { exchangeHistory, branches, products, currentUser, loadExchangesForPeriod, refreshRecentExchanges, exchangeRefreshCooldownUntil } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<ListItem | null>(null);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('ALL');
@@ -61,6 +61,30 @@ const SalesHistory: React.FC = () => {
   const [itemDateTo, setItemDateTo] = useState<string>('');
   const [itemCategoryFilter, setItemCategoryFilter] = useState<string>('ALL');
   const SALES_PAGE_SIZE = 20;
+
+  // --- Manual "refresh recent exchanges" control (60s shared cooldown) ---
+  const [exRefreshing, setExRefreshing] = useState(false);
+  const [exRefreshMsg, setExRefreshMsg] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const cooldownLeft = exchangeRefreshCooldownUntil ? Math.max(0, Math.ceil((exchangeRefreshCooldownUntil - nowTick) / 1000)) : 0;
+  const handleRefreshExchanges = useCallback(async () => {
+    if (exRefreshing || cooldownLeft > 0) return;
+    setExRefreshing(true);
+    setExRefreshMsg(null);
+    try {
+      const res = await refreshRecentExchanges();
+      if (res.success) setExRefreshMsg(res.changed ? 'Updated' : 'Up to date');
+      else if (res.error === 'cooldown') setExRefreshMsg(null);
+      else setExRefreshMsg('Failed');
+    } finally {
+      setExRefreshing(false);
+      setTimeout(() => setExRefreshMsg(null), 3000);
+    }
+  }, [exRefreshing, cooldownLeft, refreshRecentExchanges]);
 
   // --- Paginated server-side sales list ---
   const [pageSales, setPageSales] = useState<SalesRecord[]>([]);
@@ -86,6 +110,29 @@ const SalesHistory: React.FC = () => {
       offset,
     };
   }, [timePeriod, branchFilter, dateFrom, dateTo, searchTerm]);
+
+  // Exchanges are rendered from the global array (filtered client-side). Default
+  // load only covers 2 weeks, so pull older rows on demand when a filter reaches
+  // back further. Mirrors buildSalesOptions' date derivation.
+  const deriveRange = useCallback((period: TimePeriod, from: string, to: string): [string | undefined, string | undefined] => {
+    if (period === 'ALL') return [undefined, undefined];
+    if (period === 'CUSTOM') return [from || undefined, to || undefined];
+    const now = new Date();
+    if (period === 'TODAY') { const d = now.toISOString().split('T')[0]; return [d, d]; }
+    if (period === 'WEEK') { const d = new Date(now); d.setDate(d.getDate() - 7); return [d.toISOString().split('T')[0], undefined]; }
+    if (period === 'MONTH') { return [`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, undefined]; }
+    return [undefined, undefined];
+  }, []);
+
+  useEffect(() => {
+    const [from, to] = deriveRange(timePeriod, dateFrom, dateTo);
+    void loadExchangesForPeriod(from, to);
+  }, [timePeriod, dateFrom, dateTo, deriveRange, loadExchangesForPeriod]);
+
+  useEffect(() => {
+    const [from, to] = deriveRange(itemTimePeriod, itemDateFrom, itemDateTo);
+    void loadExchangesForPeriod(from, to);
+  }, [itemTimePeriod, itemDateFrom, itemDateTo, deriveRange, loadExchangesForPeriod]);
 
   const loadSales = useCallback(async () => {
     setSalesLoading(true);
@@ -430,6 +477,17 @@ const SalesHistory: React.FC = () => {
 
           {/* Filters Row */}
           <div className="flex items-center gap-3 flex-wrap">
+            {/* Refresh recent exchanges (60s cooldown) */}
+            <button
+              onClick={handleRefreshExchanges}
+              disabled={exRefreshing || cooldownLeft > 0}
+              title={cooldownLeft > 0 ? `Wait ${cooldownLeft}s before refreshing again` : 'Fetch recent exchanges'}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <RefreshCw size={14} className={exRefreshing ? 'animate-spin' : ''} />
+              {exRefreshing ? 'Refreshing…' : cooldownLeft > 0 ? `Refresh (${cooldownLeft}s)` : exRefreshMsg ?? 'Refresh'}
+            </button>
+
             {/* Time Period Filter */}
             <div className="flex bg-slate-100 rounded-lg p-0.5">
               {(['TODAY', 'WEEK', 'MONTH', 'CUSTOM', 'ALL'] as TimePeriod[]).map(p => (

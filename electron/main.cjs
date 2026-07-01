@@ -2,6 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
+const { getNamespace, setNamespace } = require('./localStore.cjs');
 
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
@@ -109,6 +110,16 @@ ipcMain.on('silent-print', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.print({ silent: true, printBackground: true });
     }
+});
+
+// ─── Local persistent key/value store (electron-store, main process only) ──
+ipcMain.handle('local-store:get', (_event, namespace) => {
+    return getNamespace(namespace);
+});
+
+ipcMain.handle('local-store:set', (_event, namespace, value) => {
+    setNamespace(namespace, value);
+    return true;
 });
 
 // ─── Logo as base64 for receipts ─────────────────────────

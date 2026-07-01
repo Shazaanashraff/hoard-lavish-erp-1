@@ -1,7 +1,7 @@
 {
   "name": "hoard-lavish-erp",
   "private": true,
-  "version": "1.1.45",
+  "version": "1.2.0",
   "type": "module",
   "main": "electron/main.cjs",
   "author": "Hoard Lavish",
@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -23,6 +24,7 @@
     "@google/genai": "^1.41.0",
     "@supabase/supabase-js": "^2.95.3",
     "electron-log": "^5.4.3",
+    "electron-store": "^8.2.0",
     "electron-updater": "^6.8.3",
     "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.0",

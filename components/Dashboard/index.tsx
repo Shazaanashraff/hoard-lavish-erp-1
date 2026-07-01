@@ -21,7 +21,7 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { products, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches } = useStore();
+  const { products, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches, loadExchangesForPeriod } = useStore();
   const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
@@ -90,6 +90,19 @@ const Dashboard: React.FC = () => {
 
   // --- Filtered Sales — now loaded on-demand via dashSales ---
   const filteredSales = dashSales.periodSales.data;
+
+  // Exchanges default-load for 2 weeks; pull older rows on demand when the selected
+  // day/month reaches further back than that window.
+  useEffect(() => {
+    if (filterMode === 'daily') {
+      void loadExchangesForPeriod(selectedDate, selectedDate);
+    } else {
+      const [y, m] = selectedMonth.split('-').map(Number);
+      const from = `${selectedMonth}-01`;
+      const to = `${selectedMonth}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+      void loadExchangesForPeriod(from, to);
+    }
+  }, [filterMode, selectedDate, selectedMonth, loadExchangesForPeriod]);
 
   // --- Filtered Exchanges (branch-scoped) ---
   const filteredExchanges = useMemo(() => {

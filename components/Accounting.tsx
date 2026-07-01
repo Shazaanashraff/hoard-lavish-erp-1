@@ -10,7 +10,7 @@ import ConfirmDialog from './shared/ConfirmDialog';
 import { fetchExpenses } from '../services/db/expenses';
 
 const Accounting: React.FC = () => {
-  const { stockTransfers, exchangeHistory, currentBranch, branches, addExpense, deleteExpense } = useStore();
+  const { stockTransfers, exchangeHistory, currentBranch, branches, addExpense, deleteExpense, loadExchangesForPeriod } = useStore();
   const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'EXPENSES'>('DASHBOARD');
   const [filterPeriod, setFilterPeriod] = useState<'ALL' | 'MONTH'>('ALL');
   const [branchFilter, setBranchFilter] = useState<string>('ALL');
@@ -73,6 +73,19 @@ const Accounting: React.FC = () => {
       .then(setFilteredSales)
       .catch(err => console.error('Failed to load accounting sales', err));
   }, [filterPeriod]);
+
+  // Exchanges are default-loaded for 2 weeks; pull older rows on demand when the
+  // selected period reaches further back (MONTH early in the month, or ALL).
+  useEffect(() => {
+    const now = new Date();
+    if (filterPeriod === 'MONTH') {
+      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+      void loadExchangesForPeriod(from, to);
+    } else {
+      void loadExchangesForPeriod(undefined, undefined); // ALL → full history
+    }
+  }, [filterPeriod, loadExchangesForPeriod]);
 
   // --- Calculations ---
 

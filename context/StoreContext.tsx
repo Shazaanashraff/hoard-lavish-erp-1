@@ -128,6 +128,7 @@ interface StoreContextType {
   updateBrand: (oldName: string, newName: string) => Promise<void>;
 
   refreshSuppliers: () => Promise<void>;
+  refreshDamagedGoods: () => Promise<void>;
   addSupplier: (supplier: Supplier) => void;
   updateSupplier: (id: string, updates: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
@@ -597,7 +598,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           freshStockRows,
           remoteCategories,
           remoteBrands,
-          damagedGoodsData,
           exchangesData,
         ] = await Promise.all([
           catalogPromise,
@@ -606,11 +606,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
           // supplier_transactions excluded — lazy fetched on the Suppliers page
           // suppliers / expenses / users / settings excluded — local-first or lazy
+          // damaged_goods excluded — lazy fetched on the Suppliers page via refreshDamagedGoods()
+          // stock_transfers excluded — lazy fetched on the Inventory Transfers tab via refreshTransfers()
           // categories/brands: fetched here for background reconciliation only —
           // the UI never reads this directly, it's merged into the local cache below.
           db.fetchCategories(),
           db.fetchBrands(),
-          db.fetchDamagedGoods(),
           exchangesPromise,
         ]);
 
@@ -628,23 +629,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setBrandRecords(mergedBrands);
         void saveLocalBrands(mergedBrands);
 
-        // Load stock transfers separately (table may not exist yet)
-        let stockTransfersData: StockTransfer[] = [];
-        try {
-          stockTransfersData = await db.fetchStockTransfers();
-        } catch (_) {
-          // Table may not exist yet — ignore
-        }
-        // Fallback: if Supabase returned nothing, try localStorage
-        if (stockTransfersData.length === 0) {
-          try {
-            const savedTransfers = localStorage.getItem('hoard_stock_transfers');
-            if (savedTransfers) {
-              stockTransfersData = JSON.parse(savedTransfers);
-            }
-          } catch (_) { /* ignore parse errors */ }
-        }
-
         let exchangeData: ExchangeRecord[] = exchangesData;
         if (exchangeData.length === 0) {
           try {
@@ -656,8 +640,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         setProducts(productsData);
-        setDamagedGoods(damagedGoodsData);
-        setStockTransfers(stockTransfersData);
         saveCachedExchanges(exchangeData, today);
         setExchangeHistory(exchangeData);
 
@@ -685,24 +667,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const [
         remoteCategories,
         remoteBrands,
-        damagedGoodsData,
       ] = await Promise.all([
         // sales excluded — lazy fetched per-page via scoped fetchSales()
         // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
         // supplier_transactions excluded — lazy fetched on the Suppliers page
+        // damaged_goods excluded — lazy fetched on the Suppliers page via refreshDamagedGoods()
+        // stock_transfers excluded — lazy fetched on the Inventory Transfers tab via refreshTransfers()
         // exchanges excluded — default-loaded for 2 weeks + cached daily; recent
         //   changes arrive via the dedicated realtime handler / manual refresh
         // categories/brands: fetched for background reconciliation only, merged
         // into the local cache below — never overwrites local state directly.
         db.fetchCategories(),
         db.fetchBrands(),
-        db.fetchDamagedGoods(),
       ]);
-
-      let stockTransfersData: StockTransfer[] = [];
-      try {
-        stockTransfersData = await db.fetchStockTransfers();
-      } catch (_) { /* table may not exist */ }
 
       const mergedCategories = pruneCategoryTombstones(mergeCategoriesLWW(categoryRecordsRef.current, remoteCategories));
       setCategoryRecords(mergedCategories);
@@ -710,8 +687,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const mergedBrands = pruneBrandTombstones(mergeBrandsLWW(brandRecordsRef.current, remoteBrands));
       setBrandRecords(mergedBrands);
       void saveLocalBrands(mergedBrands);
-      setDamagedGoods(damagedGoodsData);
-      setStockTransfers(stockTransfersData);
       setLastSyncTime(new Date());
       setIsCloudConnected(true);
       return { success: true };
@@ -879,12 +854,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .on('postgres_changes', { event: '*', schema: 'public', table: 'exchanges' }, onExchangeEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'exchange_items' }, onExchangeEvent)
         // stock_movements excluded — lazy fetched per-component via fetchStockMovements()
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_transfers' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, onEvent)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, onEvent)
         // suppliers table excluded — lazy fetched on page open via refreshSuppliers()
         // supplier_transactions excluded — lazy fetched on the Suppliers page
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'damaged_goods' }, onEvent)
+        // damaged_goods excluded — lazy fetched on the Suppliers page via refreshDamagedGoods()
+        // stock_transfers excluded — lazy fetched on the Inventory Transfers tab via refreshTransfers()
         .subscribe((status) => {
           console.log('Realtime subscription status:', status);
           if (unmounted) return;
@@ -2012,6 +1987,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [useSupabase]);
 
+  // Lazy-fetched on the Suppliers page — damaged_goods is excluded from the
+  // initial load, poll fallback, and realtime subscriptions (see refreshFromSupabase).
+  const refreshDamagedGoods = useCallback(async () => {
+    if (!useSupabase) return;
+    try {
+      const data = await db.fetchDamagedGoods();
+      setDamagedGoods(data);
+    } catch (err) {
+      console.error('Failed to refresh damaged goods', err);
+    }
+  }, [useSupabase]);
+
   const addSupplier = (supplier: Supplier) => {
     setSuppliers(prev => { const next = [...prev, supplier]; saveLocalSuppliers(next); return next; });
     void executeWithOfflineQueue('ADD_SUPPLIER', { supplier }, () => db.insertSupplier(supplier), { fallback: 'Failed to add supplier' });
@@ -2488,7 +2475,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
       completeSale, updateSale, deleteSale, refreshSalesHistory, completeExchange, loadExchangesForPeriod, refreshRecentExchanges, exchangeRefreshCooldownUntil, adjustStock, transferStock, deleteTransfer, refreshTransfers,
       addCategory, removeCategory, updateCategory, addBrand, removeBrand, updateBrand,
-      refreshSuppliers, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
+      refreshSuppliers, refreshDamagedGoods, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,
       addUser, updateUser, deleteUser, refreshUsers,

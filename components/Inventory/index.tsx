@@ -67,6 +67,14 @@ const Inventory: React.FC = () => {
       .finally(() => setTabLoading(false));
   }, [activeTab, currentBranch.id]);
 
+  // --- Lazy stock transfers (TRANSFERS tab) — fetched once on first open, not on mount/poll ---
+  const transfersLoadedRef = useRef(false);
+  useEffect(() => {
+    if (activeTab !== 'TRANSFERS' || transfersLoadedRef.current) return;
+    transfersLoadedRef.current = true;
+    void refreshTransfers();
+  }, [activeTab, refreshTransfers]);
+
   const loadMoreMovements = async () => {
     const nextPage = tabPage + 1;
     setTabLoading(true);

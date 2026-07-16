@@ -15,8 +15,9 @@ the [POS unit](./pos.md); the systemic stock-write race (fixes INV-04) spans bot
 
 | File | Role |
 |------|------|
-| [components/Inventory/index.tsx](../../components/Inventory/index.tsx) (2006 lines) | UI entry point — product table, add/edit form, **variation builder**, stock-adjust modal, transfer modal, damaged-goods tab, barcode printing (JsBarcode). |
-| [context/StoreContext.tsx](../../context/StoreContext.tsx) | Actions: `addProduct`, `updateProduct`, `deleteProduct`, `adjustStock`, `transferStock`, `addDamagedGood`, `deleteDamagedGood`. |
+| [components/Inventory/index.tsx](../../components/Inventory/index.tsx) (2006 lines) | UI entry point — product table, add/edit form, **variation builder**, stock-adjust modal, transfer modal (lazy-loaded on first open), barcode printing (JsBarcode). Damaged-goods tab is **not** here — see below. |
+| [components/Suppliers.tsx](../../components/Suppliers.tsx) | Owns the **damaged-goods tab** (write-off form tied to a supplier + product), lazy-loaded on page mount via `refreshDamagedGoods`. |
+| [context/StoreContext.tsx](../../context/StoreContext.tsx) | Actions: `addProduct`, `updateProduct`, `deleteProduct`, `adjustStock`, `transferStock`, `refreshTransfers`, `addDamagedGood`, `deleteDamagedGood`, `refreshDamagedGoods`. |
 | [services/db/products.ts](../../services/db/products.ts) | `fetchProductsWithStock`, `insertProduct`, `updateProduct`, `deleteProduct` (+ 3 delete modes), linked-sales lookup. |
 | [services/db/inventory.ts](../../services/db/inventory.ts) | Damaged goods CRUD — **also mutates stock + logs movements internally** (see Gotchas), `initializeBranchStock`. |
 | [services/db/transfers.ts](../../services/db/transfers.ts) | `insertStockTransfer`, `fetchStockTransfers` — **runtime-feature-flagged** (table may not exist → silent no-op). |
@@ -44,6 +45,12 @@ reconciliation source only: `refreshFromSupabase` (30s fallback poll / realtime 
 remote rows and **merges** them into the cache via last-write-wins by `updated_at`
 (`mergeCategoriesLWW`/`mergeBrandsLWW`), never overwrites local state directly.
 
+- **Damaged goods and stock transfers are lazy-loaded, page-scoped data** — excluded from the
+  initial `loadAll()`, the `refreshFromSupabase` poll/realtime-triggered refresh, and realtime
+  subscriptions entirely (same treatment as `suppliers`). `damaged_goods` is fetched via
+  `refreshDamagedGoods()` when the Suppliers page mounts; `stock_transfers` via `refreshTransfers()`
+  the first time the Inventory **Transfers** tab is opened. This keeps the 30s fallback poll from
+  hitting these tables on every tick.
 - **Add/remove/rename** (`addCategory`/`removeCategory`/`updateCategory`, `context/StoreContext.tsx`)
   write the local cache first, then queue the Supabase write through the existing offline-queue
   (`ADD_CATEGORY`/`REMOVE_CATEGORY`/`UPDATE_CATEGORY`, mirrored for brands).
@@ -144,3 +151,7 @@ remote rows and **merges** them into the cache via last-write-wins by `updated_a
 
 <!-- changelog: append one line per code change that touched this unit -->
 - 2026-06-30 6091b5f — initial documentation.
+- 2026-07-01 — lazy-load `damaged_goods` (Suppliers page mount) and `stock_transfers` (Inventory
+  Transfers tab open); removed both from initial load, 30s poll refresh, and realtime subscriptions
+  to cut unnecessary DB egress. Corrected doc: damaged-goods tab lives in `components/Suppliers.tsx`,
+  not Inventory.

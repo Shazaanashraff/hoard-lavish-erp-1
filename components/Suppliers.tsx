@@ -82,16 +82,17 @@ type SupplierTab = 'LIST' | 'EXPENSE' | 'HISTORY' | 'DAMAGED';
 const TX_PAGE_SIZE = 50;
 
 const Suppliers: React.FC = () => {
-  const { suppliers, products, refreshSuppliers, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
+  const { suppliers, products, refreshSuppliers, refreshDamagedGoods, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, updateSupplierTransaction, deleteSupplierTransaction, damagedGoods, addDamagedGood, deleteDamagedGood, currentUser, currentBranch } = useStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     void refreshSuppliers();
+    void refreshDamagedGoods();
   }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    try { await refreshSuppliers(); } finally { setIsRefreshing(false); }
+    try { await Promise.all([refreshSuppliers(), refreshDamagedGoods()]); } finally { setIsRefreshing(false); }
   };
   const isAdmin = currentUser?.role === 'ADMIN';
   const [activeTab, setActiveTab] = useState<SupplierTab>('LIST');

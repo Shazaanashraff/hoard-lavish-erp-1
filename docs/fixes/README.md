@@ -53,3 +53,4 @@ When a finding fits two tiers, file it at the **higher** tier (P0 over P1).
 - [pos.md](./pos.md) — POS / Checkout · 2 P0 (exchange atomicity, sale-edit unique-violation) + oversell & soft-void P0s, egress + RLS P2s.
 - [inventory.md](./inventory.md) — Inventory · P0 delete-linked-sales data loss · P1 full-catalog egress · stock-write race, damaged-goods double-write, UI-only role gate (P2s).
 - [dashboard.md](./dashboard.md) — Dashboard · P0 edit re-runs INSERT-only RPC (=POS-02) · P1 chart/top-performers fetch all rows, ignore `fn_sales_daily_totals` · UI-only admin gate + stale recent-sales cache (P2s).
+- [customers.md](./customers.md) — Customers *(DRAFT)* · P1 full-table `select('*')` load + heavy profile sales fetch · UI-only role gate, cache stale-closure, CRUD untested (P2/P3s).

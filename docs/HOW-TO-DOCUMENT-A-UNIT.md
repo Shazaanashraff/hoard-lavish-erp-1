@@ -66,7 +66,7 @@ lines in `docs/fixes/README.md`.
 | POS / Checkout | ☑ | ☑ | **LOCKED** (reference) | gold standard — `docs/map/pos.md`, `docs/fixes/pos.md` |
 | Inventory | ☑ | ☑ | **LOCKED** | `docs/map/inventory.md`, `docs/fixes/inventory.md` |
 | Dashboard | ☑ | ☑ | **LOCKED** | `docs/map/dashboard.md`, `docs/fixes/dashboard.md` |
-| Customers | ☐ | ☐ | | customer CRUD, loyalty |
+| Customers | ◐ | ◐ | **DRAFT** (0 ⚠️) | `docs/map/customers.md`, `docs/fixes/customers.md` — awaiting lock approval |
 | Suppliers | ☐ | ☐ | | supplier CRUD, transactions, damaged-goods tab, affects_accounting |
 | Accounting | ☐ | ☐ | | expense entry + history |
 | Settings | ☐ | ☐ | | settings, branch mgmt, CSV import |

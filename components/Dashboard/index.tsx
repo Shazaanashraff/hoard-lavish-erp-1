@@ -244,13 +244,35 @@ const Dashboard: React.FC = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     return sale.date.startsWith(todayStr);
   };
+
+  // Sales that have been fully returned/exchanged (every line covered) can no longer be
+  // Edited/Voided — the return/exchange already reversed their stock and loyalty effect,
+  // and the sale itself now stays in the sales table to keep revenue reporting accurate.
+  const fullyReturnedSaleIds = useMemo(() => {
+    const ids = new Set<string>();
+    dashSales.recentWithItems.data.forEach((sale: any) => {
+      const relatedExchanges = (exchangeHistory || []).filter(ex => ex.originalSaleId === sale.id);
+      if (relatedExchanges.length === 0) return;
+      const returnedByLine = new Map<number, number>();
+      relatedExchanges.forEach(ex => {
+        ex.returnedItems.forEach(item => {
+          if (typeof item.sourceSaleItemIndex !== 'number') return;
+          returnedByLine.set(item.sourceSaleItemIndex, (returnedByLine.get(item.sourceSaleItemIndex) || 0) + item.quantity);
+        });
+      });
+      const fullyReturned = (sale.items || []).every((item: any, idx: number) => (returnedByLine.get(idx) || 0) >= item.quantity);
+      if (fullyReturned) ids.add(sale.id);
+    });
+    return ids;
+  }, [dashSales.recentWithItems.data, exchangeHistory]);
+
   const recentEditableSales = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return dashSales.recentWithItems.data
-      .filter((s: any) => s.date.startsWith(todayStr))
+      .filter((s: any) => s.date.startsWith(todayStr) && !fullyReturnedSaleIds.has(s.id))
       .sort((a: any, b: any) => parseBusinessDate(b.date).getTime() - parseBusinessDate(a.date).getTime())
       .slice(0, 20);
-  }, [dashSales.recentWithItems.data]);
+  }, [dashSales.recentWithItems.data, fullyReturnedSaleIds]);
 
   // --- Activity Feed ---
   const activityFeed = useMemo(() => {

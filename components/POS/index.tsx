@@ -958,22 +958,6 @@ const POS: React.FC = () => {
     }
 
     try {
-      // Check if we should void the selected sale: all items from the invoice are being returned
-      let shouldVoidSale = false;
-      if (selectedExchangeSale && noSaleReturnItems.length === 0) {
-        // Only linked-sale returns (no manual items added)
-        const returnedQtyByLineIndex = new Map<number, number>();
-        returnedItems.forEach(item => {
-          if (typeof item.sourceSaleItemIndex === 'number') {
-            returnedQtyByLineIndex.set(item.sourceSaleItemIndex, (returnedQtyByLineIndex.get(item.sourceSaleItemIndex) || 0) + item.quantity);
-          }
-        });
-        // Check if all items from selected sale are being returned
-        shouldVoidSale = selectedExchangeSale.items.every((item, idx) =>
-          (returnedQtyByLineIndex.get(idx) || 0) === item.quantity
-        );
-      }
-
       const exchange = completeExchange({
         originalSaleId: selectedExchangeSale?.id,
         originalInvoiceNumber: selectedExchangeSale?.invoiceNumber,
@@ -990,7 +974,6 @@ const POS: React.FC = () => {
         customerId: selectedExchangeSale?.customerId,
         customerName: selectedExchangeSale?.customerName,
         description: exchangeDescription || 'Product Exchange',
-        voidSaleId: shouldVoidSale ? selectedExchangeSale.id : undefined,
       });
 
       setLastExchange(exchange);

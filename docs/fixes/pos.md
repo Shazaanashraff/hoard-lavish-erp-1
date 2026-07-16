@@ -47,18 +47,18 @@
   stock'`) when `product_branch_stock.quantity < requested` for the branch, before the decrement — so the
   whole atomic sale rolls back rather than flooring. The UI cap stays as a first line of defense.
 
-### POS-09 · P0 · BUG · `supabase/migrations/009_void_sale.sql:63-65`, `context/StoreContext.tsx:1627`
-- **Problem:** Voiding a sale permanently **`DELETE`s** it: `fn_void_sale` ends in `DELETE FROM sales`
-  (cascading to `sale_items`), and the full-return exchange path issues a direct
-  `supabase.from('sales').delete()` (`StoreContext.tsx:1627`). There is no status column and no retained
-  record of the voided/returned sale.
+### POS-09 · P0 · BUG · `supabase/migrations/009_void_sale.sql:63-65`
+- **Problem:** Voiding a sale from the Dashboard permanently **`DELETE`s** it: `fn_void_sale` ends in
+  `DELETE FROM sales` (cascading to `sale_items`). There is no status column and no retained record of
+  the voided sale. **(Exchange-triggered deletion resolved 2026-07-16 — see Resolved below; this entry
+  now covers only the Dashboard Void button's hard delete.)**
 - **Impact:** The intended behavior (confirmed) is a **soft-void that retains the sale for audit**. Current
   code instead destroys the financial record and its line items — permanent loss of audit/revenue history.
   Data-retention/integrity gap.
 - **Fix:** Add a `status` (e.g. `ACTIVE` | `VOIDED` | `RETURNED`) + `voided_at`/`void_reason` column to
   `sales`. Change `fn_void_sale` to restore stock + reverse loyalty + **mark** the row voided instead of
-  deleting. Update the exchange full-return path to mark rather than delete. Filter active-only sales in the
-  read paths (`fetchSales`, daily totals) so reports exclude voided rows. (Ties into POS-01's exchange RPC.)
+  deleting. Filter active-only sales in the read paths (`fetchSales`, daily totals) so reports exclude
+  voided rows. (Ties into POS-01's exchange RPC.)
 
 ### POS-03 · P2 · EGRESS · `context/StoreContext.tsx:1363-1369`
 - **Problem:** `deleteSale` (void) calls `refreshFromSupabase()` after `voidSaleRPC`, re-fetching the
@@ -112,4 +112,19 @@
 ---
 
 ## Resolved
-<!-- none yet -->
+
+- **POS-09 (exchange sub-case) · fixed 2026-07-16** — A full-return/exchange (every line of the
+  original invoice returned or swapped) used to `DELETE` the original sale from `sales`
+  (`components/POS/index.tsx` `shouldVoidSale`, `StoreContext.tsx` `completeExchange`'s
+  `voidSaleId` path). Because Dashboard KPIs and the Day-End Report compute
+  `revenue = Σ sales.totalAmount + Σ exchanges.difference`, deleting the sale silently dropped its
+  amount from that sum while the exchange's `difference` was still counted — understating (plain
+  return) or overstating (exchange) revenue by the deleted sale's full amount, and making the
+  Dashboard's transaction count disagree with the visible "Recent Sales" list. **Fix:** every
+  exchange (full or partial) now keeps the original sale row and its `original_sale_id` FK; the
+  existing revenue formula nets out correctly and both the sale and the return/exchange show as
+  separate transactions. To prevent the now-retained sale from being Voided/Edited a second time
+  (which would double-reverse stock/loyalty), the Dashboard's "Edit / Void Bills" list
+  (`components/Dashboard/index.tsx` `recentEditableSales`) excludes any sale whose lines have all
+  been returned via a linked exchange. The Dashboard Void button's own hard-delete (plain voids,
+  not exchange-triggered) is unchanged — that remains open under POS-09 above.

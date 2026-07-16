@@ -4,7 +4,7 @@
 > sales/profit chart, top-performing products, a unified money ledger, an activity feed, a today's
 > "recent sales" table with **Edit / Void**, and a **Day End Report** PDF export.
 >
-> Status: **LOCKED** · Last verified against code: 2026-07-01 · Commit: 6091b5f
+> Status: **LOCKED** · Last verified against code: 2026-07-16
 
 Read this file (and `docs/fixes/dashboard.md`) before editing the Dashboard feature. If the code and
 this doc disagree, **the code wins** — fix the doc in the same change. The sale **Edit/Void** UI lives
@@ -81,7 +81,15 @@ net sales, items sold (sales + exchange `newItems`), avg bill/item, and the ledg
 - **Void = hard delete (proven, inherited from POS):** `deleteSale` → `fn_void_sale` restores stock,
   reverses loyalty (`GREATEST(0,…)`), then DELETEs the row. No soft-void/status flag (see POS-09).
 - **Exchange revenue (proven):** counted as `difference` (signed) in KPIs and the ledger; exchange
-  `newItems` quantities are added to "items sold" in the Day End Report (`index.tsx:373-374`).
+  `newItems` quantities are added to "items sold" in the Day End Report (`index.tsx:373-374`). This
+  only nets correctly because the original sale is never removed from `sales` — see `docs/map/pos.md`
+  ("Exchange / return") and fixes POS-09 (2026-07-16): a full return/exchange used to delete the
+  original sale, which silently dropped its amount from revenue.
+- **Fully-returned sales are excluded from Edit/Void (fixed 2026-07-16):** `recentEditableSales`
+  (`index.tsx:247-268`) now filters out any of today's sales whose lines have all been returned via a
+  linked exchange (`fullyReturnedSaleIds`, computed from `exchangeHistory`) — the sale still counts
+  toward revenue/reporting, it's just no longer actionable from this table (its stock/loyalty effect
+  was already reversed by the exchange; voiding it again would double-reverse).
 
 ## Actions & Tools
 
@@ -125,3 +133,5 @@ net sales, items sold (sales + exchange `newItems`), avg bill/item, and the ledg
 
 <!-- changelog: append one line per code change that touched this unit -->
 - 2026-07-01 6091b5f — initial documentation. LOCKED: edit/void left open by design (financials admin-only) — confirmed.
+- 2026-07-16 — `recentEditableSales` excludes fully-returned sales (companion to the POS-09 exchange
+  fix that stopped deleting the original sale on a full return).

@@ -3,7 +3,7 @@
 > One-line: the point-of-sale screen — scan/search products into a cart, apply discounts, take
 > payment (Cash / Card / Digital / Cash+Card), record the sale, and run product exchanges/returns.
 >
-> Status: **LOCKED** · Last verified against code: 2026-06-30 · Commit: 6091b5f
+> Status: **LOCKED** · Last verified against code: 2026-07-16
 
 Read this file (and `docs/fixes/pos.md`) before editing the POS feature. If the code and this doc
 disagree, **the code wins** — fix the doc in the same change. Sale **edit/void** UI lives in the
@@ -55,8 +55,11 @@ that line's sold quantity across prior exchanges. It **optimistically** restocks
 new items (`OUT`), adjusts customer spend/loyalty by `newTotal − returnedTotal`, then persists via
 `executeWithOfflineQueue('COMPLETE_EXCHANGE', …)` which runs a **client-side sequence**: per-product
 `upsertBranchStock`, per-movement `insertStockMovement`, optional `updateCustomer`, then
-`insertExchange` (header + items as two inserts), then — if every line of the original sale was returned —
-a **direct `sales` delete** of the original (not `fn_void_sale`, because stock/loyalty were already corrected).
+`insertExchange` (header + items as two inserts). **The original sale row is always kept** (full and
+partial returns behave identically) — `original_sale_id` stays linked, and the sale's own
+`totalAmount` plus the exchange's `difference` are what net out to the correct revenue in the
+Dashboard/Day-End Report (`sales + exchanges.difference`); deleting the sale would silently drop its
+amount from every revenue total (fixed 2026-07-16, see fixes POS-09 update).
 
 ## Business rules
 
@@ -75,10 +78,11 @@ a **direct `sales` delete** of the original (not `fn_void_sale`, because stock/l
 - **Exchange return cap (proven):** per original sale line, `requested ≤ soldQty − alreadyReturned` across the
   branch's prior exchanges; otherwise it throws before persisting.
 - **Sale status lifecycle:** **Intended (confirmed): sales should be *soft-voided* with a status flag and kept
-  for audit.** **Current code does NOT do this** — `sales` rows have no status column and a void is a hard
-  `DELETE`: "void" = `fn_void_sale` (restore stock, reverse loyalty, then `DELETE`), and a full-return exchange
-  does a direct `DELETE` of the original sale (no "Sale Voided" movement, since the exchange's `IN` movements
-  already restore stock). This divergence from intent is a data-retention gap — see fixes **POS-09**.
+  for audit.** **Current code does NOT do this for the Dashboard Void button** — `sales` rows have no status
+  column and Void is a hard `DELETE`: `fn_void_sale` (restore stock, reverse loyalty, then `DELETE`). This
+  divergence from intent is a data-retention gap — see fixes **POS-09**. A full-return/exchange, by contrast,
+  **no longer deletes** the original sale (fixed 2026-07-16) — it stays in `sales` with its `original_sale_id`
+  FK intact, and the Dashboard hides Edit/Void for it once every line has been returned (see `docs/map/dashboard.md`).
 
 ## Actions & Tools
 
@@ -86,7 +90,7 @@ a **direct `sales` delete** of the original (not `fn_void_sale`, because stock/l
 |---------------|--------------|-----------------|
 | `addToCart` / `updateCartQuantity` | Cart edits, capped at branch stock | local state only |
 | `completeSale` | Record a sale (optimistic + RPC) | `fn_complete_sale` → `sales`, `sale_items`, `product_branch_stock`, `stock_movements`, `customers` |
-| `completeExchange` | Record a return/exchange | `upsertBranchStock`, `insertStockMovement`, `updateCustomer`, `insertExchange` (→ `exchanges`,`exchange_items`), optional `sales` DELETE |
+| `completeExchange` | Record a return/exchange (original sale is kept) | `upsertBranchStock`, `insertStockMovement`, `updateCustomer`, `insertExchange` (→ `exchanges`,`exchange_items`) |
 | `updateSale` *(UI in Dashboard)* | Edit a recent sale | `completeSaleRPC` again — **INSERT-only, breaks on UNIQUE invoice** (see fixes POS-02) |
 | `deleteSale` *(UI in Dashboard)* | Void a sale | `fn_void_sale`, then `refreshFromSupabase()` (full refetch) |
 | `printReceiptForSale` / `…Exchange` | Thermal/A4 receipt | `window.electronAPI.printReceipt` (Electron), `utils/receiptHtml.ts` |
@@ -104,9 +108,12 @@ a **direct `sales` delete** of the original (not `fn_void_sale`, because stock/l
 - **Exchange persistence has no RPC.** Unlike sales, the whole exchange write is client-orchestrated and
   **not atomic** (fixes POS-01). `architecture.md` says exchanges "adjust stock on both sides" — true, but it
   happens in `completeExchange`/the offline replay, **not** in `insertExchange` (which only writes the rows).
-- **Full-return = original sale is hard-deleted**, and *no* "Sale Voided" movement is logged (the exchange's
-  `IN` return movements already restore stock). FK refs are nulled first so the delete doesn't cascade-null the
-  fresh exchange row.
+- **Full-return keeps the original sale (fixed 2026-07-16).** Earlier code hard-deleted the sale when every
+  line of the invoice was returned/exchanged, which silently dropped its amount from every revenue total
+  (Dashboard KPIs, Day-End Report, ledger) — the exchange's `difference` alone was left counted, understating
+  or overstating revenue by the deleted sale's amount. Now every exchange (full or partial) keeps the sale row
+  and its `original_sale_id` FK, so `sales + exchanges.difference` nets out correctly and both legs show as
+  separate transactions in reports.
 - **Legacy DB fallback in `completeSaleRPC`** retries `fn_complete_sale` without the split params if the server
   is on a pre-008 signature; Cash+Card on such a DB throws a clear "apply migration 008" error.
 - **`fn_complete_sale` is INSERT-only.** It never updates — so reusing it to "edit" a sale is a bug (POS-02),
@@ -128,3 +135,5 @@ a **direct `sales` delete** of the original (not `fn_void_sale`, because stock/l
 
 <!-- changelog: append one line per code change that touched this unit -->
 - 2026-06-30 6091b5f — initial documentation (reference unit).
+- 2026-07-16 — full-return/exchange no longer hard-deletes the original sale; fixes revenue
+  double-loss on the Dashboard/Day-End Report (POS-09 exchange sub-case resolved).

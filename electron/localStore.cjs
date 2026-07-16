@@ -8,6 +8,7 @@ const store = new Store({
     defaults: {
         categories: { records: [], lastSyncedAt: null },
         brands: { records: [], lastSyncedAt: null },
+        machineBranch: { branchId: null },
     },
 });
 

@@ -8,6 +8,7 @@ import { generateInvoiceNumber, generateTransferNumber } from '../utils/generato
 import { isLikelyConnectivityIssue, extractDbErrorMessage, DbLikeError } from '../utils/errors';
 import { isUuid, makeUuid } from '../utils/ids';
 import { loadLocalBranches, saveLocalBranches } from '../services/localBranches';
+import { loadAssignedBranchId, saveAssignedBranchId } from '../services/machineBranch';
 import { loadCachedProducts, saveCachedProducts, applyStockDelta, mergeBranchStock } from '../services/localProducts';
 import {
   loadCachedExchanges,
@@ -71,6 +72,10 @@ interface StoreContextType {
   users: User[];
   settings: AppSettings;
   currentBranch: Branch;
+  // Per-machine assigned branch (electron-store, device-local — see services/machineBranch.ts).
+  // null until an admin sets it or while it's still loading (assignedBranchLoaded === false).
+  assignedBranchId: string | null;
+  assignedBranchLoaded: boolean;
   currentUser: User | null;
   currentView: ViewState;
   isLoading: boolean;
@@ -80,6 +85,7 @@ interface StoreContextType {
 
   // Actions
   setBranch: (branchId: string) => void;
+  setAssignedBranch: (branchId: string) => Promise<void>;
   addBranch: (branch: Omit<Branch, 'id'> & { id?: string }) => void;
   updateBranch: (id: string, updates: Partial<Branch>) => void;
 
@@ -184,6 +190,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const _localBranches = loadLocalBranches();
   const [branches, setBranches] = useState<Branch[]>(_localBranches);
   const [currentBranch, setCurrentBranch] = useState<Branch>(_localBranches[0]);
+  const [assignedBranchId, setAssignedBranchId] = useState<string | null>(null);
+  const [assignedBranchLoaded, setAssignedBranchLoaded] = useState(false);
+
+  // Load the machine's assigned branch from electron-store — independent of Supabase/cloud
+  // connectivity since this is purely a local device fact.
+  useEffect(() => {
+    let cancelled = false;
+    void loadAssignedBranchId().then(id => {
+      if (cancelled) return;
+      setAssignedBranchId(id);
+      setAssignedBranchLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const setAssignedBranch = useCallback(async (branchId: string): Promise<void> => {
+    await saveAssignedBranchId(branchId);
+    setAssignedBranchId(branchId);
+  }, []);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -2437,8 +2462,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <StoreContext.Provider value={{
       products, customers, cart, salesHistory, stockHistory, stockTransfers, exchangeHistory, categories, brands, branches, suppliers, supplierTransactions, expenses, damagedGoods, users, settings,
-      currentBranch, currentUser, currentView, isLoading, dbError, offlineQueue, offlinePopup, lastSyncTime, isCloudConnected, realtimeStatus,
-      setBranch, addBranch, updateBranch,
+      currentBranch, assignedBranchId, assignedBranchLoaded, currentUser, currentView, isLoading, dbError, offlineQueue, offlinePopup, lastSyncTime, isCloudConnected, realtimeStatus,
+      setBranch, setAssignedBranch, addBranch, updateBranch,
       addProduct, updateProduct, deleteProduct, getProductSalesUsage,
       addCustomer, updateCustomer, deleteCustomer, loadCustomers, refreshCustomers,
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,

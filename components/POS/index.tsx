@@ -14,7 +14,7 @@ type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
 
 const POS: React.FC = () => {
-  const { products, customers, cart, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, clearCart, addCustomer, loadCustomers, adjustStock, currentBranch, currentUser, settings } = useStore();
+  const { products, customers, cart, exchangeHistory, addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, completeSale, completeExchange, clearCart, addCustomer, loadCustomers, adjustStock, currentBranch, currentUser, settings, branches, assignedBranchId } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [barcodeInput, setBarcodeInput] = useState('');
   // Keep a ref in sync with barcodeInput so the submit handler always reads
@@ -614,6 +614,12 @@ const POS: React.FC = () => {
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
+    if (assignedBranchId && assignedBranchId !== currentBranch.id) {
+      const assignedName = branches.find(b => b.id === assignedBranchId)?.name ?? 'its assigned location';
+      setAlertPopup({ message: `This machine is locked to ${assignedName}. Switch to that branch before completing this sale.`, type: 'warning' });
+      return;
+    }
+
     if (selectedPaymentMethod === 'Cash+Card') {
       if (splitCashAmount < 0 || splitCardAmount < 0) {
         setAlertPopup({ message: 'Cash and card amounts must be zero or more.', type: 'warning' });
@@ -950,6 +956,12 @@ const POS: React.FC = () => {
       })),
     ];
     if (allReturned.length === 0 && exchangeNewItems.length === 0) return;
+
+    if (assignedBranchId && assignedBranchId !== currentBranch.id) {
+      const assignedName = branches.find(b => b.id === assignedBranchId)?.name ?? 'its assigned location';
+      setAlertPopup({ message: `This machine is locked to ${assignedName}. Switch to that branch before completing this exchange.`, type: 'warning' });
+      return;
+    }
 
     const invalidNoSaleReturn = noSaleReturnItems.some(i => !Number.isFinite(i.manualReturnUnitPrice) || (i.manualReturnUnitPrice ?? 0) <= 0);
     if (invalidNoSaleReturn) {

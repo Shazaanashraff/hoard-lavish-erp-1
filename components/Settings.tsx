@@ -11,8 +11,10 @@ const Settings: React.FC = () => {
     users, addUser, updateUser, deleteUser, refreshUsers,
     branches, currentBranch, updateBranch,
     addProduct,
-    exportData, importData
+    exportData, importData,
+    currentUser, assignedBranchId, assignedBranchLoaded, setAssignedBranch,
   } = useStore();
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'DATA' | 'IMPORT'>('GENERAL');
   
@@ -45,6 +47,19 @@ const Settings: React.FC = () => {
     barcodePrinterName: currentBranch.barcodePrinterName || '',
   });
   const [generalSaved, setGeneralSaved] = useState(false);
+
+  // Machine Location — per-machine, saved independently of the General form (electron-store, not Supabase)
+  const [machineLocationSelection, setMachineLocationSelection] = useState('');
+  const [machineLocationSaved, setMachineLocationSaved] = useState(false);
+  useEffect(() => {
+    setMachineLocationSelection(assignedBranchId ?? '');
+  }, [assignedBranchId]);
+  const handleSaveMachineLocation = async () => {
+    if (!machineLocationSelection) return;
+    await setAssignedBranch(machineLocationSelection);
+    setMachineLocationSaved(true);
+    setTimeout(() => setMachineLocationSaved(false), 2000);
+  };
 
   // Update printer fields when branch changes
   useEffect(() => {
@@ -389,6 +404,45 @@ const Settings: React.FC = () => {
                 )}
                 {generalForm.barcodePrinterName && (
                   <p className="text-xs text-emerald-600 font-medium">✓ Will print labels to: {generalForm.barcodePrinterName}</p>
+                )}
+              </div>
+
+              {/* Machine Location — locks this physical machine to one branch for checkout */}
+              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Lock size={16} className="text-slate-500" />
+                  <p className="font-medium text-slate-900">Machine Location</p>
+                </div>
+                <p className="text-sm text-slate-500">
+                  The branch this machine is physically located at. Checkout in POS is blocked if the
+                  branch selector doesn't match this.
+                </p>
+                {isAdmin ? (
+                  <>
+                    <select
+                      className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 bg-white"
+                      value={machineLocationSelection}
+                      onChange={e => setMachineLocationSelection(e.target.value)}
+                    >
+                      <option value="">-- Not set --</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleSaveMachineLocation}
+                      disabled={!machineLocationSelection}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {machineLocationSaved ? <><CheckCircle size={14} /> Saved!</> : <><Save size={14} /> Assign This Machine</>}
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium text-slate-700">
+                    {assignedBranchLoaded && assignedBranchId
+                      ? branches.find(b => b.id === assignedBranchId)?.name ?? 'Unknown branch'
+                      : 'Not set — ask an admin to assign this machine\'s location.'}
+                  </p>
                 )}
               </div>
 

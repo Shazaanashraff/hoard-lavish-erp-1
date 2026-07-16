@@ -21,10 +21,18 @@ const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
 const Dashboard: React.FC = () => {
-  const { products, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches, loadExchangesForPeriod } = useStore();
+  const { products, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches, loadExchangesForPeriod, assignedBranchId, assignedBranchLoaded, setAssignedBranch } = useStore();
   const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
   const role = currentUser?.role || 'CASHIER';
   const isAdmin = role === 'ADMIN';
+
+  // --- Machine Location: unassigned/unmatched banner ---
+  const machineNeedsLocation = assignedBranchLoaded && (!assignedBranchId || !branches.some(b => b.id === assignedBranchId));
+  const [machineLocationPick, setMachineLocationPick] = useState('');
+  const handleAssignMachineLocation = async () => {
+    if (!machineLocationPick) return;
+    await setAssignedBranch(machineLocationPick);
+  };
 
   // --- Recent stock movements for activity feed (lazy, 30 most recent non-sale-out) ---
   const [recentMovements, setRecentMovements] = useState<StockMovement[]>([]);
@@ -1251,6 +1259,41 @@ const Dashboard: React.FC = () => {
           <FilterControls />
         </div>
       </div>
+
+      {/* MACHINE LOCATION — prompt when this machine has no assigned branch */}
+      {machineNeedsLocation && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+          <div className="flex-1">
+            <p className="font-bold text-amber-800">This machine has no assigned location</p>
+            <p className="text-sm text-amber-700">
+              {isAdmin
+                ? 'Pick the branch this machine is physically located at. Checkout in POS is blocked until this is set.'
+                : "Ask an admin to assign this machine's location before making sales."}
+            </p>
+          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <select
+                className="p-2.5 border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm"
+                value={machineLocationPick}
+                onChange={e => setMachineLocationPick(e.target.value)}
+              >
+                <option value="">-- Select branch --</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => void handleAssignMachineLocation()}
+                disabled={!machineLocationPick}
+                className="px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                Assign This Machine
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* OVERVIEW STATS — Admin only */}
       {isAdmin && (

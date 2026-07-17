@@ -625,8 +625,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // stock_transfers excluded — lazy fetched on the Inventory Transfers tab via refreshTransfers()
           // categories/brands: fetched here for background reconciliation only —
           // the UI never reads this directly, it's merged into the local cache below.
-          db.fetchCategories(),
-          db.fetchBrands(),
+          // Non-fatal: a categories/brands fetch failure (e.g. a pending migration)
+          // must never abort the product catalog load alongside it.
+          db.fetchCategories().catch(() => [] as CategoryRecord[]),
+          db.fetchBrands().catch(() => [] as BrandRecord[]),
           exchangesPromise,
         ]);
 

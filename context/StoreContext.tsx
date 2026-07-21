@@ -2432,15 +2432,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const refreshTransfers = async () => {
     if (!useSupabase) return;
     try {
-      setIsLoading(true);
       const transfers = await db.fetchStockTransfers();
       setStockTransfers(transfers);
       dismissDbError();
     } catch (err: unknown) {
       console.error('Failed to refresh transfers:', err);
       setDbError(extractDbErrorMessage(err, 'Failed to refresh transfer history'));
-    } finally {
-      setIsLoading(false);
     }
   };
 

@@ -198,13 +198,13 @@ const Accounting: React.FC = () => {
   return (
     <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Accounting & Finance</h1>
-            <p className="text-sm text-slate-500">Track expenses, income, and business profitability.</p>
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">Accounting &amp; Finance</h1>
+            <p className="text-xs sm:text-sm text-slate-500">Track expenses, income, and business profitability.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             <button 
               onClick={() => setIsModalOpen(true)}
               className="bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-sm text-sm font-medium"
@@ -214,22 +214,24 @@ const Accounting: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex justify-between items-center">
-           <div className="flex gap-4">
-            <button 
+        {/* Tabs and filters share one row on desktop; below `sm` they stack, and
+            the tab row scrolls rather than wrapping mid-label. */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center">
+           <div className="flex gap-4 overflow-x-auto -mb-px">
+            <button
               onClick={() => setActiveTab('DASHBOARD')}
-              className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'DASHBOARD' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'DASHBOARD' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
               Financial Overview
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('EXPENSES')}
-              className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors ${activeTab === 'EXPENSES' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'EXPENSES' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
               Expense Management
             </button>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {/* Branch Filter */}
             <div className="flex items-center gap-1">
               <Building2 size={14} className="text-slate-400" />
@@ -261,38 +263,38 @@ const Accounting: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {activeTab === 'DASHBOARD' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Total Income</p>
-                    <h3 className="text-2xl font-bold text-emerald-600 mt-1">LKR {grossIncome.toLocaleString()}</h3>
+                    <h3 className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1 break-words">LKR {grossIncome.toLocaleString()}</h3>
                     <p className="text-xs text-slate-400 mt-1">Sales: LKR {totalIncome.toLocaleString()}{exchangeIncome > 0 ? ` | Exchanges: LKR ${exchangeIncome.toLocaleString()}` : ''}</p>
                   </div>
                   <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><TrendingUp size={20} /></div>
                 </div>
               </div>
               
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Total Expenses</p>
-                    <h3 className="text-2xl font-bold text-rose-600 mt-1">LKR {totalExpenses.toLocaleString()}</h3>
+                    <h3 className="text-xl sm:text-2xl font-bold text-rose-600 mt-1 break-words">LKR {totalExpenses.toLocaleString()}</h3>
                     <p className="text-xs text-slate-400 mt-1">Ops: LKR {totalOperatingExpenses.toLocaleString()}{exchangeRefunds > 0 ? ` | Refunds: LKR ${exchangeRefunds.toLocaleString()}` : ''}</p>
                   </div>
                   <div className="p-2 bg-rose-50 rounded-lg text-rose-600"><TrendingDown size={20} /></div>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Net Profit</p>
-                    <h3 className={`text-2xl font-bold mt-1 ${netProfit >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <h3 className={`text-xl sm:text-2xl font-bold mt-1 break-words ${netProfit >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
                       LKR {netProfit.toLocaleString()}
                     </h3>
                   </div>
@@ -302,9 +304,9 @@ const Accounting: React.FC = () => {
             </div>
 
             {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                {/* Income vs Expense Area Chart */}
-               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80">
+               <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm h-64 sm:h-80">
                  <h3 className="font-bold text-slate-800 mb-4">Cash Flow</h3>
                  <ResponsiveContainer width="100%" height="100%">
                    <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -329,7 +331,7 @@ const Accounting: React.FC = () => {
                </div>
 
                {/* Expense Breakdown Pie Chart */}
-               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80 flex flex-col">
+               <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm h-64 sm:h-80 flex flex-col">
                  <h3 className="font-bold text-slate-800 mb-4">Expense Distribution</h3>
                  <div className="flex-1 flex items-center justify-center min-h-0">
                    {expenseBreakdown.length > 0 ? (
@@ -361,11 +363,35 @@ const Accounting: React.FC = () => {
 
             {/* General Ledger (Recent Transactions) */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-               <div className="p-6 border-b border-slate-100">
+               <div className="p-4 sm:p-6 border-b border-slate-100">
                  <h3 className="font-bold text-slate-800">Unified Ledger</h3>
                  <p className="text-xs text-slate-400">Combined view of all financial transactions</p>
                </div>
-               <table className="w-full text-left text-sm">
+
+               {/* Card list — below `md`. Same five fields; IN/OUT keeps its pill
+                   and the amount keeps its emerald/rose colouring. */}
+               <div className="md:hidden divide-y divide-slate-100">
+                 {ledger.slice(0, 10).map((item, idx) => (
+                   <div key={idx} className="p-4 flex justify-between items-start gap-3">
+                     <div className="min-w-0">
+                       <p className="font-medium text-slate-900 text-sm break-words">{item.desc}</p>
+                       <p className="text-xs text-slate-500 mt-0.5">
+                         {parseBusinessDate(item.date).toLocaleDateString()} · {item.category}
+                       </p>
+                     </div>
+                     <div className="text-right flex-shrink-0">
+                       <p className={`font-bold text-sm ${item.type === 'IN' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                         {item.type === 'OUT' ? '-' : ''}LKR {item.amount.toFixed(2)}
+                       </p>
+                       <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${item.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                         {item.type}
+                       </span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+
+               <table className="hidden md:table w-full text-left text-sm">
                  <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                    <tr>
                      <th className="p-4">Date</th>
@@ -399,11 +425,42 @@ const Accounting: React.FC = () => {
 
         {activeTab === 'EXPENSES' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+             <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center gap-3">
                <h3 className="font-bold text-slate-800">Operating Expenses</h3>
-               <span className="text-xs text-slate-400">{filteredExpenses.length} records found</span>
+               <span className="text-xs text-slate-400 flex-shrink-0">{filteredExpenses.length} records found</span>
              </div>
-             <table className="w-full text-left text-sm">
+
+             {/* Card list — below `md`. Delete keeps a 40px tap target rather than
+                 the desktop icon-in-a-cell. */}
+             <div className="md:hidden divide-y divide-slate-100">
+               {filteredExpenses.map(e => (
+                 <div key={e.id} className="p-4 flex justify-between items-start gap-3">
+                   <div className="min-w-0">
+                     <p className="font-medium text-slate-900 text-sm break-words">{e.description}</p>
+                     <p className="text-xs text-slate-500 mt-0.5">
+                       {parseBusinessDate(e.date).toLocaleDateString()}
+                       {e.branchName ? ` · ${e.branchName}` : ''}
+                     </p>
+                     <span className="inline-block bg-slate-100 px-2 py-0.5 rounded text-[10px] font-medium mt-1.5">{e.category}</span>
+                   </div>
+                   <div className="flex items-center gap-1 flex-shrink-0">
+                     <p className="font-bold text-slate-800 text-sm">LKR {e.amount.toFixed(2)}</p>
+                     <button
+                       onClick={() => setDeleteConfirm({ id: e.id, desc: e.description })}
+                       aria-label={`Delete expense ${e.description}`}
+                       className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                     >
+                       <Trash2 size={16} />
+                     </button>
+                   </div>
+                 </div>
+               ))}
+               {filteredExpenses.length === 0 && (
+                 <p className="p-8 text-center text-slate-400 text-sm">No expenses recorded for this period.</p>
+               )}
+             </div>
+
+             <table className="hidden md:table w-full text-left text-sm">
                <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                  <tr>
                    <th className="p-4">Date</th>
@@ -448,7 +505,7 @@ const Accounting: React.FC = () => {
       {/* Add Expense Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
             <h3 className="font-bold text-lg text-slate-800 mb-4">Add Operating Expense</h3>
             <div className="space-y-4">
                <div>
@@ -462,7 +519,7 @@ const Accounting: React.FC = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Amount (LKR)</label>
                   <input 
@@ -483,7 +540,7 @@ const Accounting: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                    <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
                    <select 

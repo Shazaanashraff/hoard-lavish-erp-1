@@ -84,9 +84,9 @@ const Customers: React.FC = () => {
   return (
     <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-4">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {activeView === 'PROFILE' && (
               <button
                 onClick={() => { setActiveView('LIST'); setSelectedCustomer(null); }}
@@ -95,11 +95,11 @@ const Customers: React.FC = () => {
                 <ChevronLeft size={24} className="text-slate-500" />
               </button>
             )}
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
                 {activeView === 'PROFILE' ? 'Customer Profile' : 'Customer Management'}
               </h1>
-              <p className="text-sm text-slate-500">
+              <p className="text-xs sm:text-sm text-slate-500">
                 {activeView === 'PROFILE' ? 'View history and loyalty details.' : 'Manage customer database and loyalty program.'}
               </p>
             </div>
@@ -149,7 +149,7 @@ const Customers: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
 
         {/* VIEW: LIST */}
         {activeView === 'LIST' && (
@@ -165,7 +165,39 @@ const Customers: React.FC = () => {
               />
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            {/* Card list — below `md`, where the 5-column table can't fit. Same
+                fields, same tap target (opens the profile), stacked. */}
+            <div className="md:hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+              {filteredCustomers.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => openProfile(c)}
+                  className="w-full text-left p-4 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                >
+                  <div className="w-10 h-10 flex-shrink-0 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                    {c.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 truncate">{c.name}</p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                      <Phone size={11} className="flex-shrink-0" /> <span className="truncate">{c.phone}</span>
+                    </p>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px]">
+                      <Star size={10} /> {c.loyaltyPoints} pts
+                    </span>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">Spent</p>
+                    <p className="font-medium text-slate-900 text-sm">{fmtCurrency(c.totalSpent)}</p>
+                  </div>
+                </button>
+              ))}
+              {filteredCustomers.length === 0 && (
+                <p className="p-8 text-center text-slate-400 text-sm">No customers found.</p>
+              )}
+            </div>
+
+            <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                   <tr>
@@ -221,23 +253,23 @@ const Customers: React.FC = () => {
         {activeView === 'PROFILE' && selectedCustomer && (
           <div className="max-w-5xl mx-auto">
             {/* Top Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-2xl font-bold">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-2xl font-bold">
                   {selectedCustomer.name.charAt(0)}
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{selectedCustomer.name}</h2>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{selectedCustomer.name}</h2>
                   <div className="flex flex-col text-sm text-slate-500 mt-1">
-                    <span className="flex items-center gap-1"><Phone size={12} /> {selectedCustomer.phone}</span>
-                    <span className="flex items-center gap-1"><Mail size={12} /> {selectedCustomer.email}</span>
+                    <span className="flex items-center gap-1 min-w-0"><Phone size={12} className="flex-shrink-0" /> <span className="truncate">{selectedCustomer.phone}</span></span>
+                    <span className="flex items-center gap-1 min-w-0"><Mail size={12} className="flex-shrink-0" /> <span className="truncate">{selectedCustomer.email}</span></span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
                 <p className="text-sm text-slate-500 font-medium mb-1">Lifetime Value</p>
-                <h3 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2 break-words">
                   {fmtCurrency(selectedCustomer.totalSpent)}
                 </h3>
                 <div className="mt-2 text-xs text-green-600 bg-green-50 inline-block px-2 py-0.5 rounded-full font-bold">
@@ -245,15 +277,15 @@ const Customers: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
                     <p className="text-sm text-slate-500 font-medium mb-1">Loyalty Points</p>
-                    <h3 className="text-3xl font-bold text-indigo-600">{selectedCustomer.loyaltyPoints}</h3>
+                    <h3 className="text-2xl sm:text-3xl font-bold text-indigo-600">{selectedCustomer.loyaltyPoints}</h3>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right min-w-0">
                     <p className="text-xs text-slate-400">Last Visit</p>
-                    <p className="font-medium text-slate-700">{lastVisit}</p>
+                    <p className="font-medium text-slate-700 text-sm truncate">{lastVisit}</p>
                   </div>
                 </div>
               </div>
@@ -261,12 +293,38 @@ const Customers: React.FC = () => {
 
             {/* Purchase History */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center">
                 <h3 className="font-bold text-slate-800 flex items-center gap-2">
                   <ShoppingBag size={20} className="text-slate-400" /> Purchase History
                 </h3>
               </div>
-              <table className="w-full text-left text-sm">
+
+              {/* Card list — below `md`. The Items column holds a joined product
+                  list, so it gets its own line rather than a cramped cell. */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {customerHistory.map(sale => (
+                  <div key={sale.id} className="p-4">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-sm text-slate-800">{sale.invoiceNumber}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {parseBusinessDate(sale.date).toLocaleDateString()}
+                          {sale.branchName ? ` · ${sale.branchName}` : ''}
+                        </p>
+                      </div>
+                      <p className="font-bold text-slate-900 text-sm flex-shrink-0">{fmtCurrency(sale.totalAmount)}</p>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-2 break-words">
+                      {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                    </p>
+                  </div>
+                ))}
+                {customerHistory.length === 0 && (
+                  <p className="p-8 text-center text-slate-400 text-sm">No purchase history available.</p>
+                )}
+              </div>
+
+              <table className="hidden md:table w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                   <tr>
                     <th className="p-4">Date</th>
@@ -304,7 +362,7 @@ const Customers: React.FC = () => {
       {/* Modal: Add/Edit Customer */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
             <h3 className="font-bold text-lg text-slate-800 mb-4">{editingCustomer.id ? 'Edit Customer' : 'New Customer'}</h3>
             <div className="space-y-4">
               <div>

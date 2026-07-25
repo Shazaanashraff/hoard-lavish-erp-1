@@ -53,20 +53,20 @@ const Branches: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-slate-50 p-8 overflow-y-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="flex-1 bg-slate-50 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+      <div className="flex justify-between items-center mb-6 lg:mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Branch Management</h2>
-          <p className="text-slate-500">Manage store locations and view performance.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Branch Management</h2>
+          <p className="text-sm sm:text-base text-slate-500">Manage store locations and view performance.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {branches.map(branch => {
           const stats = getBranchStats(branch.id);
           return (
             <div key={branch.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <div className="p-6 border-b border-slate-50">
+              <div className="p-4 sm:p-6 border-b border-slate-50">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600">
                     <Store size={24} />
@@ -80,30 +80,30 @@ const Branches: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-1">{branch.name}</h3>
                 <div className="space-y-2 text-sm text-slate-500">
-                  <div className="flex items-center gap-2">
-                    <MapPin size={14} /> {branch.address}
+                  <div className="flex items-start gap-2">
+                    <MapPin size={14} className="flex-shrink-0 mt-0.5" /> <span className="min-w-0 break-words">{branch.address}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Phone size={14} /> {branch.phone}
+                    <Phone size={14} className="flex-shrink-0" /> <span className="min-w-0 break-words">{branch.phone}</span>
                   </div>
                 </div>
               </div>
-              <div className="bg-slate-50 p-6 grid grid-cols-2 gap-4">
-                <div>
+              <div className="bg-slate-50 p-4 sm:p-6 grid grid-cols-2 gap-4">
+                <div className="min-w-0">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total Stock</p>
-                  <p className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <Package size={16} className="text-slate-400" />
+                  <p className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Package size={16} className="text-slate-400 flex-shrink-0" />
                     {stats.totalStock}
                   </p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Stock Value</p>
-                  <p className="text-lg font-bold text-slate-800">${stats.stockValue.toLocaleString()}</p>
+                  <p className="text-base sm:text-lg font-bold text-slate-800 break-words">${stats.stockValue.toLocaleString()}</p>
                 </div>
-                <div className="col-span-2 pt-4 border-t border-slate-200">
+                <div className="col-span-2 pt-4 border-t border-slate-200 min-w-0">
                   <p className="text-xs text-slate-400 uppercase font-bold mb-1">Total Revenue</p>
-                  <p className="text-xl font-bold text-emerald-600 flex items-center gap-2">
-                    <BarChart2 size={18} />
+                  <p className="text-lg sm:text-xl font-bold text-emerald-600 flex items-center gap-2 break-words">
+                    <BarChart2 size={18} className="flex-shrink-0" />
                     ${stats.totalSales.toLocaleString()}
                   </p>
                 </div>
@@ -115,7 +115,7 @@ const Branches: React.FC = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
             <h3 className="font-bold text-lg text-slate-800 mb-4">{editingBranch.id ? 'Edit Branch' : 'New Branch'}</h3>
             <div className="space-y-4">
               <div>

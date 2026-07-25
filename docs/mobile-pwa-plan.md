@@ -155,7 +155,7 @@ WebAuthn), and the URL added to Supabase's allowed origins.
 | **1. Make it cheap** | 2.3 per-slice fetchers, pagination, IndexedDB (2.5) | Desktop gets faster + cheaper too |
 | **2. Make it a web app** | 2.8 Tailwind build-time, manifest, SW, icons, dvh/safe-area, 2.10 hosting, 2.4 routing | Installable, works on desktop browser |
 | ~~**3. Shell + nav**~~ ✅ | §4a-A: `dvh`, safe areas, banners. Sidebar → drawer. `UpdateNotification` `w-96` | Every view reachable on a phone |
-| **4. Small views** | Branches, Customers, Accounting — grids, toolbars, 4 tables, 3 modals | Three views done, pattern established |
+| ~~**4. Small views**~~ ✅ | Branches, Customers, Accounting — grids, toolbars, 4 tables, 3 modals | Three views done, pattern established |
 | **5. Medium views** | Suppliers (tab row + `min-w` columns), Settings (`w-64` → tab row), SalesHistory (master-detail → push nav) | Owner can watch the business from a phone |
 | **6. Large views** | Dashboard (7 modals, 7 tables), Inventory (5 modals, 5 tables, 4 grids) | Full read + stock management |
 | **7. POS** | 3-pane → staged flow, exchange panel → full screen, camera scanner (2.6), receipt fallback (2.7), 44px targets | Mobile selling |
@@ -234,6 +234,29 @@ sidebar is `static` at x=0 with scrim and top bar both `display:none` — deskto
 **The `z-[140]` matters:** the drawer must sit above the `z-[100]` `DbErrorBanner`, which is
 `fixed top-0` and otherwise covers the drawer's own close button — caught only by screenshotting
 the open drawer while a DB error was showing.
+
+### A2. Table pattern — established in phase 4
+
+There is no shared table→card component, deliberately. The cells are bespoke per table
+(avatars, pills, joined item strings, action buttons), so a generic column-config component
+would mean rewriting every table into config — a bigger and riskier change than the
+duplication it saves. The pattern instead is a convention:
+
+```
+<div className="md:hidden divide-y divide-slate-100"> …card rows… </div>
+<table className="hidden md:table …">            …unchanged desktop table… </table>
+```
+
+The desktop `<table>` markup is never touched — `hidden md:table` (or a `hidden md:block`
+wrapper where the table sits inside a bordered card) is the only edit to it. That keeps the
+desktop rendering provably identical and confines all new markup to the mobile branch.
+
+Card rows reuse the same formatters (`fmtCurrency`, `parseBusinessDate`) and the same
+semantic colours (`emerald-600`/`rose-600`, IN/OUT pills, category chips) as the cells they
+replace, so nothing is restyled — only re-laid-out.
+
+**Applied in phase 4:** Customers list (5 cols), Customers purchase history (5 cols),
+Accounting unified ledger (5 cols), Accounting operating expenses (6 cols).
 
 ### B. Multi-pane layouts — the three structural jobs
 

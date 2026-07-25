@@ -1,15 +1,21 @@
 import React from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Settings, LogOut, History, Store, ChevronDown, Truck, PieChart, Users, Cloud, CloudOff, WifiOff } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Settings, LogOut, History, Store, ChevronDown, Truck, PieChart, Users, Cloud, CloudOff, WifiOff, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { ViewState, Role } from '../types';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  /** Drawer open state — mobile only. Ignored at `md` and above, where the sidebar is always visible. */
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { currentView, setView, branches, currentBranch, setBranch, currentUser, logout, lastSyncTime, isCloudConnected, realtimeStatus, offlineQueue } = useStore();
   const role: Role = currentUser?.role || 'CASHIER';
 
   const NavItem = ({ view, icon: Icon, label }: { view: ViewState, icon: any, label: string }) => (
     <button
-      onClick={() => setView(view)}
+      onClick={() => { setView(view); onClose?.(); }}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group
         ${currentView === view
           ? 'bg-slate-900 text-white shadow-md'
@@ -21,12 +27,38 @@ const Sidebar: React.FC = () => {
   );
 
   return (
-    <div className="w-64 h-screen bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
-      <div className="p-6 border-b border-slate-100">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">
-          HOARD <span className="text-amber-600">LAVISH</span>
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">Fashion ERP System</p>
+    <>
+      {/* Scrim — mobile only, closes the drawer on tap */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className={`fixed inset-0 z-[130] bg-slate-900/50 transition-opacity duration-300 md:hidden
+          ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      />
+
+      {/* z-[140] clears the z-[100] DbErrorBanner and z-[120] offline popup, both
+          `fixed` overlays that would otherwise cover the drawer's close button. */}
+      <div
+        className={`fixed inset-y-0 left-0 z-[140] w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0
+          transition-transform duration-300 ease-out
+          md:static md:z-auto md:translate-x-0 md:transition-none
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+      <div className="p-6 border-b border-slate-100 flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            HOARD <span className="text-amber-600">LAVISH</span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">Fashion ERP System</p>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close menu"
+          className="p-1 -mr-1 -mt-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors md:hidden"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       {/* Branch Switcher */}
@@ -112,7 +144,8 @@ const Sidebar: React.FC = () => {
           <span className="font-medium">Logout</span>
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

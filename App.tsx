@@ -1,4 +1,5 @@
 import React from 'react';
+import { Menu, Cloud, CloudOff } from 'lucide-react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -22,14 +23,17 @@ const DbErrorBanner: React.FC = () => {
   if (!dbError) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] bg-red-600 text-white px-4 py-2 flex items-center justify-between shadow-lg">
-      <div className="flex items-center gap-2 text-sm">
-        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div
+      className="fixed top-0 left-0 right-0 z-[100] bg-red-600 text-white px-4 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between shadow-lg"
+      style={{ paddingTop: 'calc(0.5rem + env(safe-area-inset-top))' }}
+    >
+      <div className="flex items-start gap-2 text-sm min-w-0">
+        <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span><strong>Database Error:</strong> {dbError}</span>
+        <span className="min-w-0"><strong>Database Error:</strong> {dbError}</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-shrink-0">
         <button
           onClick={async () => { setSyncing(true); await syncData(); setSyncing(false); }}
           className="px-3 py-1 text-xs font-medium bg-white/20 hover:bg-white/30 rounded transition-colors"
@@ -52,7 +56,10 @@ const OfflinePopupBanner: React.FC = () => {
   if (!offlinePopup) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[120] w-full max-w-sm bg-white border border-slate-200 shadow-xl rounded-xl p-4">
+    <div
+      className="fixed bottom-4 right-4 left-4 sm:left-auto z-[120] sm:w-full max-w-sm bg-white border border-slate-200 shadow-xl rounded-xl p-4"
+      style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className={`text-sm font-bold ${offlinePopup.variant === 'queued' ? 'text-amber-700' : 'text-green-700'}`}>
@@ -77,10 +84,51 @@ const OfflinePopupBanner: React.FC = () => {
   );
 };
 
+// Compact app bar shown only below `md`, where the sidebar is a drawer.
+// Carries the hamburger, the brand, and the branch/cloud status that the
+// sidebar shows inline on desktop.
+const MobileTopBar: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
+  const { currentBranch, isCloudConnected } = useStore();
+
+  return (
+    <header
+      className="md:hidden flex-shrink-0 flex items-center gap-3 bg-white border-b border-slate-200 px-4 py-2.5"
+      style={{ paddingTop: 'calc(0.625rem + env(safe-area-inset-top))' }}
+    >
+      <button
+        onClick={onMenuClick}
+        aria-label="Open menu"
+        className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+      >
+        <Menu size={22} />
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold tracking-tight text-slate-900 leading-tight">
+          HOARD <span className="text-amber-600">LAVISH</span>
+        </p>
+        <p className="text-[11px] text-slate-400 truncate leading-tight">{currentBranch?.name}</p>
+      </div>
+      {isCloudConnected
+        ? <Cloud size={16} className="text-green-500 flex-shrink-0" />
+        : <CloudOff size={16} className="text-red-400 flex-shrink-0" />}
+    </header>
+  );
+};
+
 // Main Layout Component handling the view switching
 const Layout: React.FC = () => {
   const { currentView, currentUser } = useStore();
   const role = currentUser?.role || 'CASHIER';
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+
+  // Close the drawer when the viewport grows past `md`, so it can't be left
+  // "open" in a state the desktop layout doesn't render.
+  React.useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => { if (e.matches) setSidebarOpen(false); };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const renderView = () => {
     // Role-based view guards
@@ -116,11 +164,18 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-slate-50">
-      <Sidebar />
-      <main className="flex-1 flex overflow-hidden relative">
-        {renderView()}
-      </main>
+    // `100dvh` rather than `h-screen` — `100vh` is measured against the mobile
+    // viewport with the URL bar hidden, so it overflows while the bar is shown.
+    <div className="flex h-[100dvh] w-full bg-slate-50 overflow-hidden">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* `min-w-0` stops wide children (the 23 tables) from forcing the whole
+          shell wider than the viewport — flex items default to min-width:auto. */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <MobileTopBar onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1 flex overflow-hidden relative min-w-0">
+          {renderView()}
+        </main>
+      </div>
     </div>
   );
 };

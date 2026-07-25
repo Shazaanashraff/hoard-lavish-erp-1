@@ -57,8 +57,11 @@ const UpdateNotification: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-96 overflow-hidden">
+    <div
+      className="fixed bottom-6 right-6 left-6 sm:left-auto z-[9999] animate-slide-up"
+      style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full sm:w-96 overflow-hidden">
         {/* Header */}
         <div className={`px-4 py-3 flex items-center justify-between ${
           stage === 'error' ? 'bg-red-50' : 

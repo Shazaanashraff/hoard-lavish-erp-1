@@ -217,7 +217,7 @@ const Accounting: React.FC = () => {
         {/* Tabs and filters share one row on desktop; below `sm` they stack, and
             the tab row scrolls rather than wrapping mid-label. */}
         <div className="flex flex-col gap-3 lg:flex-row lg:justify-between lg:items-center">
-           <div className="flex gap-4 overflow-x-auto -mb-px">
+           <div className="flex gap-4 overflow-x-auto">
             <button
               onClick={() => setActiveTab('DASHBOARD')}
               className={`px-4 py-2 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'DASHBOARD' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}

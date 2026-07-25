@@ -96,7 +96,7 @@ const Customers: React.FC = () => {
               </button>
             )}
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900">
                 {activeView === 'PROFILE' ? 'Customer Profile' : 'Customer Management'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-500">
@@ -259,10 +259,10 @@ const Customers: React.FC = () => {
                   {selectedCustomer.name.charAt(0)}
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{selectedCustomer.name}</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">{selectedCustomer.name}</h2>
                   <div className="flex flex-col text-sm text-slate-500 mt-1">
-                    <span className="flex items-center gap-1 min-w-0"><Phone size={12} className="flex-shrink-0" /> <span className="truncate">{selectedCustomer.phone}</span></span>
-                    <span className="flex items-center gap-1 min-w-0"><Mail size={12} className="flex-shrink-0" /> <span className="truncate">{selectedCustomer.email}</span></span>
+                    <span className="flex items-center gap-1 min-w-0"><Phone size={12} className="flex-shrink-0" /> <span className="break-all">{selectedCustomer.phone}</span></span>
+                    <span className="flex items-center gap-1 min-w-0"><Mail size={12} className="flex-shrink-0" /> <span className="break-all">{selectedCustomer.email}</span></span>
                   </div>
                 </div>
               </div>
@@ -285,7 +285,7 @@ const Customers: React.FC = () => {
                   </div>
                   <div className="text-right min-w-0">
                     <p className="text-xs text-slate-400">Last Visit</p>
-                    <p className="font-medium text-slate-700 text-sm truncate">{lastVisit}</p>
+                    <p className="font-medium text-slate-700 text-sm">{lastVisit}</p>
                   </div>
                 </div>
               </div>

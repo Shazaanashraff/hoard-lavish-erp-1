@@ -1,255 +1,206 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Lock, AlertCircle, Loader2, ShieldCheck, User as UserIcon } from 'lucide-react';
-import { User, Role } from '../types';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { User } from '../types';
 
-const ROLES: { id: Role; label: string; color: string }[] = [
-    { id: 'ADMIN', label: 'Admin', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-    { id: 'MANAGER', label: 'Manager', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    { id: 'CASHIER', label: 'Cashier', color: 'bg-green-100 text-green-700 border-green-200' },
-];
+const DIAL_RADIUS = 100;
+const DIAL_CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS;
+const TICK_COUNT = 40;
+const DIAL_TICKS = Array.from({ length: TICK_COUNT }, (_, i) => {
+    const angle = (i / TICK_COUNT) * 2 * Math.PI;
+    const outer = DIAL_RADIUS - 8;
+    const inner = i % 5 === 0 ? outer - 8 : outer - 4;
+    return {
+        x1: 110 + outer * Math.cos(angle),
+        y1: 110 + outer * Math.sin(angle),
+        x2: 110 + inner * Math.cos(angle),
+        y2: 110 + inner * Math.sin(angle),
+    };
+});
+
+const UNLOCK_STATUSES = ['Verifying PIN…', "Loading today's catalog…", 'Preparing terminal…'];
 
 const LoginPage: React.FC = () => {
     const { users, login, isLoading } = useStore();
     const [pin, setPin] = useState('');
-    const [error, setError] = useState('');
-    const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [error, setError] = useState(false);
+    const [shake, setShake] = useState(false);
+    const [unlocking, setUnlocking] = useState(false);
+    const [matchedUser, setMatchedUser] = useState<User | null>(null);
+    const [statusIndex, setStatusIndex] = useState(0);
+    const timers = useRef<number[]>([]);
 
-    const filteredUsers = selectedRole ? users.filter(u => u.role === selectedRole) : [];
+    useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+    const attemptLogin = (pinCode: string) => {
+        const user = users.find(u => u.pin === pinCode);
+        if (user) {
+            setMatchedUser(user);
+            setUnlocking(true);
+            setStatusIndex(0);
+            UNLOCK_STATUSES.forEach((_, i) => {
+                if (i === 0) return;
+                timers.current.push(window.setTimeout(() => setStatusIndex(i), i * 650));
+            });
+            timers.current.push(window.setTimeout(() => login(user), 1900));
+        } else {
+            setError(true);
+            setShake(true);
+            timers.current.push(window.setTimeout(() => {
+                setShake(false);
+                setPin('');
+            }, 420));
+        }
+    };
 
     const handlePinInput = (digit: string) => {
-        if (pin.length < 4) {
-            const newPin = pin + digit;
-            setPin(newPin);
-            setError('');
-            if (newPin.length === 4 && selectedUser) {
-                attemptLogin(selectedUser, newPin);
-            }
+        if (unlocking || pin.length >= 4) return;
+        const newPin = pin + digit;
+        setPin(newPin);
+        setError(false);
+        if (newPin.length === 4) {
+            window.setTimeout(() => attemptLogin(newPin), 150);
         }
     };
 
     const handleBackspace = () => {
+        if (unlocking) return;
         setPin(prev => prev.slice(0, -1));
-        setError('');
+        setError(false);
     };
 
     const handleClear = () => {
+        if (unlocking) return;
         setPin('');
-        setError('');
+        setError(false);
     };
 
-    const attemptLogin = (user: User, pinCode: string) => {
-        if (user.pin === pinCode) {
-            login(user);
-        } else {
-            setError('Incorrect PIN');
-            setPin('');
-        }
-    };
-
-    const handleSubmit = () => {
-        if (!selectedUser) {
-            setError('Please select a user');
-            return;
-        }
-        if (pin.length !== 4) {
-            setError('Enter a 4-digit PIN');
-            return;
-        }
-        attemptLogin(selectedUser, pin);
-    };
-
-    const handleSelectUser = (user: User) => {
-        setSelectedUser(user);
-        setPin('');
-        setError('');
-    };
-
-    const handleSelectRole = (role: Role) => {
-        setSelectedRole(role);
-        setSelectedUser(null);
-        setPin('');
-        setError('');
-    };
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (/^[0-9]$/.test(e.key)) handlePinInput(e.key);
+            if (e.key === 'Backspace') handleBackspace();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    });
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+            <div className="min-h-screen bg-[#F7F3EA] flex items-center justify-center">
                 <div className="text-center">
-                    <Loader2 className="w-10 h-10 text-amber-500 animate-spin mx-auto mb-4" />
-                    <p className="text-slate-400 text-sm">Loading...</p>
+                    <Loader2 className="w-9 h-9 text-[#C9922B] animate-spin mx-auto mb-4" />
+                    <p className="text-[#8B8371] text-sm">Loading…</p>
                 </div>
             </div>
         );
     }
 
+    const dialFraction = pin.length / 4;
+    const dialColor = error ? '#C25A4E' : '#C9922B';
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-            <div className="w-full max-w-3xl">
-                {/* Logo */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-14 h-14 bg-amber-500/10 rounded-2xl mb-3 border border-amber-500/20">
-                        <Lock className="w-7 h-7 text-amber-500" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">HOARD <span className="text-amber-500">LAVISH</span></h1>
-                    <p className="text-slate-500 text-sm mt-1">Point of Sale System</p>
-                </div>
+        <div className="min-h-screen bg-[radial-gradient(ellipse_at_50%_-10%,#FFFDF8_0%,#F7F3EA_60%)] flex items-center justify-center p-4 overflow-hidden">
+            {/* PIN Entry */}
+            <div
+                className={`flex flex-col items-center transition-all duration-500 ${unlocking ? 'opacity-0 scale-[0.98] pointer-events-none absolute' : 'opacity-100'}`}
+            >
+                <h1 className="font-['Fraunces'] font-semibold text-[26px] tracking-tight text-[#1B1F27] mb-0.5">
+                    HOARD <span className="italic font-normal text-[#A9781F]">Lavish</span>
+                </h1>
+                <p className="text-[11px] tracking-[0.28em] uppercase text-[#8B8371] mb-11">Terminal Access</p>
 
-                {/* Two-Column Card */}
-                <div className="bg-white rounded-2xl shadow-2xl overflow-hidden grid grid-cols-2 min-h-[420px]">
-
-                    {/* LEFT — Role & User Selection */}
-                    <div className="p-6 border-r border-slate-100 flex flex-col">
-                        {/* Role Filter */}
-                        <div className="mb-5">
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">1. Select Role</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {ROLES.map(role => (
-                                    <button
-                                        key={role.id}
-                                        onClick={() => handleSelectRole(role.id)}
-                                        className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-all
-                      ${selectedRole === role.id
-                                                ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                                : `${role.color} border hover:opacity-80`}`}
-                                    >
-                                        {role.label}
-                                    </button>
-                                ))}
-                            </div>
+                {/* Vault Dial */}
+                <div className={`relative w-[220px] h-[220px] mb-8 ${shake ? 'animate-[shake_0.4s_ease]' : ''}`}>
+                    <svg viewBox="0 0 220 220" className="absolute inset-0 -rotate-90">
+                        <circle cx="110" cy="110" r={DIAL_RADIUS} fill="none" stroke="#E5DCC8" strokeWidth={1.5} />
+                        {DIAL_TICKS.map((t, i) => (
+                            <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#E5DCC8" strokeWidth={2} />
+                        ))}
+                        <circle
+                            cx="110" cy="110" r={DIAL_RADIUS}
+                            fill="none"
+                            stroke={dialColor}
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            strokeDasharray={`${dialFraction * DIAL_CIRCUMFERENCE} ${DIAL_CIRCUMFERENCE}`}
+                            style={{
+                                transition: 'stroke-dasharray 0.5s cubic-bezier(.65,0,.35,1), stroke 0.3s ease',
+                                filter: `drop-shadow(0 0 5px ${error ? 'rgba(194,90,78,.4)' : 'rgba(169,120,31,.35)'})`,
+                            }}
+                        />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3.5">
+                        <div className="flex gap-3.5">
+                            {[0, 1, 2, 3].map(i => (
+                                <div
+                                    key={i}
+                                    className="w-[11px] h-[11px] rounded-full transition-all duration-200"
+                                    style={{
+                                        background: i < pin.length ? dialColor : '#E5DCC8',
+                                        transform: i < pin.length ? 'scale(1.15)' : 'scale(1)',
+                                        boxShadow: i < pin.length ? `0 0 8px ${error ? 'rgba(194,90,78,.45)' : 'rgba(201,146,43,.45)'}` : 'none',
+                                    }}
+                                />
+                            ))}
                         </div>
-
-                        {/* User List */}
-                        <div className="flex-1">
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">2. Select User</label>
-                            {!selectedRole ? (
-                                <div className="flex-1 flex flex-col items-center justify-center text-slate-300 py-8">
-                                    <ShieldCheck size={32} className="mb-2 opacity-50" />
-                                    <p className="text-sm">Choose a role first</p>
-                                </div>
-                            ) : filteredUsers.length === 0 ? (
-                                <div className="flex-1 flex flex-col items-center justify-center text-slate-300 py-8">
-                                    <UserIcon size={32} className="mb-2 opacity-50" />
-                                    <p className="text-sm">No users for this role</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {filteredUsers.map(user => (
-                                        <button
-                                            key={user.id}
-                                            onClick={() => handleSelectUser(user)}
-                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left
-                        ${selectedUser?.id === user.id
-                                                    ? 'border-amber-400 bg-amber-50'
-                                                    : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'}`}
-                                        >
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
-                        ${selectedUser?.id === user.id
-                                                    ? 'bg-amber-500 text-white'
-                                                    : 'bg-slate-100 text-slate-500'}`}>
-                                                {user.name.charAt(0)}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-semibold text-slate-800 text-sm truncate">{user.name}</p>
-                                                <p className="text-[10px] text-slate-400 uppercase font-bold">{user.role}</p>
-                                            </div>
-                                            {selectedUser?.id === user.id && (
-                                                <div className="w-2.5 h-2.5 bg-amber-500 rounded-full flex-shrink-0"></div>
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* RIGHT — PIN Entry */}
-                    <div className="p-6 bg-slate-50 flex flex-col items-center justify-center">
-                        {!selectedUser ? (
-                            <div className="text-center text-slate-300">
-                                <Lock size={40} className="mx-auto mb-3 opacity-30" />
-                                <p className="text-sm font-medium text-slate-400">Select a user to unlock</p>
-                            </div>
-                        ) : (
-                            <div className="w-full max-w-[240px]">
-                                {/* Selected User Chip */}
-                                <div className="text-center mb-5">
-                                    <div className="w-14 h-14 rounded-full bg-amber-500 text-white flex items-center justify-center text-xl font-bold mx-auto mb-2">
-                                        {selectedUser.name.charAt(0)}
-                                    </div>
-                                    <p className="font-bold text-slate-800 text-sm">{selectedUser.name}</p>
-                                    <p className="text-[10px] text-slate-400 uppercase font-bold">{selectedUser.role}</p>
-                                </div>
-
-                                {/* PIN Label */}
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider text-center mb-3">Enter PIN</label>
-
-                                {/* PIN Dots */}
-                                <div className="flex justify-center gap-3 mb-4">
-                                    {[0, 1, 2, 3].map(i => (
-                                        <div
-                                            key={i}
-                                            className={`w-4 h-4 rounded-full transition-all duration-200 ${i < pin.length ? 'bg-amber-500 scale-110' : 'bg-slate-300'
-                                                }`}
-                                        />
-                                    ))}
-                                </div>
-
-                                {/* Error */}
-                                {error && (
-                                    <div className="flex items-center gap-2 text-red-500 text-xs font-medium justify-center mb-3">
-                                        <AlertCircle size={14} />
-                                        {error}
-                                    </div>
-                                )}
-
-                                {/* Number Pad */}
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                                        <button
-                                            key={num}
-                                            onClick={() => handlePinInput(String(num))}
-                                            className="h-12 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-lg font-semibold text-slate-800 transition-colors border border-slate-200"
-                                        >
-                                            {num}
-                                        </button>
-                                    ))}
-                                    <button
-                                        onClick={handleClear}
-                                        className="h-12 rounded-xl bg-white hover:bg-red-50 text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors border border-slate-200"
-                                    >
-                                        CLR
-                                    </button>
-                                    <button
-                                        onClick={() => handlePinInput('0')}
-                                        className="h-12 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-lg font-semibold text-slate-800 transition-colors border border-slate-200"
-                                    >
-                                        0
-                                    </button>
-                                    <button
-                                        onClick={handleBackspace}
-                                        className="h-12 rounded-xl bg-white hover:bg-amber-50 text-sm font-bold text-slate-400 hover:text-amber-600 transition-colors border border-slate-200"
-                                    >
-                                        ⌫
-                                    </button>
-                                </div>
-
-                                {/* Submit */}
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={pin.length !== 4}
-                                    className="w-full mt-4 py-2.5 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
-                                >
-                                    Unlock
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Footer */}
-                <p className="text-center text-slate-600 text-xs mt-6">Secured POS Terminal • v{__APP_VERSION__}</p>
+                <div className={`h-4 mb-5 flex items-center gap-1.5 text-[11px] tracking-wider uppercase text-[#C25A4E] transition-opacity duration-200 ${error ? 'opacity-100' : 'opacity-0'}`}>
+                    <AlertCircle size={13} />
+                    Incorrect PIN
+                </div>
+
+                {/* Keypad */}
+                <div className="grid grid-cols-3 gap-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                        <button
+                            key={num}
+                            onClick={() => handlePinInput(String(num))}
+                            className="w-[60px] h-[60px] rounded-full bg-white border border-[#E5DCC8] text-[#1B1F27] text-lg font-medium shadow-[0_1px_2px_rgba(27,31,39,0.04)] hover:bg-[#FBF8F1] hover:border-[#D8CBA8] active:scale-[0.94] transition-all"
+                        >
+                            {num}
+                        </button>
+                    ))}
+                    <button
+                        onClick={handleClear}
+                        className="w-[60px] h-[60px] rounded-full text-[11px] tracking-wider font-medium text-[#8B8371] hover:text-[#1B1F27] transition-colors"
+                    >
+                        CLR
+                    </button>
+                    <button
+                        onClick={() => handlePinInput('0')}
+                        className="w-[60px] h-[60px] rounded-full bg-white border border-[#E5DCC8] text-[#1B1F27] text-lg font-medium shadow-[0_1px_2px_rgba(27,31,39,0.04)] hover:bg-[#FBF8F1] hover:border-[#D8CBA8] active:scale-[0.94] transition-all"
+                    >
+                        0
+                    </button>
+                    <button
+                        onClick={handleBackspace}
+                        className="w-[60px] h-[60px] rounded-full text-[15px] font-medium text-[#8B8371] hover:text-[#1B1F27] transition-colors"
+                    >
+                        ⌫
+                    </button>
+                </div>
+
+                <p className="absolute -bottom-14 text-[10px] tracking-[0.14em] uppercase text-[#B8AF98]">
+                    Secured POS Terminal · v{__APP_VERSION__}
+                </p>
+            </div>
+
+            {/* Unlocking */}
+            <div className={`flex flex-col items-center transition-opacity duration-500 ${unlocking ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
+                <div className="relative w-24 h-24 mb-7">
+                    <svg viewBox="0 0 96 96" className="w-full h-full animate-spin" style={{ animationDuration: '1.6s' }}>
+                        <circle cx="48" cy="48" r="42" fill="none" stroke="#E5DCC8" strokeWidth={2} />
+                        <circle cx="48" cy="48" r="42" fill="none" stroke="#C9922B" strokeWidth={2.5} strokeLinecap="round" strokeDasharray="70 300" />
+                    </svg>
+                </div>
+                <p className="font-['Fraunces'] font-semibold text-[17px] text-[#1B1F27] mb-2">
+                    {matchedUser ? `Welcome, ${matchedUser.name.split(' ')[0]}` : 'Unlocking'}
+                </p>
+                <p className="text-[11px] tracking-[0.1em] uppercase text-[#8B8371] transition-opacity duration-200">
+                    {UNLOCK_STATUSES[statusIndex]}
+                </p>
             </div>
         </div>
     );

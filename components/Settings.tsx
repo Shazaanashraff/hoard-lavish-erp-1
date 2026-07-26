@@ -266,10 +266,25 @@ const Settings: React.FC = () => {
     </button>
   );
 
+  // Below `md` the settings sidebar can't be a second 256px column, so the
+  // same four tabs render as a scrolling row above the content instead.
+  const TabPill = ({ id, label, icon: Icon }: { id: typeof activeTab, label: string, icon: any }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-colors
+        ${activeTab === id
+          ? 'bg-slate-900 text-white font-medium'
+          : 'bg-white border border-slate-200 text-slate-600'}`}
+    >
+      <Icon size={16} />
+      {label}
+    </button>
+  );
+
   return (
-    <div className="flex-1 bg-slate-50 flex h-full overflow-hidden">
-      {/* Settings Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
+    <div className="flex-1 bg-slate-50 flex flex-col md:flex-row h-full overflow-hidden">
+      {/* Settings Sidebar — `md` and up */}
+      <div className="hidden md:flex w-64 bg-white border-r border-slate-200 flex-col flex-shrink-0">
         <div className="p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <SettingsIcon className="text-slate-400" /> Settings
@@ -284,8 +299,21 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
+      {/* Settings tab row — below `md` */}
+      <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex-shrink-0">
+        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-3">
+          <SettingsIcon size={20} className="text-slate-400" /> Settings
+        </h2>
+        <div className="flex gap-2 overflow-x-auto">
+          <TabPill id="GENERAL" label="General" icon={SettingsIcon} />
+          <TabPill id="USERS" label="Users &amp; Roles" icon={Users} />
+          <TabPill id="IMPORT" label="Import" icon={PackagePlus} />
+          <TabPill id="DATA" label="Backup" icon={Database} />
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
         
         {/* GENERAL TAB */}
         {activeTab === 'GENERAL' && (
@@ -303,7 +331,7 @@ const Settings: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Currency Symbol</label>
                   <input 
@@ -479,7 +507,44 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full text-left text-sm">
+              {/* Card list — below `md`. PIN stays masked, same as the table. */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {users.map(user => (
+                  <div key={user.id} className="p-4 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 break-words">{user.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {branches.find(b => b.id === user.branchId)?.name || 'All Branches'} · PIN ****
+                      </p>
+                      <span className={`inline-block mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold ${
+                        user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                        user.role === 'MANAGER' ? 'bg-blue-100 text-blue-700' :
+                        'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {user.role}
+                      </span>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => { setEditingUser(user); setIsUserModalOpen(true); }}
+                        aria-label={`Edit ${user.name}`}
+                        className="p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => { if (confirm('Delete user?')) deleteUser(user.id); }}
+                        aria-label={`Delete ${user.name}`}
+                        className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <table className="hidden md:table w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                   <tr>
                     <th className="p-4">Name</th>
@@ -547,7 +612,7 @@ const Settings: React.FC = () => {
             {/* Template column guide */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
               <h4 className="text-sm font-bold text-blue-800 mb-2 flex items-center gap-1.5"><FileSpreadsheet size={15}/> CSV Column Reference</h4>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                 {CSV_COLUMNS.map(col => (
                   <div key={col} className="flex items-center gap-2 text-xs text-blue-700">
                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${CSV_REQUIRED.includes(col) ? 'bg-red-500' : 'bg-blue-400'}`} />
@@ -695,7 +760,7 @@ const Settings: React.FC = () => {
       {/* Import Confirmation Popup */}
       {showImportConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90dvh] overflow-y-auto">
             <div className="p-5 flex items-center gap-3 bg-blue-50 border-b border-blue-100">
               <div className="p-2 rounded-full bg-blue-100 text-blue-600">
                 <PackagePlus size={20} />
@@ -740,7 +805,7 @@ const Settings: React.FC = () => {
       {/* Developer Access Popup */}
       {showDevAccessPopup && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-xl w-full max-w-sm shadow-2xl overflow-hidden max-h-[90dvh] overflow-y-auto">
             <div className="p-5 flex items-center gap-3 bg-amber-50 border-b border-amber-100">
               <div className="p-2 rounded-full bg-amber-100 text-amber-600">
                 <Lock size={20} />
@@ -765,7 +830,7 @@ const Settings: React.FC = () => {
       {/* USER MODAL */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
             <h3 className="font-bold text-lg text-slate-800 mb-4">{editingUser.id ? 'Edit User' : 'New User'}</h3>
             <div className="space-y-4">
               <div>

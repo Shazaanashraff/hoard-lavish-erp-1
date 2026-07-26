@@ -378,13 +378,13 @@ const Suppliers: React.FC = () => {
   return (
     <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-        <div className="flex justify-between items-center mb-4">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Supplier Management</h1>
-            <p className="text-sm text-slate-500">Manage vendor profiles, purchase expenses, and damaged goods.</p>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900">Supplier Management</h1>
+            <p className="text-xs sm:text-sm text-slate-500">Manage vendor profiles, purchase expenses, and damaged goods.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -403,7 +403,7 @@ const Suppliers: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-4 overflow-x-auto">
           <TabButton id="LIST" label="Suppliers List" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
           <TabButton id="EXPENSE" label="Record Expense" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
           <TabButton id="HISTORY" label="Expense History" activeTab={activeTab} onSelect={(id) => setActiveTab(id)} />
@@ -412,7 +412,7 @@ const Suppliers: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
 
         {/* VIEW: LIST */}
         {activeTab === 'LIST' && (
@@ -428,7 +428,7 @@ const Suppliers: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredSuppliers.map(supplier => (
                 <div key={supplier.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-4">
@@ -483,7 +483,7 @@ const Suppliers: React.FC = () => {
                 <p className="text-slate-500 text-sm">Log payments for stock purchases or services.</p>
               </div>
               <form onSubmit={handleSubmitExpense} className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Select Supplier</label>
                     <select
@@ -668,7 +668,95 @@ const Suppliers: React.FC = () => {
                 </button>
               </div>
             </div>
-            <table className="w-full text-left text-sm">
+            {/* Card list — below `md`. The desktop table edits rows in place;
+                on mobile the same fields stack inside the card being edited. */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {txPage.map(t => (
+                <div key={t.id} className="p-4">
+                  {editingTransactionId === t.id ? (
+                    <div className="space-y-2">
+                      <input
+                        type="date"
+                        className="w-full p-2 border border-slate-200 rounded-lg outline-none text-sm"
+                        value={editingTransactionForm.date}
+                        onChange={e => setEditingTransactionForm(prev => ({ ...prev, date: e.target.value }))}
+                      />
+                      <select
+                        className="w-full p-2 border border-slate-200 rounded-lg outline-none bg-white text-sm"
+                        value={editingTransactionForm.supplierId}
+                        onChange={e => setEditingTransactionForm(prev => ({ ...prev, supplierId: e.target.value }))}
+                      >
+                        <option value="">-- Choose Supplier --</option>
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Reference"
+                        className="w-full p-2 border border-slate-200 rounded-lg outline-none text-sm"
+                        value={editingTransactionForm.reference}
+                        onChange={e => setEditingTransactionForm(prev => ({ ...prev, reference: e.target.value }))}
+                      />
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="Amount"
+                        className="w-full p-2 border border-slate-200 rounded-lg outline-none text-sm"
+                        value={editingTransactionForm.amount}
+                        onChange={e => setEditingTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
+                      />
+                      <textarea
+                        placeholder="Notes"
+                        className="w-full p-2 border border-slate-200 rounded-lg outline-none min-h-20 resize-y text-sm"
+                        value={editingTransactionForm.notes}
+                        onChange={e => setEditingTransactionForm(prev => ({ ...prev, notes: e.target.value }))}
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={handleSaveEditTransaction} className="flex-1 px-3 py-2 text-sm rounded-lg bg-slate-900 text-white">Save</button>
+                        <button onClick={handleCancelEditTransaction} className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 text-slate-600">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 text-sm break-words">{t.supplierName}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {parseBusinessDate(t.date).toLocaleDateString()}
+                            {t.reference ? ` · ${t.reference}` : ''}
+                          </p>
+                        </div>
+                        <p className="font-bold text-slate-900 text-sm flex-shrink-0">{fmtCurrency(t.amount)}</p>
+                      </div>
+                      {t.notes && (
+                        <div className="text-xs text-slate-500 mt-2 break-words">{renderTransactionNotes(t.notes)}</div>
+                      )}
+                      {isAdmin && (
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => handleStartEditTransaction(t)}
+                            className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 flex items-center gap-1.5"
+                          >
+                            <Edit2 size={13} /> Edit
+                          </button>
+                          <button
+                            onClick={() => setTransactionDeleteConfirm({ id: t.id, label: t.reference || t.supplierName })}
+                            className="px-3 py-1.5 text-xs rounded-lg border border-red-100 text-red-600 bg-red-50 flex items-center gap-1.5"
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+              {txPage.length === 0 && (
+                <p className="p-8 text-center text-slate-400 text-sm">{txLoading ? 'Loading...' : 'No transactions found.'}</p>
+              )}
+            </div>
+
+            <table className="hidden md:table w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                 <tr>
                   <th className="p-4">Date</th>
@@ -815,7 +903,7 @@ const Suppliers: React.FC = () => {
                 </div>
               </div>
               <form onSubmit={handleSubmitDamaged} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Product</label>
                     <select
@@ -910,7 +998,38 @@ const Suppliers: React.FC = () => {
                     <span className="text-xs text-slate-400 font-normal ml-2">({damagedGoods.length} records)</span>
                   </h3>
                 </div>
-                <table className="w-full text-left text-sm">
+                {/* Card list — below `md`. Qty, unit price and total loss fold
+                    into one line; reason gets its own, since it's free text. */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {damagedGoods.map(d => (
+                    <div key={d.id} className="p-4">
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 text-sm break-words">{d.productName}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {parseBusinessDate(d.date).toLocaleDateString()}
+                            {d.supplierName ? ` · ${d.supplierName}` : ''}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteDamaged(d.id)}
+                          aria-label={`Delete damaged record for ${d.productName}`}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded flex-shrink-0"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="flex items-baseline gap-2 mt-2 text-xs">
+                        <span className="font-mono text-slate-600">{d.quantity} ×</span>
+                        <span className="text-slate-600">{fmtCurrency(d.unitPrice)}</span>
+                        <span className="ml-auto font-bold text-red-600 text-sm">{fmtCurrency(d.totalLoss)}</span>
+                      </div>
+                      {d.reason && <p className="text-xs text-slate-500 mt-1.5 break-words">{d.reason}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                <table className="hidden md:table w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                     <tr>
                       <th className="p-4">Date</th>
@@ -956,7 +1075,7 @@ const Suppliers: React.FC = () => {
       {/* Modal: Add/Edit Supplier */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
               <h3 className="font-bold text-lg text-slate-800">{editingSupplier.id ? 'Edit Supplier' : 'New Supplier'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
@@ -983,7 +1102,7 @@ const Suppliers: React.FC = () => {
                   onChange={e => setEditingSupplier({ ...editingSupplier, contactPerson: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
                   <input

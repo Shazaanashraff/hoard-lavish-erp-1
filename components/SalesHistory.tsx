@@ -51,6 +51,10 @@ const SalesHistory: React.FC = () => {
   const { exchangeHistory, branches, products, currentUser, loadExchangesForPeriod, refreshRecentExchanges, exchangeRefreshCooldownUntil } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<ListItem | null>(null);
+  // Below `md` the three panes can't sit side by side, so only one shows at a
+  // time: this toggles between the two list panes, and selecting a record
+  // pushes the detail pane over both. Ignored at `md` and above.
+  const [mobilePane, setMobilePane] = useState<'RECORDS' | 'ITEMS'>('RECORDS');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('ALL');
   const [branchFilter, setBranchFilter] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -452,12 +456,38 @@ const SalesHistory: React.FC = () => {
   const selectedSale = !selectedIsExchange ? (selectedItem?.data as SalesRecord | undefined) : undefined;
 
   return (
-    <div className="flex h-full bg-slate-50 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-slate-50 overflow-hidden">
+      {/* Pane switcher — below `md` only, hidden once a record is selected */}
+      {!selectedItem && (
+        <div className="md:hidden flex-shrink-0 bg-white border-b border-slate-200 px-4 py-2 flex gap-2">
+          <button
+            onClick={() => setMobilePane('RECORDS')}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              mobilePane === 'RECORDS' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            Records
+          </button>
+          <button
+            onClick={() => setMobilePane('ITEMS')}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              mobilePane === 'ITEMS' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            Items Sold
+          </button>
+        </div>
+      )}
+
       {/* List Section */}
-      <div className={`${selectedItem ? 'w-5/12' : 'w-2/3'} flex flex-col transition-all duration-300 border-r border-slate-200`}>
-        <div className="p-6 bg-white border-b border-slate-200">
+      <div className={`${
+        selectedItem
+          ? 'hidden md:flex md:w-5/12'
+          : `${mobilePane === 'RECORDS' ? 'flex' : 'hidden'} md:flex w-full md:w-2/3`
+      } min-h-0 flex-col transition-all duration-300 md:border-r border-slate-200`}>
+        <div className="p-4 sm:p-6 bg-white border-b border-slate-200">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-slate-900">Sales History</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Sales History</h2>
             <div className="bg-slate-100 px-3 py-1 rounded-full text-xs font-medium text-slate-600">
               {filteredItems.length} Records
             </div>
@@ -672,7 +702,11 @@ const SalesHistory: React.FC = () => {
       </div>
 
       {/* Item-Wise Summary Section */}
-      <div className={`${selectedItem ? 'w-3/12' : 'w-1/3'} flex flex-col bg-white border-r border-slate-200`}>
+      <div className={`${
+        selectedItem
+          ? 'hidden md:flex md:w-3/12'
+          : `${mobilePane === 'ITEMS' ? 'flex' : 'hidden'} md:flex w-full md:w-1/3`
+      } min-h-0 flex-col bg-white md:border-r border-slate-200`}>
         <div className="p-4 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -803,9 +837,9 @@ const SalesHistory: React.FC = () => {
 
       {/* Detail Section */}
       {selectedItem && (
-        <div className="w-4/12 bg-white flex flex-col h-full animate-in slide-in-from-right duration-300">
-          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <div>
+        <div className="w-full md:w-4/12 min-h-0 bg-white flex flex-col h-full animate-in slide-in-from-right duration-300">
+          <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 gap-3">
+            <div className="min-w-0">
               <h3 className="font-bold text-lg text-slate-800">
                 {selectedIsExchange ? 'Exchange Details' : 'Invoice Details'}
               </h3>
@@ -822,7 +856,7 @@ const SalesHistory: React.FC = () => {
           </div>
 
           {/* Printable Content */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-8">
             {selectedIsExchange && selectedExchange ? (
               /* --- Exchange Detail --- */
               <>

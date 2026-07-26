@@ -156,7 +156,7 @@ WebAuthn), and the URL added to Supabase's allowed origins.
 | **2. Make it a web app** | 2.8 Tailwind build-time, manifest, SW, icons, dvh/safe-area, 2.10 hosting, 2.4 routing | Installable, works on desktop browser |
 | ~~**3. Shell + nav**~~ ✅ | §4a-A: `dvh`, safe areas, banners. Sidebar → drawer. `UpdateNotification` `w-96` | Every view reachable on a phone |
 | ~~**4. Small views**~~ ✅ | Branches, Customers, Accounting — grids, toolbars, 4 tables, 3 modals | Three views done, pattern established |
-| **5. Medium views** | Suppliers (tab row + `min-w` columns), Settings (`w-64` → tab row), SalesHistory (master-detail → push nav) | Owner can watch the business from a phone |
+| ~~**5. Medium views**~~ ✅ | Suppliers (tab row), Settings (`w-64` → tab row), SalesHistory (three panes → toggle + push nav) | Owner can watch the business from a phone |
 | **6. Large views** | Dashboard (7 modals, 7 tables), Inventory (5 modals, 5 tables, 4 grids) | Full read + stock management |
 | **7. POS** | 3-pane → staged flow, exchange panel → full screen, camera scanner (2.6), receipt fallback (2.7), 44px targets | Mobile selling |
 
@@ -313,10 +313,11 @@ Each needs a card/row rendering below `md` from the same data mapping.
 | `Suppliers.tsx` | 671 | Expense history |
 | | 913 | Damaged goods |
 
-Worst offender: the Suppliers expense-history table hardcodes column minimums —
-`min-w-36` ([:689](../components/Suppliers.tsx#L689)), `min-w-40` ([:698](../components/Suppliers.tsx#L698)),
-`min-w-36` ([:711](../components/Suppliers.tsx#L711)), `min-w-28` ([:723](../components/Suppliers.tsx#L723)),
-`min-w-52` ([:732](../components/Suppliers.tsx#L732)) = 192px of forced overflow past a 390px screen.
+~~Worst offender: the Suppliers expense-history table hardcodes column minimums.~~
+**Corrected during phase 5:** those `min-w-*` classes sit on the *inline row-edit inputs*,
+which only render while a row is being edited — they are not permanent column minimums. The
+real work there was that the table edits rows in place, so the mobile card list needed both
+a display state and a stacked edit form.
 
 The three `SalesHistory` tables are inline-styled because they're shared with the print/PDF
 path — don't convert those to Tailwind, give them a separate mobile branch and leave the
@@ -390,7 +391,7 @@ already list-shaped).
 | `Inventory/index.tsx` | 5 | 5 | 4 | 4 | — | **L** |
 | `POS/index.tsx` | 5 | — | 1 | — | 3-pane + exchange panel | **XL** |
 | `Suppliers.tsx` | 1 | 2 | 3 | — | tab row, `min-w` columns | **M** |
-| `SalesHistory.tsx` | — | 3 | — | 3 | master-detail → push nav | **M** |
+| `SalesHistory.tsx` | — | 3 | — | 3 | **three** panes → toggle + push nav | **M** |
 | `Settings.tsx` | 3 | 2 | 2 | 2 | `w-64` sidebar → tab row | **M** |
 | `Accounting.tsx` | 1 | 2 | 2 | 1 | tab/filter row split | **S** |
 | `Customers.tsx` | 1 | 2 | — | 1 | — | **S** |

@@ -698,7 +698,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
     <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-bold text-slate-900">Inventory Management</h1>
@@ -728,11 +728,11 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
 
         {/* FILTERS */}
         {(activeTab === 'ALL' || activeTab === 'LOW_STOCK') && (
-          <div className="flex gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
@@ -757,7 +757,75 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
         {/* PRODUCTS TABLE */}
         {(activeTab === 'ALL' || activeTab === 'LOW_STOCK') && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse">
+            {/* Card list — below `md`. The 8-column table folds to name + SKU/
+                brand/category line + variant chips, with the branch stock pill
+                and the same action buttons the desktop row carries. */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredProducts.map(p => {
+                const branchStock = p.branchStock[currentBranch.id] || 0;
+                return (
+                  <div key={p.id} className="p-4">
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 text-sm break-words">{p.name}</p>
+                        <p className="font-mono text-[11px] text-slate-400 mt-0.5">
+                          {p.sku}{p.brand ? ` · ${p.brand}` : ''}
+                        </p>
+                        <p className="text-xs text-slate-500">{p.category}</p>
+                      </div>
+                      <div className="flex flex-col items-end flex-shrink-0">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${branchStock === 0 ? 'bg-red-100 text-red-700' :
+                          branchStock <= p.minStockLevel ? 'bg-amber-100 text-amber-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                          {branchStock}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1">Total: {p.stock}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {p.color && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                          <Palette size={10} /> {p.color}
+                        </span>
+                      )}
+                      {p.size && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                          <Ruler size={10} /> {p.size}
+                        </span>
+                      )}
+                      {branchStock <= p.minStockLevel && (
+                        <span className="text-[10px] text-red-600 font-bold bg-red-50 px-1.5 py-0.5 rounded">Low Stock</span>
+                      )}
+                      <span className="ml-auto text-xs text-slate-500">
+                        <span className="text-slate-400">{fmtCurrency(p.costPrice)}</span>
+                        {' → '}
+                        <span className="font-medium text-slate-900">{fmtCurrency(p.price)}</span>
+                      </span>
+                    </div>
+
+                    {!isCashier && (
+                      <div className="flex gap-1 mt-2.5">
+                        <button onClick={() => handleOpenAdjustment(p)} aria-label={`Adjust stock for ${p.name}`} className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors"><History size={16} /></button>
+                        <button onClick={() => handleOpenEdit(p)} aria-label={`Edit ${p.name}`} className="p-2 text-amber-500 hover:bg-amber-50 rounded transition-colors"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDeleteRequest(p)} aria-label={`Delete ${p.name}`} className="p-2 text-red-400 hover:bg-red-50 rounded transition-colors"><Trash2 size={16} /></button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {filteredProducts.length > 0 && (
+                <div className="p-4 bg-slate-50 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-slate-600">Total Quantity</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
+                    {filteredProducts.reduce((sum, p) => sum + (p.branchStock[currentBranch.id] || 0), 0)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <table className="hidden md:table w-full text-left border-collapse">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-medium">
                 <tr>
                   <th className="p-4">Product</th>
@@ -888,7 +956,39 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
         {/* STOCK HISTORY TAB — also show TRANSFER type */}
         {activeTab === 'ADJUSTMENTS' && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <table className="w-full text-left text-sm">
+            {/* Card list — below `md`. Keeps the IN/OUT/TRANSFER pill with its
+                icon and colour; date, branch and reason stack underneath. */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {tabMovements.map(log => (
+                <div key={log.id} className="p-4">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 text-sm break-words">{log.productName}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {parseBusinessDate(log.date).toLocaleString()}
+                        {log.branchName ? ` · ${log.branchName}` : ''}
+                      </p>
+                    </div>
+                    <span className="font-mono text-sm text-slate-900 flex-shrink-0">{log.quantity}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold
+                      ${log.type === 'IN' ? 'bg-green-100 text-green-700' :
+                        log.type === 'OUT' ? 'bg-red-100 text-red-700' :
+                        log.type === 'TRANSFER' ? 'bg-purple-100 text-purple-700' :
+                        'bg-blue-100 text-blue-700'}`}>
+                      {log.type === 'IN' && <ArrowDownRight size={12} />}
+                      {log.type === 'OUT' && <ArrowUpRight size={12} />}
+                      {log.type === 'TRANSFER' && <ArrowRightLeft size={12} />}
+                      {log.type}
+                    </span>
+                    {log.reason && <span className="text-xs text-slate-600 break-words min-w-0">{log.reason}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <table className="hidden md:table w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                 <tr>
                   <th className="p-4">Date</th>
@@ -996,10 +1096,10 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                   <p className="text-xs text-slate-400 mt-1">Select products and quantities to transfer to another branch.</p>
                 </div>
                 {otherBranches.length > 0 && (
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                     <label className="text-xs font-bold text-slate-500 uppercase">Transfer To:</label>
                     <select
-                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 min-w-0"
                       value={transferDestBranch}
                       onChange={e => setTransferDestBranch(e.target.value)}
                     >
@@ -1052,10 +1152,12 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                     )}
                   </div>
 
-                  {/* Transfer Items Table */}
+                  {/* Transfer Items Table — the builder has editable qty cells and
+                      a remove button per row, so it stays a table and scrolls
+                      sideways below `md` rather than being re-laid-out as cards. */}
                   {transferItems.length > 0 ? (
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                      <table className="w-full text-left text-sm">
+                    <div className="border border-slate-200 rounded-lg overflow-hidden overflow-x-auto">
+                      <table className="w-full min-w-[640px] md:min-w-0 text-left text-sm">
                         <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                           <tr>
                             <th className="p-3">Product</th>
@@ -1203,7 +1305,48 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
 
               {showTransferHistory && (
                 <>
-                  <table className="w-full text-left text-sm">
+                  {/* Card list — below `md`. From → To gets its own line since
+                      two branch names won't sit beside the rest at 375px. */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {stockTransfers
+                      .filter(t => t.fromBranchId === currentBranch.id || t.toBranchId === currentBranch.id)
+                      .map(t => (
+                        <div key={t.id} className="p-4">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="min-w-0">
+                              <p className="font-mono text-xs font-bold text-indigo-600">{t.transferNumber}</p>
+                              <p className="text-xs text-slate-500 mt-0.5">{parseBusinessDate(t.date).toLocaleString()}</p>
+                            </div>
+                            <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-bold flex-shrink-0">{t.status}</span>
+                          </div>
+                          <p className="text-sm text-slate-700 mt-2 break-words">
+                            {t.fromBranchName} <span className="text-slate-400">→</span> {t.toBranchName}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="bg-slate-100 px-2 py-0.5 rounded text-xs font-medium">{t.totalItems} items</span>
+                            <span className="font-medium text-slate-900 text-sm">{fmtCurrency(t.totalValue)}</span>
+                            <div className="ml-auto flex gap-1">
+                              <button
+                                onClick={() => generateTransferPDF(t)}
+                                aria-label={`Print transfer ${t.transferNumber}`}
+                                className="p-2 text-indigo-500 hover:bg-indigo-50 rounded transition-colors"
+                              >
+                                <FileText size={16} />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTransferConfirm(t)}
+                                aria-label={`Delete transfer ${t.transferNumber}`}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded transition-colors"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
+                  <table className="hidden md:table w-full text-left text-sm">
                     <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                       <tr>
                         <th className="p-4">Date</th>
@@ -1274,7 +1417,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
             )}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="font-bold text-lg mb-4 text-slate-800">Product Categories</h3>
-              <div className="flex gap-2 mb-4">
+              <div className="flex flex-col sm:flex-row gap-2 mb-4">
                 <input id="newCat" type="text" placeholder="New Category" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" />
                 <button
                   onClick={() => {
@@ -1323,7 +1466,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
             </div>
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="font-bold text-lg mb-4 text-slate-800">Brands</h3>
-              <div className="flex gap-2 mb-4">
+              <div className="flex flex-col sm:flex-row gap-2 mb-4">
                 <input id="newBrand" type="text" placeholder="New Brand" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" />
                 <button
                   onClick={() => {
@@ -1377,15 +1520,15 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
       {/* MODAL: ADD / EDIT PRODUCT */}
       {isProductModalOpen && editingProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="font-bold text-slate-800">{editingProduct.id ? 'Edit Product' : 'New Product'}</h3>
               <button onClick={() => { setIsProductModalOpen(false); setUseVariations(false); setVariations([]); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {/* Base product fields */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Product Name</label>
                   <input
@@ -1441,7 +1584,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
 
               {/* If editing existing product — show single product fields */}
               {editingProduct.id ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">SKU</label>
                     <input
@@ -1593,7 +1736,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
                   {/* New product: single product fields OR variation builder */}
                   {!useVariations ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">SKU</label>
                           <input
@@ -1945,7 +2088,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
       {/* MODAL: STOCK ADJUSTMENT */}
       {isStockModalOpen && adjustingProduct && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90dvh] overflow-y-auto">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h3 className="font-bold text-slate-800">Adjust Stock</h3>
               <button onClick={() => setIsStockModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
@@ -1962,7 +2105,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adjustment Type</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {['IN', 'OUT', 'ADJUSTMENT'].map((type) => (
                     <button
                       key={type}
@@ -2034,7 +2177,7 @@ ${isElectron ? '' : '<script>window.onload=function(){window.print();}<\/script>
 
       {deleteConfirm && deleteConfirm.linkedSalesCount > 0 && (
         <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => !deleteBusy && setDeleteConfirm(null)}>
-          <div className="bg-white rounded-xl w-full max-w-xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl w-full max-w-xl shadow-2xl overflow-hidden max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-4 flex items-start gap-3 bg-amber-50 border-b border-amber-100">
               <div className="p-2 rounded-full bg-amber-100 text-amber-700">
                 <AlertTriangle size={20} />

@@ -157,7 +157,7 @@ WebAuthn), and the URL added to Supabase's allowed origins.
 | ~~**3. Shell + nav**~~ ✅ | §4a-A: `dvh`, safe areas, banners. Sidebar → drawer. `UpdateNotification` `w-96` | Every view reachable on a phone |
 | ~~**4. Small views**~~ ✅ | Branches, Customers, Accounting — grids, toolbars, 4 tables, 3 modals | Three views done, pattern established |
 | ~~**5. Medium views**~~ ✅ | Suppliers (tab row), Settings (`w-64` → tab row), SalesHistory (three panes → toggle + push nav) | Owner can watch the business from a phone |
-| **6. Large views** | Dashboard (7 modals, 7 tables), Inventory (5 modals, 5 tables, 4 grids) | Full read + stock management |
+| ~~**6. Large views**~~ ✅ | Dashboard (7 modals, 7 tables), Inventory (5 modals, 5 tables, 4 grids) | Full read + stock management |
 | **7. POS** | 3-pane → staged flow, exchange panel → full screen, camera scanner (2.6), receipt fallback (2.7), 44px targets | Mobile selling |
 
 Phases 4–6 are almost entirely Tailwind prefixes and table fallbacks with no atomicity risk.
@@ -257,6 +257,19 @@ replace, so nothing is restyled — only re-laid-out.
 
 **Applied in phase 4:** Customers list (5 cols), Customers purchase history (5 cols),
 Accounting unified ledger (5 cols), Accounting operating expenses (6 cols).
+
+### A3. Height units — phase 6 note
+
+Modal max-heights were switched from `vh` to `dvh` but **the numbers were kept**
+(`max-h-[85vh]` became `max-h-[85dvh]`, not `90dvh`). On desktop the two units are
+identical, so this is a no-op there; on mobile `dvh` tracks the URL bar correctly.
+An earlier pass had also bumped the numbers, which would have made desktop modals
+40px taller — caught by the A/B and reverted.
+
+The Inventory transfer *builder* table is the one table that stays a table below `md`:
+its cells contain editable quantity inputs and a per-row remove button, so it gets
+`min-w-[640px] md:min-w-0` inside an `overflow-x-auto` wrapper and scrolls sideways
+instead of being re-laid-out as cards.
 
 ### B. Multi-pane layouts — the three structural jobs
 

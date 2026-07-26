@@ -20,6 +20,26 @@ type FilterMode = 'daily' | 'monthly';
 const BRANCH_COLORS   = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'];
 const BRANCH_PROFIT_COLORS = ['#34d399', '#60a5fa', '#fcd34d', '#f9a8d4', '#c4b5fd'];
 
+// Card rendering for the four drill-down tables in the detail modal, below `md`.
+// All four are the same shape — a title, a date plus one detail field, and a
+// right-aligned amount — so they share one renderer instead of four near-identical
+// blocks. The desktop tables above `md` are untouched.
+type BreakdownRow = { key: string; title: string; sub: React.ReactNode; amount: string; amountClass: string };
+
+const MobileBreakdownRows: React.FC<{ rows: BreakdownRow[] }> = ({ rows }) => (
+  <div className="md:hidden divide-y divide-slate-100">
+    {rows.map(r => (
+      <div key={r.key} className="p-3 flex justify-between items-start gap-3">
+        <div className="min-w-0">
+          <p className="font-medium text-slate-900 text-sm break-words">{r.title}</p>
+          <p className="text-xs text-slate-500 mt-0.5 break-words">{r.sub}</p>
+        </div>
+        <p className={`text-sm font-bold flex-shrink-0 ${r.amountClass}`}>{r.amount}</p>
+      </div>
+    ))}
+  </div>
+);
+
 const Dashboard: React.FC = () => {
   const { products, stockTransfers, exchangeHistory, currentUser, updateSale, deleteSale, currentBranch, branches, loadExchangesForPeriod, assignedBranchId, assignedBranchLoaded, setAssignedBranch } = useStore();
   const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
@@ -704,7 +724,7 @@ const Dashboard: React.FC = () => {
   );
 
   const FilterControls = () => (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="flex bg-slate-100 rounded-lg p-1">
         <button onClick={() => setFilterMode('daily')}
           className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterMode === 'daily' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -791,12 +811,12 @@ const Dashboard: React.FC = () => {
   const editCartTotal = Math.max(0, editCartSubtotal - editDiscount);
 
   return (
-    <div className="flex-1 bg-slate-50 p-6 md:p-8 overflow-y-auto">
+    <div className="flex-1 bg-slate-50 p-4 sm:p-6 md:p-8 overflow-y-auto">
 
       {/* DETAIL BREAKDOWN MODAL */}
       {detailModalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetailModalType(null)}>
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[85vh] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[85dvh] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${detailModalType === 'revenue' ? 'bg-emerald-50 text-emerald-600' : detailModalType === 'expenses' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
@@ -839,7 +859,8 @@ const Dashboard: React.FC = () => {
                         </h4>
                       </div>
                       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                        <MobileBreakdownRows rows={filteredSales.map(sale => ({ key: sale.id, title: `#${sale.invoiceNumber}`, sub: `${parseBusinessDate(sale.date).toLocaleDateString()} · ${sale.customerName || 'Walk-in Customer'}`, amount: `+${fmtCurrency(sale.totalAmount)}`, amountClass: 'text-emerald-600' }))} />
+                        <table className="hidden md:table w-full text-left text-sm">
                           <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                             <tr>
                               <th className="p-3">Invoice</th>
@@ -875,7 +896,8 @@ const Dashboard: React.FC = () => {
                         </h4>
                       </div>
                       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                        <MobileBreakdownRows rows={filteredExchanges.filter(e => e.difference > 0).map(ex => ({ key: ex.id, title: ex.exchangeNumber, sub: `${parseBusinessDate(ex.date).toLocaleDateString()} · ${ex.description || 'Product exchange'}`, amount: `+${fmtCurrency(ex.difference)}`, amountClass: 'text-emerald-600' }))} />
+                        <table className="hidden md:table w-full text-left text-sm">
                           <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                             <tr>
                               <th className="p-3">Exchange #</th>
@@ -929,7 +951,8 @@ const Dashboard: React.FC = () => {
                         </h4>
                       </div>
                       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                        <MobileBreakdownRows rows={filteredSales.map(sale => ({ key: sale.id, title: `#${sale.invoiceNumber}`, sub: `${parseBusinessDate(sale.date).toLocaleDateString()} · ${sale.items?.length ?? 0} items`, amount: `-${fmtCurrency(sale.totalCost || 0)}`, amountClass: 'text-rose-600' }))} />
+                        <table className="hidden md:table w-full text-left text-sm">
                           <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                             <tr>
                               <th className="p-3">Invoice</th>
@@ -965,7 +988,8 @@ const Dashboard: React.FC = () => {
                         </h4>
                       </div>
                       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                        <MobileBreakdownRows rows={filteredExpenses.map(expense => ({ key: expense.id, title: expense.description, sub: `${parseBusinessDate(expense.date).toLocaleDateString()} · ${expense.category}`, amount: `-${fmtCurrency(expense.amount)}`, amountClass: 'text-rose-600' }))} />
+                        <table className="hidden md:table w-full text-left text-sm">
                           <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                             <tr>
                               <th className="p-3">Description</th>
@@ -1025,7 +1049,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button
                       onClick={() => setDetailModalType('revenue')}
                       className="bg-white rounded-lg border border-slate-200 p-5 hover:shadow-md transition-shadow text-left group"
@@ -1064,7 +1088,7 @@ const Dashboard: React.FC = () => {
       {/* LOW STOCK MODAL */}
       {showLowStockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowLowStockModal(false)}>
-          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85dvh] shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
@@ -1079,9 +1103,53 @@ const Dashboard: React.FC = () => {
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
-            <div className="overflow-y-auto max-h-[calc(85vh-88px)]">
+            <div className="overflow-y-auto max-h-[calc(85dvh-88px)]">
               {lowStockProducts.length > 0 ? (
-                <table className="w-full text-left text-sm">
+                <>
+                {/* Card list — below `md`. Stock/min/shortage collapse onto one
+                    line, keeping the same red/amber severity colouring. */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {lowStockProducts
+                    .slice()
+                    .sort((a, b) => {
+                      const aStock = a.branchStock?.[currentBranch?.id ?? ''] ?? a.stock;
+                      const bStock = b.branchStock?.[currentBranch?.id ?? ''] ?? b.stock;
+                      return aStock - bStock;
+                    })
+                    .map(p => {
+                      const currentStock = p.branchStock?.[currentBranch?.id ?? ''] ?? p.stock;
+                      const shortage = Math.max(0, p.minStockLevel - currentStock);
+                      const isOut = currentStock === 0;
+                      return (
+                        <div key={p.id} className="p-4">
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900 text-sm break-words">{p.name}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {p.sku}{p.color ? ` · ${p.color}` : ''}{p.size ? ` · ${p.size}` : ''}
+                              </p>
+                              <p className="text-xs text-slate-500">{p.category}</p>
+                            </div>
+                            <span className={`inline-flex items-center justify-center w-10 h-7 flex-shrink-0 rounded-full text-xs font-bold ${
+                              isOut ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {currentStock}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                              isOut ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'
+                            }`}>
+                              {isOut ? 'Out of Stock' : `−${shortage} units`}
+                            </span>
+                            <span className="text-xs text-slate-400">min {p.minStockLevel}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <table className="hidden md:table w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500 uppercase text-xs sticky top-0">
                     <tr>
                       <th className="p-4">Product</th>
@@ -1132,6 +1200,7 @@ const Dashboard: React.FC = () => {
                       })}
                   </tbody>
                 </table>
+                </>
               ) : (
                 <div className="p-12 text-center text-slate-400">
                   <ShoppingBag size={32} className="mx-auto mb-3 opacity-30" />
@@ -1146,7 +1215,7 @@ const Dashboard: React.FC = () => {
       {/* PDF PREVIEW MODAL */}
       {previewDataUri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-[90vw] h-[90vh] max-w-5xl flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-[90vw] h-[90dvh] max-w-5xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-3">
@@ -1254,7 +1323,7 @@ const Dashboard: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
           <p className="text-slate-500 text-sm">Real-time overview of business performance.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <span className="text-xs text-slate-400 font-mono bg-slate-100 px-2 py-1 rounded">v{__APP_VERSION__}</span>
           <FilterControls />
         </div>
@@ -1272,7 +1341,7 @@ const Dashboard: React.FC = () => {
             </p>
           </div>
           {isAdmin && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <select
                 className="p-2.5 border border-amber-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 bg-white text-sm"
                 value={machineLocationPick}
@@ -1418,7 +1487,7 @@ const Dashboard: React.FC = () => {
       {isAdmin && (
       <div className="grid grid-cols-1 gap-8 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-6">
             <div>
               <h3 className="font-bold text-slate-800">Revenue vs Profit — All Branches</h3>
               <p className="text-xs text-slate-400">
@@ -1483,7 +1552,31 @@ const Dashboard: React.FC = () => {
             <span className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full">{ledger.length} entries</span>
           </div>
           {ledger.length > 0 ? (
-            <table className="w-full text-left text-sm">
+            <>
+            {/* Card list — below `md`. Keeps the three-way Transfer/Income/Expense
+                colouring the desktop table uses on both the amount and the pill. */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {ledger.slice(0, 15).map((item, idx) => (
+                <div key={idx} className="p-4 flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900 text-sm break-words">{item.desc}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {parseBusinessDate(item.date).toLocaleDateString()} · {item.category}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`text-sm font-bold ${item.category === 'Stock Transfer' ? 'text-indigo-600' : item.type === 'IN' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {item.category === 'Stock Transfer' ? '⇄ ' : item.type === 'OUT' ? '-' : '+'}{fmtCurrency(item.amount)}
+                    </p>
+                    <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${item.category === 'Stock Transfer' ? 'bg-indigo-100 text-indigo-700' : item.type === 'IN' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      {item.category === 'Stock Transfer' ? 'Transfer' : item.type === 'IN' ? 'Income' : 'Expense'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <table className="hidden md:table w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                 <tr>
                   <th className="p-4">Date</th>
@@ -1513,6 +1606,7 @@ const Dashboard: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            </>
           ) : (
             <div className="p-12 text-center text-slate-400">
               <BookOpen size={32} className="mx-auto mb-3 opacity-30" />
@@ -1554,7 +1648,41 @@ const Dashboard: React.FC = () => {
               <p className="text-sm font-medium">No sales recorded today for this branch.</p>
             </div>
           ) : (
-          <table className="w-full text-left text-sm">
+          <>
+          {/* Card list — below `md`. Edit and Void keep their amber/red buttons
+              but get full-width tap targets instead of an icon pair in a cell. */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {recentEditableSales.map((sale) => (
+              <div key={sale.id} className="p-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900 text-sm">#{sale.invoiceNumber}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 break-words">
+                      {parseBusinessDate(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {' · '}{sale.customerName || 'Walk-in'}{' · '}{sale.items.length} item(s)
+                    </p>
+                  </div>
+                  <p className="font-bold text-slate-900 text-sm flex-shrink-0">{fmtCurrency(sale.totalAmount)}</p>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => handleEditSale(sale)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 bg-amber-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors"
+                  >
+                    <Edit2 size={12} /> Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteSaleConfirm(sale)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 bg-red-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-600 transition-colors"
+                  >
+                    <Trash2 size={12} /> Void
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <table className="hidden md:table w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
               <tr>
                 <th className="p-4">Invoice</th>
@@ -1595,6 +1723,7 @@ const Dashboard: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </>
           )}
         </div>
       </div>
@@ -1649,7 +1778,7 @@ const Dashboard: React.FC = () => {
       {/* EDIT SALE MODAL */}
       {editingSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-amber-50">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-100 rounded-full text-amber-600"><Edit2 size={20} /></div>
@@ -1744,7 +1873,7 @@ const Dashboard: React.FC = () => {
       {/* EDITED SALE INVOICE */}
       {isEditInvoiceOpen && lastEditedSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="p-6 border-b border-slate-700 flex justify-between items-center text-white">
               <div>
                 <div className="flex items-center gap-2">

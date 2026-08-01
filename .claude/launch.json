@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "3001", "--strictPort"],
+      "port": 3001
+    },
+    {
+      "name": "dev-mobileshell",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--mode", "mobileshell", "--port", "3002", "--strictPort"],
+      "port": 3002
+    }
+  ]
+}

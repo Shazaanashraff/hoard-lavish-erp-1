@@ -21,7 +21,7 @@ const DIAL_TICKS = Array.from({ length: TICK_COUNT }, (_, i) => {
 const UNLOCK_STATUSES = ['Verifying PIN…', "Loading today's catalog…", 'Preparing terminal…'];
 
 const LoginPage: React.FC = () => {
-    const { users, login, isLoading } = useStore();
+    const { login, isLoading, verifyPin } = useStore();
     const [pin, setPin] = useState('');
     const [error, setError] = useState(false);
     const [shake, setShake] = useState(false);
@@ -32,8 +32,8 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-    const attemptLogin = (pinCode: string) => {
-        const user = users.find(u => u.pin === pinCode);
+    const attemptLogin = async (pinCode: string) => {
+        const user = await verifyPin(pinCode);
         if (user) {
             setMatchedUser(user);
             setUnlocking(true);

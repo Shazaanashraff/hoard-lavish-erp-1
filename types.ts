@@ -176,7 +176,9 @@ export interface User {
   id: string;
   name: string;
   role: Role;
-  pin: string; // Simple PIN for login simulation
+  // Bcrypt hash, never plaintext. Verified server-side via the fn_verify_pin
+  // RPC; cached locally (still hashed) so PIN login keeps working offline.
+  pinHash?: string;
   branchId?: string; // If assigned to specific branch
 }
 

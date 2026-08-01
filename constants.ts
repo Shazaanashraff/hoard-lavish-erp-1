@@ -24,10 +24,14 @@ export const INITIAL_BRANCHES: Branch[] = [
   },
 ];
 
+// Bcrypt hashes of the demo PINs (1234 / 0000 / 1111) — this bootstrap list is
+// only used local-first, when Supabase isn't configured at all (see
+// isSupabaseConfigured() in context/StoreContext.tsx). Never plaintext, same
+// as everything sourced from the database.
 export const INITIAL_USERS: User[] = [
-  { id: 'u1', name: 'Admin User', role: 'ADMIN', pin: '1234' },
-  { id: 'u2', name: 'John Cashier', role: 'CASHIER', pin: '0000', branchId: 'b0000000-0000-0000-0000-000000000001' },
-  { id: 'u3', name: 'Sarah Manager', role: 'MANAGER', pin: '1111', branchId: 'b0000000-0000-0000-0000-000000000002' }
+  { id: 'u1', name: 'Admin User', role: 'ADMIN', pinHash: '$2b$10$q5D2hzmhXkNB7nfZYERc7uQUEXi8.c1rdYuNHhyYJmQMXvfe5/4Qu' },
+  { id: 'u2', name: 'John Cashier', role: 'CASHIER', pinHash: '$2b$10$xHkgqmFwwTtn4M9JzsciYui2.lbyrnBUICaLZeNAA2X77zYhYoEla', branchId: 'b0000000-0000-0000-0000-000000000001' },
+  { id: 'u3', name: 'Sarah Manager', role: 'MANAGER', pinHash: '$2b$10$1ZIgu35cFE2iaD5l6rn6MeYq7x3nVT2t3LG69IW5yRbUhkKaeW9kC', branchId: 'b0000000-0000-0000-0000-000000000002' }
 ];
 
 export const INITIAL_SETTINGS: AppSettings = {

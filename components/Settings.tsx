@@ -20,7 +20,9 @@ const Settings: React.FC = () => {
   
   // User Management State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<Partial<User>>({});
+  // `pin` here is the transient plaintext PIN typed into the form — it is
+  // never part of the persisted User shape (see types.ts: User.pinHash).
+  const [editingUser, setEditingUser] = useState<Partial<User> & { pin?: string }>({});
 
   // Data Management State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,7 +119,7 @@ const Settings: React.FC = () => {
         addUser({
           ...editingUser,
           id: Math.random().toString(36).substr(2, 9)
-        } as User);
+        } as User & { pin: string });
       }
       setIsUserModalOpen(false);
       setEditingUser({});

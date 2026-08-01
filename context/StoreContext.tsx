@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import bcrypt from 'bcryptjs';
 import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType, CategoryRecord, BrandRecord } from '../types';
 import { INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
@@ -149,10 +150,11 @@ interface StoreContextType {
   addDamagedGood: (record: DamagedGood) => void;
   deleteDamagedGood: (id: string) => void;
 
-  addUser: (user: User) => void;
-  updateUser: (id: string, updates: Partial<User>) => void;
+  addUser: (user: User & { pin: string }) => void;
+  updateUser: (id: string, updates: Partial<User> & { pin?: string }) => void;
   deleteUser: (id: string) => void;
   refreshUsers: () => Promise<void>;
+  verifyPin: (pin: string) => Promise<User | null>;
 
   updateSettings: (settings: Partial<AppSettings>) => void;
   refreshSettings: () => Promise<void>;
@@ -481,10 +483,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         return;
       case 'ADD_USER':
-        await db.insertUser(p.user as User);
+        await db.insertUser(p.user as User & { pin: string });
         return;
       case 'UPDATE_USER':
-        await db.updateUser(p.id as string, p.updates as Partial<User>);
+        await db.updateUser(p.id as string, p.updates as Partial<User> & { pin?: string });
         return;
       case 'DELETE_USER':
         await db.deleteUser(p.id as string);
@@ -2262,17 +2264,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // ============================================================
   // USER ACTIONS
   // ============================================================
-  const addUser = (user: User) => {
+  const addUser = (user: User & { pin: string }) => {
+    // Never cache the plaintext pin locally — only the safe fields go into
+    // state/local storage. The hash comes back on the next refreshUsers().
+    const { pin: _pin, ...safeUser } = user;
     setUsers(prev => {
-      const next = [...prev, user];
+      const next = [...prev, safeUser];
       saveLocalUsers(next);
       return next;
     });
     void executeWithOfflineQueue('ADD_USER', { user }, () => db.insertUser(user), { fallback: 'Failed to add user' });
   };
-  const updateUser = (id: string, updates: Partial<User>) => {
+  const updateUser = (id: string, updates: Partial<User> & { pin?: string }) => {
+    const { pin: _pin, ...safeUpdates } = updates;
     setUsers(prev => {
-      const next = prev.map(u => u.id === id ? { ...u, ...updates } : u);
+      const next = prev.map(u => u.id === id ? { ...u, ...safeUpdates } : u);
       saveLocalUsers(next);
       return next;
     });
@@ -2297,6 +2303,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error('Failed to refresh users:', err);
     }
   };
+
+  // Verifies a PIN against the server (fn_verify_pin RPC — never downloads
+  // the user list to do it) and falls back to comparing against the locally
+  // cached bcrypt hash when Supabase is unreachable, preserving offline login.
+  const verifyPin = useCallback(async (pin: string): Promise<User | null> => {
+    if (useSupabase) {
+      try {
+        return await db.verifyPin(pin);
+      } catch (err) {
+        console.warn('PIN verification RPC unreachable, falling back to local cache:', err);
+      }
+    }
+    const match = users.find(u => u.pinHash && bcrypt.compareSync(pin, u.pinHash));
+    return match ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useSupabase, users]);
 
   // ============================================================
   // SETTINGS ACTIONS
@@ -2471,7 +2493,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       refreshSuppliers, refreshDamagedGoods, addSupplier, updateSupplier, deleteSupplier, recordSupplierExpense, addSupplierTransaction, updateSupplierTransaction, deleteSupplierTransaction,
       addExpense, deleteExpense,
       addDamagedGood, deleteDamagedGood,
-      addUser, updateUser, deleteUser, refreshUsers,
+      addUser, updateUser, deleteUser, refreshUsers, verifyPin,
       updateSettings, refreshSettings, exportData, importData,
       syncData, syncOfflineQueue, retryOfflineItem, removeOfflineItem, dismissOfflinePopup, dismissDbError,
       login, logout, setView

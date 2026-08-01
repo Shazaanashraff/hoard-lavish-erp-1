@@ -5,6 +5,7 @@
 // caches them for the day. Older ranges are fetched on demand by reports.
 /* eslint-disable @typescript-eslint/no-var-requires */
 import type { ExchangeRecord } from '../types';
+import { createBrowserBackend } from './indexedDbBackend';
 
 let Store: any;
 try {
@@ -17,12 +18,14 @@ try {
 type Backend = { get: (k: string, def?: any) => any; set: (k: string, v: any) => void };
 let backend: Backend;
 
-if (process.env.NODE_ENV === 'test' || !Store) {
+if (process.env.NODE_ENV === 'test') {
   const mem: Record<string, any> = {};
   backend = {
     get: (k: string, def?: any) => (mem[k] === undefined ? def : mem[k]),
     set: (k: string, v: any) => { mem[k] = v; },
   };
+} else if (!Store) {
+  backend = createBrowserBackend('exchanges_cache', {});
 } else {
   backend = new Store({ name: 'exchanges_cache' });
 }

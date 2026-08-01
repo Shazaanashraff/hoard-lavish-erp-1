@@ -1,5 +1,6 @@
 // In-memory fallback for tests; electron-store for production.
 import type { Customer } from '../types';
+import { createBrowserBackend } from './indexedDbBackend';
 
 let Store: any;
 try { Store = require('electron-store'); } catch { Store = undefined; }
@@ -7,12 +8,14 @@ try { Store = require('electron-store'); } catch { Store = undefined; }
 type Backend = { get: (k: string, def?: any) => any; set: (k: string, v: any) => void };
 let backend: Backend;
 
-if (process.env.NODE_ENV === 'test' || !Store) {
+if (process.env.NODE_ENV === 'test') {
   const mem: Record<string, any> = {};
   backend = {
     get: (k, def) => (mem[k] === undefined ? def : mem[k]),
     set: (k, v) => { mem[k] = v; },
   };
+} else if (!Store) {
+  backend = createBrowserBackend('customers_cache', {});
 } else {
   backend = new Store({ name: 'customers_cache' });
 }

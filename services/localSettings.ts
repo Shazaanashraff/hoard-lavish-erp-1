@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import type { AppSettings } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
+import { createBrowserBackend } from './indexedDbBackend';
 
 let Store: any;
 try {
@@ -16,12 +17,14 @@ try {
 type Backend = { get: (k: string, def?: any) => any; set: (k: string, v: any) => void };
 let backend: Backend;
 
-if (process.env.NODE_ENV === 'test' || !Store) {
+if (process.env.NODE_ENV === 'test') {
   const mem: Record<string, any> = { settings: INITIAL_SETTINGS };
   backend = {
     get: (k: string, def?: any) => (mem[k] === undefined ? def : mem[k]),
     set: (k: string, v: any) => { mem[k] = v; }
   };
+} else if (!Store) {
+  backend = createBrowserBackend('app_settings', { settings: INITIAL_SETTINGS });
 } else {
   backend = new Store({ name: 'app_settings', defaults: { settings: INITIAL_SETTINGS } });
 }

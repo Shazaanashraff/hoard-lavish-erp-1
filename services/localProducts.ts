@@ -2,6 +2,7 @@
 // Mirrors the pattern in localSettings.ts.
 /* eslint-disable @typescript-eslint/no-var-requires */
 import type { Product } from '../types';
+import { createBrowserBackend } from './indexedDbBackend';
 
 let Store: any;
 try {
@@ -14,12 +15,14 @@ try {
 type Backend = { get: (k: string, def?: any) => any; set: (k: string, v: any) => void };
 let backend: Backend;
 
-if (process.env.NODE_ENV === 'test' || !Store) {
+if (process.env.NODE_ENV === 'test') {
   const mem: Record<string, any> = {};
   backend = {
     get: (k: string, def?: any) => (mem[k] === undefined ? def : mem[k]),
     set: (k: string, v: any) => { mem[k] = v; },
   };
+} else if (!Store) {
+  backend = createBrowserBackend('products_cache', {});
 } else {
   backend = new Store({ name: 'products_cache' });
 }

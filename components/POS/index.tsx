@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote, UserPlus, User, X, ScanBarcode, Printer, CheckCircle, Store, ArrowRightLeft, RotateCcw } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, UserPlus, User, X, ScanBarcode, Printer, CheckCircle, Store, ArrowRightLeft, RotateCcw, ArrowLeft, ShoppingCart, Camera } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { fetchSales } from '../../services/supabaseService';
 import { Product, Customer, SalesRecord, CartItem, ExchangeRecord, ExchangeLineItem } from '../../types';
@@ -8,7 +8,9 @@ import { buildSaleReceiptHtml, buildExchangeReceiptHtml, openReceiptWindow } fro
 import { fmtCurrency } from '../../utils/formatters';
 import { CUR } from '../../constants';
 import AlertPopup from '../shared/AlertPopup';
+import CameraScanner from './CameraScanner';
 import { round2, allocateDiscountByUnits, getEffectiveLineTotal } from './posUtils';
+import { pushBack, dismissBack } from '../../hooks/useBackStack';
 
 type DiscountMode = 'amount' | 'percentage';
 type ExchangeSettlementMethod = 'Cash' | 'Card' | 'PayHere' | 'Online Transfer' | 'MintPay' | 'Cash+Card';
@@ -21,6 +23,11 @@ const POS: React.FC = () => {
   // the latest value even if React state hasn't flushed yet (fast scanners).
   const barcodeValueRef = useRef('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // Mobile-only: catalog/cart are staged as separate full-screen panes below `md`.
+  // Ignored at `md` and up, where both panes render side-by-side as always.
+  const [mobileView, setMobileView] = useState<'catalog' | 'cart'>('catalog');
+  const [isCameraScanMode, setIsCameraScanMode] = useState(false);
 
   // Billing States
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -537,6 +544,27 @@ const POS: React.FC = () => {
     setBarcodeInput('');
   };
 
+  // Camera scan result — phones have no USB scanner gun, so this is the
+  // mobile equivalent of processBarcodeValue() in the global keydown listener.
+  const handleCameraDetected = (value: string) => {
+    setIsCameraScanMode(false);
+    const exact = products.find(p =>
+      p.sku.toLowerCase() === value.toLowerCase() ||
+      (p.barcode && p.barcode.toLowerCase() === value.toLowerCase()) ||
+      (p.barcode2 && p.barcode2.toLowerCase() === value.toLowerCase())
+    );
+    if (!exact) {
+      setAlertPopup({ message: `No product found matching "${value}"`, type: 'error' });
+      return;
+    }
+    const branchStock = exact.branchStock[currentBranch.id] || 0;
+    if (branchStock > 0) {
+      handleAddToCart(exact);
+    } else {
+      setAlertPopup({ message: 'Product out of stock in this branch', type: 'error' });
+    }
+  };
+
   // 2. Handle ENTER on search to add top result to cart
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && filteredProducts.length > 0) {
@@ -645,6 +673,8 @@ const POS: React.FC = () => {
     setLastSale(sale);
     setIsInvoiceOpen(false);
     setSelectedCustomer(null);
+    dismissBack();
+    setMobileView('catalog');
     setBillDiscountMode('amount');
     setBillDiscountValue(0);
     setItemDiscountModes({});
@@ -1016,12 +1046,12 @@ const POS: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full bg-slate-50 overflow-hidden relative">
+    <div className="flex flex-col md:flex-row h-full bg-slate-50 overflow-hidden relative">
       {/* Product Grid Area */}
-      <div className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
+      <div className={`flex-1 flex-col overflow-hidden transition-all duration-300 ${mobileView === 'cart' ? 'hidden' : 'flex'} md:flex`}>
         {/* Header / Search */}
-        <div className="p-6 bg-white border-b border-slate-200">
-          <div className="flex justify-between items-start mb-4">
+        <div className="p-4 md:p-6 bg-white border-b border-slate-200">
+          <div className="flex flex-col md:flex-row md:justify-between items-stretch md:items-start gap-3 mb-4">
             <div className="flex flex-col md:flex-row gap-4 items-center flex-1">
               {/* Barcode / SKU Input with dynamic suggestions */}
               <div className="relative w-full md:w-64">
@@ -1082,6 +1112,16 @@ const POS: React.FC = () => {
                 Scan
               </button>
 
+              {/* Camera scan — mobile only, no USB scanner gun on a phone */}
+              <button
+                type="button"
+                onClick={() => setIsCameraScanMode(true)}
+                className="md:hidden flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors whitespace-nowrap shadow-sm"
+              >
+                <Camera size={18} />
+                Camera
+              </button>
+
               {/* 2. Search input with ENTER to add */}
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -1102,12 +1142,17 @@ const POS: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="ml-4 flex items-center gap-2">
+            <div className="flex items-center gap-2 justify-between md:justify-start md:ml-4">
               <button
                 onClick={() => {
                   setSelectedPaymentMethod('Cash');
+                  if (isExchangeMode) {
+                    dismissBack();
+                    resetExchangeState();
+                  } else {
+                    pushBack(() => { setIsExchangeMode(false); resetExchangeState(); });
+                  }
                   setIsExchangeMode(!isExchangeMode);
-                  if (isExchangeMode) resetExchangeState();
                 }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${isExchangeMode ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}`}
               >
@@ -1137,7 +1182,7 @@ const POS: React.FC = () => {
         </div>
 
         {/* Grid */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 pb-24 md:p-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProducts.map(product => {
               const stock = product.branchStock[currentBranch.id] || 0;
@@ -1176,8 +1221,16 @@ const POS: React.FC = () => {
         </div>
       </div>
 
-      {/* Cart Sidebar */}
-      <div className="w-96 bg-white border-l border-slate-200 flex flex-col shadow-2xl z-20">
+      {/* Cart Sidebar — full-screen sheet below md, static side panel at md+ */}
+      <div className={`${mobileView === 'cart' ? 'flex' : 'hidden'} md:flex fixed md:static inset-0 md:inset-auto z-40 md:z-20 w-full md:w-96 bg-white border-l-0 md:border-l border-slate-200 flex-col shadow-2xl`}>
+
+        {/* Mobile-only back bar */}
+        <div className="md:hidden flex items-center gap-3 p-4 border-b border-slate-200 bg-white" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
+          <button onClick={() => { dismissBack(); setMobileView('catalog'); }} className="p-2 -ml-2 rounded-lg hover:bg-slate-100" aria-label="Back to catalog">
+            <ArrowLeft size={20} className="text-slate-600" />
+          </button>
+          <h2 className="font-bold text-slate-800">Cart ({cart.reduce((sum, i) => sum + i.quantity, 0)})</h2>
+        </div>
 
         {/* 8 & 10. Customer Section with search */}
         <div className="p-4 border-b border-slate-200 bg-slate-50">
@@ -1320,7 +1373,7 @@ const POS: React.FC = () => {
                     <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
                       <button
                         onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                        className="p-1.5 hover:bg-white rounded-md transition-colors"
+                        className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center p-1.5 hover:bg-white rounded-md transition-colors"
                         title="Remove one"
                       >
                         <Minus size={12} className="text-slate-600" />
@@ -1328,7 +1381,7 @@ const POS: React.FC = () => {
                       <span className="text-xs font-bold w-8 text-center">{item.quantity}</span>
                       <button
                         onClick={() => handleAddToCart(item)}
-                        className="p-1.5 hover:bg-white rounded-md transition-colors"
+                        className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center p-1.5 hover:bg-white rounded-md transition-colors"
                         title="Add one more"
                       >
                         <Plus size={12} className="text-slate-600" />
@@ -1336,7 +1389,7 @@ const POS: React.FC = () => {
                     </div>
                     <button
                       onClick={() => removeFromCart(item.id)}
-                      className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                      className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
                       title="Remove item"
                     >
                       <Trash2 size={14} />
@@ -1349,7 +1402,7 @@ const POS: React.FC = () => {
         </div>
 
         {/* Footer / Calculations — 4. No tax */}
-        <div className="p-5 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="p-5 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
           <div className="space-y-2 mb-4">
             <div className="flex justify-between text-slate-500 text-sm">
               <span>Subtotal</span>
@@ -1471,6 +1524,22 @@ const POS: React.FC = () => {
         </div>
       </div>
 
+      {/* Persistent cart summary bar — mobile only, hidden once the cart sheet is open */}
+      {mobileView === 'catalog' && cart.length > 0 && (
+        <button
+          onClick={() => { pushBack(() => setMobileView('catalog')); setMobileView('cart'); }}
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center justify-between gap-3 bg-slate-900 text-white px-5 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
+          <span className="flex items-center gap-2 font-semibold text-sm">
+            <ShoppingCart size={18} />
+            {cart.reduce((sum, i) => sum + i.quantity, 0)} item{cart.reduce((sum, i) => sum + i.quantity, 0) === 1 ? '' : 's'}
+          </span>
+          <span className="font-bold">{fmtCurrency(total)}</span>
+          <span className="text-xs font-bold text-amber-400">View Cart &rarr;</span>
+        </button>
+      )}
+
       {/* 9. Add Customer Modal — email optional */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -1505,7 +1574,7 @@ const POS: React.FC = () => {
       {/* Invoice Modal */}
       {isInvoiceOpen && lastSale && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="p-6 bg-slate-900 text-white flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-2">
@@ -1637,6 +1706,14 @@ const POS: React.FC = () => {
         </div>
       )}
 
+      {/* Camera Scanner — mobile only entry point, no USB scanner gun on a phone */}
+      {isCameraScanMode && (
+        <CameraScanner
+          onDetect={handleCameraDetected}
+          onClose={() => setIsCameraScanMode(false)}
+        />
+      )}
+
       {/* 6. Custom Alert Popup (replaces window.alert) */}
       {alertPopup && (
         <AlertPopup
@@ -1646,11 +1723,11 @@ const POS: React.FC = () => {
         />
       )}
 
-      {/* Exchange Mode Panel */}
+      {/* Exchange Mode Panel — full screen below md, centred modal at md+ */}
       {isExchangeMode && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-amber-50">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-0 md:p-4 md:backdrop-blur-sm">
+          <div className="bg-white md:rounded-2xl w-full h-full md:h-auto max-w-none md:max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] md:max-h-[90dvh]">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-amber-50" style={{ paddingTop: 'calc(1.25rem + env(safe-area-inset-top))' }}>
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-100 rounded-full text-amber-600"><ArrowRightLeft size={20} /></div>
                 <div>
@@ -1658,7 +1735,7 @@ const POS: React.FC = () => {
                   <p className="text-xs text-slate-500">Return old products and issue new ones</p>
                 </div>
               </div>
-              <button onClick={() => { setIsExchangeMode(false); resetExchangeState(); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button onClick={() => { dismissBack(); setIsExchangeMode(false); resetExchangeState(); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -2049,7 +2126,7 @@ const POS: React.FC = () => {
                 </div>
               )}
               <div className="flex justify-between items-center">
-                <button onClick={() => { setIsExchangeMode(false); resetExchangeState(); }} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm">Cancel</button>
+                <button onClick={() => { dismissBack(); setIsExchangeMode(false); resetExchangeState(); }} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm">Cancel</button>
                 <button
                   onClick={handleCompleteExchange}
                   disabled={(returnedItems.length === 0 && noSaleReturnItems.length === 0) && exchangeNewItems.length === 0}
@@ -2066,7 +2143,7 @@ const POS: React.FC = () => {
       {/* Exchange Invoice Modal */}
       {isExchangeInvoiceOpen && lastExchange && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
             <div className="p-6 bg-amber-500 text-white flex justify-between items-center">
               <div>
                 <div className="flex items-center gap-2">

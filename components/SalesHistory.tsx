@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { parseBusinessDate } from '../utils/dateTime';
 import { buildSaleReceiptHtml, buildExchangeReceiptHtml, openReceiptWindow } from '../utils/receiptHtml';
 import { fmtCurrency } from '../utils/formatters';
+import { pushBack, dismissBack } from '../hooks/useBackStack';
 
 type TimePeriod = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL' | 'CUSTOM';
 
@@ -592,7 +593,7 @@ const SalesHistory: React.FC = () => {
               return (
                 <div
                   key={`ex-${ex.id}`}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => { pushBack(() => setSelectedItem(null)); setSelectedItem(item); }}
                   className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md
                     ${isSelected ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-100 text-slate-900 hover:border-amber-200'}`}
                 >
@@ -639,7 +640,7 @@ const SalesHistory: React.FC = () => {
               return (
                 <div
                   key={`sale-${sale.id}`}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => { pushBack(() => setSelectedItem(null)); setSelectedItem(item); }}
                   className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md
                     ${isSelected ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-100 text-slate-900 hover:border-amber-200'}`}
                 >
@@ -848,7 +849,7 @@ const SalesHistory: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => setSelectedItem(null)}
+              onClick={() => { dismissBack(); setSelectedItem(null); }}
               className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
             >
               <X size={20} />

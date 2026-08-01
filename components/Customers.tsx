@@ -6,6 +6,7 @@ import { Customer, SalesRecord } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
 import { fmtCurrency } from '../utils/formatters';
 import ConfirmDialog from './shared/ConfirmDialog';
+import { pushBack, dismissBack } from '../hooks/useBackStack';
 
 const Customers: React.FC = () => {
   const { customers, addCustomer, updateCustomer, deleteCustomer, loadCustomers, refreshCustomers, currentUser } = useStore();
@@ -69,6 +70,7 @@ const Customers: React.FC = () => {
     if (deleteConfirm) {
       deleteCustomer(deleteConfirm.id);
       if (selectedCustomer?.id === deleteConfirm.id) {
+        dismissBack();
         setSelectedCustomer(null);
         setActiveView('LIST');
       }
@@ -77,6 +79,7 @@ const Customers: React.FC = () => {
   };
 
   const openProfile = (customer: Customer) => {
+    pushBack(() => { setActiveView('LIST'); setSelectedCustomer(null); });
     setSelectedCustomer(customer);
     setActiveView('PROFILE');
   };
@@ -89,7 +92,7 @@ const Customers: React.FC = () => {
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {activeView === 'PROFILE' && (
               <button
-                onClick={() => { setActiveView('LIST'); setSelectedCustomer(null); }}
+                onClick={() => { dismissBack(); setActiveView('LIST'); setSelectedCustomer(null); }}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
               >
                 <ChevronLeft size={24} className="text-slate-500" />

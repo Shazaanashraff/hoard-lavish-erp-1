@@ -14,6 +14,7 @@ import Settings from './components/Settings';
 import LoginPage from './components/LoginPage';
 import UpdateNotification from './components/UpdateNotification';
 import OfflineQueue from './components/OfflineQueue';
+import { pushBack, dismissBack } from './hooks/useBackStack';
 
 // Database Error Banner
 const DbErrorBanner: React.FC = () => {
@@ -130,6 +131,11 @@ const Layout: React.FC = () => {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  // Pushes a history entry while the drawer is open so the Android/iOS back
+  // button closes it instead of exiting the installed PWA.
+  const openSidebar = () => { pushBack(() => setSidebarOpen(false)); setSidebarOpen(true); };
+  const closeSidebar = () => { dismissBack(); setSidebarOpen(false); };
+
   const renderView = () => {
     // Role-based view guards
     if (currentView === 'SETTINGS' && role !== 'ADMIN') return <Dashboard />;
@@ -167,11 +173,11 @@ const Layout: React.FC = () => {
     // `100dvh` rather than `h-screen` — `100vh` is measured against the mobile
     // viewport with the URL bar hidden, so it overflows while the bar is shown.
     <div className="flex h-[100dvh] w-full bg-slate-50 overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
       {/* `min-w-0` stops wide children (the 23 tables) from forcing the whole
           shell wider than the viewport — flex items default to min-width:auto. */}
       <div className="flex-1 flex flex-col min-w-0">
-        <MobileTopBar onMenuClick={() => setSidebarOpen(true)} />
+        <MobileTopBar onMenuClick={openSidebar} />
         <main className="flex-1 flex overflow-hidden relative min-w-0">
           {renderView()}
         </main>

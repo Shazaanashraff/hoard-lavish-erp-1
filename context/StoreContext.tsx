@@ -406,7 +406,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
       case 'ADD_CATEGORY':
-        await db.insertCategory(p.category as string);
+        await db.insertCategory(p.id as string | undefined, p.category as string);
         return;
       case 'REMOVE_CATEGORY':
         await db.deleteCategory(p.category as string);
@@ -415,7 +415,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await db.updateCategory(p.oldName as string, p.newName as string);
         return;
       case 'ADD_BRAND':
-        await db.insertBrand(p.brand as string);
+        await db.insertBrand(p.id as string | undefined, p.brand as string);
         return;
       case 'REMOVE_BRAND':
         await db.deleteBrand(p.brand as string);
@@ -1907,7 +1907,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const updated = [...categoryRecordsRef.current, record];
     setCategoryRecords(updated);
     void saveLocalCategories(updated);
-    void executeWithOfflineQueue('ADD_CATEGORY', { category: trimmed }, () => db.insertCategory(trimmed), { fallback: 'Failed to add category' });
+    void executeWithOfflineQueue('ADD_CATEGORY', { id: record.id, category: trimmed }, () => db.insertCategory(record.id, trimmed), { fallback: 'Failed to add category' });
   };
   const removeCategory = (category: string) => {
     const now = new Date().toISOString();
@@ -1943,7 +1943,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const updated = [...brandRecordsRef.current, record];
     setBrandRecords(updated);
     void saveLocalBrands(updated);
-    void executeWithOfflineQueue('ADD_BRAND', { brand: trimmed }, () => db.insertBrand(trimmed), { fallback: 'Failed to add brand' });
+    void executeWithOfflineQueue('ADD_BRAND', { id: record.id, brand: trimmed }, () => db.insertBrand(record.id, trimmed), { fallback: 'Failed to add brand' });
   };
   const removeBrand = (brand: string) => {
     const now = new Date().toISOString();

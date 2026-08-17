@@ -31,10 +31,20 @@ export async function saveLocalTags<T extends TagRecord>(namespace: string, reco
 }
 
 export function activeTagNames(records: TagRecord[]): string[] {
-    return records
-        .filter(r => !r.deletedAt)
-        .map(r => r.name)
-        .sort((a, b) => a.localeCompare(b));
+    // Two active records can end up sharing the same name (case-insensitively) after a
+    // merge — e.g. a locally-created record whose insert landed under a different id
+    // than the reconciled server row. Collapse those to one displayed name rather than
+    // showing the same category/brand twice.
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const r of records) {
+        if (r.deletedAt) continue;
+        const key = r.name.trim().toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        names.push(r.name);
+    }
+    return names.sort((a, b) => a.localeCompare(b));
 }
 
 export function pruneTombstones<T extends TagRecord>(records: T[], olderThanDays = 90): T[] {

@@ -50,8 +50,8 @@ export async function fetchCategories(opts?: { since?: string }): Promise<Catego
     return (data ?? []).map(mapCategoryRow);
 }
 
-export async function insertCategory(name: string): Promise<void> {
-    const { error } = await supabase.from('categories').insert({ name });
+export async function insertCategory(id: string | undefined, name: string): Promise<void> {
+    const { error } = await supabase.from('categories').insert(id ? { id, name } : { name });
     if (error && error.code !== '23505') throw error;
 }
 
@@ -74,8 +74,8 @@ export async function fetchBrands(opts?: { since?: string }): Promise<BrandRecor
     return (data ?? []).map(mapBrandRow);
 }
 
-export async function insertBrand(name: string): Promise<void> {
-    const { error } = await supabase.from('brands').insert({ name });
+export async function insertBrand(id: string | undefined, name: string): Promise<void> {
+    const { error } = await supabase.from('brands').insert(id ? { id, name } : { name });
     if (error && error.code !== '23505') throw error;
 }
 

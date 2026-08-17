@@ -92,4 +92,19 @@
 ---
 
 ## Resolved
-<!-- none yet -->
+
+### INV-09 · P0 · BUG · `services/db/settings.ts:53-56,77-80`, `context/StoreContext.tsx:1902-1911,1938-1947`, `services/localTagStore.ts:33-46`
+- **Problem:** `addCategory`/`addBrand` created a local optimistic record with a client-generated id
+  and displayed it immediately, but `db.insertCategory`/`db.insertBrand` never sent that id to
+  Supabase — Postgres generated its own id for the row. Background reconciliation merges local vs.
+  remote records **by id** (`mergeCategoriesLWW`/`mergeBrandsLWW`), so the local and remote copies
+  of the same category/brand never matched and both survived. Every category/brand name appeared
+  twice everywhere the derived `categories`/`brands` list is consumed (Inventory filters, product
+  create/edit dropdowns, POS filters).
+- **Impact:** Any category or brand added through the app was duplicated in the picker/filter UI.
+- **Fix:** `insertCategory`/`insertBrand` now accept and use the client id, matching every other
+  entity in the app (products, customers, suppliers, branches). `activeTagNames` also dedupes by
+  normalized name defensively, self-healing already-affected local caches on next load without
+  requiring a manual cache clear. `supabase/migrations/018_dedupe_categories_brands.sql` cleans up
+  any already-duplicated server-side rows (case-insensitive name collisions — `categories.name`/
+  `brands.name`'s `UNIQUE` constraint is case-sensitive and doesn't catch those).

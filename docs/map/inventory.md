@@ -53,7 +53,13 @@ remote rows and **merges** them into the cache via last-write-wins by `updated_a
   hitting these tables on every tick.
 - **Add/remove/rename** (`addCategory`/`removeCategory`/`updateCategory`, `context/StoreContext.tsx`)
   write the local cache first, then queue the Supabase write through the existing offline-queue
-  (`ADD_CATEGORY`/`REMOVE_CATEGORY`/`UPDATE_CATEGORY`, mirrored for brands).
+  (`ADD_CATEGORY`/`REMOVE_CATEGORY`/`UPDATE_CATEGORY`, mirrored for brands). `insertCategory`/
+  `insertBrand` (`services/db/settings.ts`) send the **client-generated id** with the insert so the
+  optimistic local record and the reconciled remote row share one id and merge into a single record
+  — previously they didn't, and the LWW merge (which never drops an id it doesn't recognize) kept
+  both, showing the same name twice. `activeTagNames` (`services/localTagStore.ts`) also dedupes by
+  normalized name as a display-layer safety net, since `categories.name`/`brands.name`'s UNIQUE
+  constraint is case-sensitive and can't stop that on its own.
 - **Delete is a soft-delete** (`deleted_at` tombstone, both locally and in Supabase) so a
   delete-vs-rename/add race across two devices can be resolved by comparing timestamps instead of a
   row just vanishing. Tombstones are pruned locally after 90 days.

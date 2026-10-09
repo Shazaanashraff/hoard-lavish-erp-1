@@ -6,6 +6,9 @@ export const mapSettings = (r: any): AppSettings => ({
     currencySymbol: r.currency_symbol,
     taxRate: Number(r.tax_rate),
     enableLowStockAlerts: r.enable_low_stock_alerts,
+    smsEnabled: r.sms_enabled ?? false,
+    smsSenderId: r.sms_sender_id ?? '',
+    smsDailyLimit: r.sms_daily_limit ?? 500,
 });
 
 export async function fetchSettings(): Promise<AppSettings> {
@@ -20,6 +23,9 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<voi
     if (updates.currencySymbol !== undefined) dbUpdates.currency_symbol = updates.currencySymbol;
     if (updates.taxRate !== undefined) dbUpdates.tax_rate = updates.taxRate;
     if (updates.enableLowStockAlerts !== undefined) dbUpdates.enable_low_stock_alerts = updates.enableLowStockAlerts;
+    if (updates.smsEnabled !== undefined) dbUpdates.sms_enabled = updates.smsEnabled;
+    if (updates.smsSenderId !== undefined) dbUpdates.sms_sender_id = updates.smsSenderId;
+    if (updates.smsDailyLimit !== undefined) dbUpdates.sms_daily_limit = updates.smsDailyLimit;
 
     const { data: existing, error: fetchError } = await supabase.from('app_settings').select('id').limit(1).single();
     if (fetchError) throw fetchError;

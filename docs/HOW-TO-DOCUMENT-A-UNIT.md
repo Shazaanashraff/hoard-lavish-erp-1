@@ -67,6 +67,7 @@ lines in `docs/fixes/README.md`.
 | Inventory | ☑ | ☑ | **LOCKED** | `docs/map/inventory.md`, `docs/fixes/inventory.md` |
 | Dashboard | ☑ | ☑ | **LOCKED** | `docs/map/dashboard.md`, `docs/fixes/dashboard.md` |
 | Customers | ◐ | ◐ | **DRAFT** (0 ⚠️) | `docs/map/customers.md`, `docs/fixes/customers.md` — awaiting lock approval |
+| SMS campaigns | ◐ | ◐ | **DRAFT** (0 ⚠️) | `docs/map/sms.md`, `docs/fixes/sms.md` — written with the feature; awaiting lock approval |
 | Suppliers | ☐ | ☐ | | supplier CRUD, transactions, damaged-goods tab, affects_accounting |
 | Accounting | ☐ | ☐ | | expense entry + history |
 | Settings | ☐ | ☐ | | settings, branch mgmt, CSV import |

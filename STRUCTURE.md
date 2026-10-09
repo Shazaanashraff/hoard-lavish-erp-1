@@ -51,8 +51,12 @@ components/
 ├── Dashboard/
 │   └── index.tsx           Sales analytics, charts, sale editing/voiding, PDF export
 │
+├── sms/                    Customer SMS campaigns (rendered inside Customers.tsx)
+│   ├── SmsComposer.tsx     Audience, template, segment/cost preview, send + progress
+│   └── SmsCampaignHistory.tsx  Past campaigns + per-recipient delivery log
+│
 ├── Accounting.tsx          Expense entry and history
-├── Customers.tsx           Customer CRUD and loyalty tracking
+├── Customers.tsx           Customer CRUD, loyalty tracking, SMS selection + SMS view
 ├── Suppliers.tsx           Supplier CRUD, transactions, damaged goods tab
 ├── Settings.tsx            App settings, branch management, CSV import
 ├── LoginPage.tsx           PIN login screen
@@ -82,7 +86,9 @@ services/
     ├── users.ts            mapUser, fetchUsers, insertUser, updateUser, deleteUser
     ├── settings.ts         mapSettings, fetchSettings, updateSettings, fetchCategories, fetchBrands
     ├── inventory.ts        fetchDamagedGoods, insertDamagedGood, deleteDamagedGood, initializeBranchStock
-    └── transfers.ts        fetchStockTransfers, insertStockTransfer
+    ├── transfers.ts        fetchStockTransfers, insertStockTransfer
+    └── sms.ts              fetchSmsCampaigns/Messages, createSmsCampaign, sendSmsBatch
+                            (invokes the send-sms Edge Function), cancel/requeue/delete
 ```
 
 ---
@@ -100,7 +106,8 @@ utils/
 ├── cart.ts                 calculateCartTotals
 ├── dateTime.ts             parseBusinessDate and date helpers
 ├── generators.ts           generateInvoiceNumber, generateTransferNumber
-└── revenue.ts              buildProductRevenueStats, getTopRevenueAndQuantityProducts
+├── revenue.ts              buildProductRevenueStats, getTopRevenueAndQuantityProducts
+└── sms.ts                  normalizePhone, smsSegmentInfo, renderSmsBody, buildRecipients
 ```
 
 ---

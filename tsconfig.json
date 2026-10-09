@@ -25,5 +25,13 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-electron",
+    // Deno / Supabase Edge runtime: URL imports and the `Deno` global are not
+    // resolvable by this app's tsc. Type-checked by `supabase functions deploy`.
+    "supabase/functions"
+  ]
 }

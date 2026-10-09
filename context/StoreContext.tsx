@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import bcrypt from 'bcryptjs';
-import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType, CategoryRecord, BrandRecord } from '../types';
+import { Product, CartItem, SalesRecord, ViewState, Customer, StockMovement, Branch, Supplier, SupplierTransaction, Expense, User, AppSettings, DamagedGood, StockTransfer, StockTransferItem, ExchangeRecord, OfflineQueueItem, OfflinePopupState, OfflineOperationType, CategoryRecord, BrandRecord, SmsCampaign, SmsMessage, SmsSendProgress, SmsSenderVerification, SmsSenderCheckResult } from '../types';
 import { INITIAL_CATEGORIES, INITIAL_BRANDS, INITIAL_BRANCHES, INITIAL_USERS, INITIAL_SETTINGS } from '../constants';
 import * as db from '../services/supabaseService';
 import { supabase } from '../services/supabaseClient';
@@ -8,6 +8,7 @@ import { calculateCartTotals } from '../utils/cart';
 import { generateInvoiceNumber, generateTransferNumber } from '../utils/generators';
 import { isLikelyConnectivityIssue, extractDbErrorMessage, DbLikeError } from '../utils/errors';
 import { isUuid, makeUuid } from '../utils/ids';
+import { buildRecipients, normalizePhone, validateSenderId } from '../utils/sms';
 import { loadLocalBranches, saveLocalBranches } from '../services/localBranches';
 import { loadAssignedBranchId, saveAssignedBranchId } from '../services/machineBranch';
 import { loadCachedProducts, saveCachedProducts, applyStockDelta, mergeBranchStock } from '../services/localProducts';
@@ -100,6 +101,31 @@ interface StoreContextType {
   deleteCustomer: (id: string) => void;
   loadCustomers: () => Promise<void>;
   refreshCustomers: () => Promise<void>;
+
+  smsCampaigns: SmsCampaign[];
+  // Live counters while runSmsCampaign's batch loop is in flight (null when idle).
+  smsProgress: SmsSendProgress | null;
+  loadSmsCampaigns: () => Promise<void>;
+  refreshSmsCampaigns: () => Promise<void>;
+  loadSmsMessages: (campaignId: string) => Promise<SmsMessage[]>;
+  // Creates a campaign for `recipients` and drives it to completion. Online-only:
+  // unlike the CRUD actions this is NOT offline-queueable (see runSmsCampaign).
+  sendSmsCampaign: (input: {
+    name: string;
+    message: string;
+    recipients: Customer[];
+    audience: 'ALL' | 'SELECTED';
+    dryRun?: boolean;
+  }) => Promise<{ success: boolean; campaignId?: string; sent?: number; failed?: number; skipped?: number; error?: string }>;
+  cancelSmsCampaign: (campaignId: string) => Promise<void>;
+  retrySmsCampaign: (campaignId: string) => Promise<{ success: boolean; requeued?: number; error?: string }>;
+  deleteSmsCampaign: (campaignId: string) => Promise<void>;
+  // Has text.lk accepted a real test message from this exact sender ID? null =
+  // never verified (or unreachable). Sending is refused server-side without it.
+  getSmsSenderVerification: (senderId: string) => Promise<SmsSenderVerification | null>;
+  // Sends one real test SMS (costs a credit) from `senderId` to `phone` and
+  // records the gateway's verdict. Online-only, like every SMS action.
+  verifySmsSender: (senderId: string, phone: string) => Promise<SmsSenderCheckResult & { error?: string }>;
 
   addToCart: (product: Product) => string;
   removeFromCart: (productId: string) => void;
@@ -238,6 +264,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [damagedGoods, setDamagedGoods] = useState<DamagedGood[]>([]);
   const [users, setUsers] = useState<User[]>(loadLocalUsers());
   const [settings, setSettings] = useState<AppSettings>(loadLocalSettings());
+  const [smsCampaigns, setSmsCampaigns] = useState<SmsCampaign[]>([]);
+  const [smsProgress, setSmsProgress] = useState<SmsSendProgress | null>(null);
 
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -245,6 +273,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [dbError, setDbError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const customerLoadedRef = useRef(false);
+  const smsCampaignsLoadedRef = useRef(false);
+  // Guards against a second Send while the batch loop is running (double-click,
+  // or the same campaign resumed from two screens) — every extra loop would be
+  // real money at the gateway.
+  const smsSendingRef = useRef(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR' | null>(null);
@@ -1158,6 +1191,244 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCustomers(data);
     localCustomers.saveCachedCustomers(data, new Date().toISOString().slice(0, 10));
     customerLoadedRef.current = true;
+  };
+
+  // ============================================================
+  // SMS CAMPAIGN ACTIONS
+  //
+  // Deliberately NOT offline-queueable. Every other write here can be
+  // replayed later because the truth lives in our own DB; an SMS cannot —
+  // replaying a queued campaign hours later would send a "flash sale ends
+  // today" to the whole customer list on the wrong day, and charge for it.
+  // So these actions require connectivity and say so.
+  // ============================================================
+  const loadSmsCampaigns = async () => {
+    if (!useSupabase || smsCampaignsLoadedRef.current) return;
+    const data = await db.fetchSmsCampaigns();
+    setSmsCampaigns(data);
+    smsCampaignsLoadedRef.current = true;
+  };
+
+  const refreshSmsCampaigns = async () => {
+    if (!useSupabase) return;
+    const data = await db.fetchSmsCampaigns();
+    setSmsCampaigns(data);
+    smsCampaignsLoadedRef.current = true;
+  };
+
+  // Per-recipient log, fetched only when a campaign row is expanded.
+  const loadSmsMessages = async (campaignId: string): Promise<SmsMessage[]> => {
+    if (!useSupabase) return [];
+    return await db.fetchSmsMessages(campaignId);
+  };
+
+  // Pulls one campaign's current row into state without refetching the list.
+  const syncCampaignRow = async (campaignId: string) => {
+    try {
+      const fresh = await db.fetchSmsCampaign(campaignId);
+      setSmsCampaigns(prev => {
+        const idx = prev.findIndex(c => c.id === fresh.id);
+        if (idx < 0) return [fresh, ...prev];
+        const next = [...prev];
+        next[idx] = fresh;
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to refresh SMS campaign row', err);
+    }
+  };
+
+  /**
+   * Drives an existing campaign to completion, one Edge Function batch at a
+   * time, publishing progress as it goes. Returns the final tallies.
+   *
+   * The loop lives here rather than in the Edge Function because a few
+   * hundred recipients exceed the function's wall clock — and because a
+   * batch that times out must be retried, not skipped (the rows stay
+   * claimed for 5 minutes, then become claimable again).
+   */
+  const runSmsCampaign = async (
+    campaignId: string,
+    expectedTotal: number,
+    opts?: { dryRun?: boolean }
+  ): Promise<{ sent: number; failed: number; error?: string }> => {
+    let sent = 0;
+    let failed = 0;
+    let guard = 0;
+    // Ceiling on iterations: (recipients / smallest batch) + slack for
+    // requeued stragglers. Stops a server that keeps reporting `remaining`
+    // from looping forever and billing forever.
+    const maxIterations = Math.ceil(expectedTotal / 5) + 20;
+
+    setSmsProgress({ campaignId, total: expectedTotal, sent: 0, failed: 0, remaining: expectedTotal, status: 'SENDING' });
+
+    try {
+      while (guard++ < maxIterations) {
+        const result = await db.sendSmsBatch(campaignId, { dryRun: opts?.dryRun });
+        sent += result.sent;
+        failed += result.failed;
+
+        setSmsProgress({
+          campaignId,
+          total: expectedTotal,
+          sent,
+          failed,
+          remaining: result.remaining,
+          status: result.campaignStatus,
+        });
+
+        if (result.campaignStatus === 'CANCELLED') break;
+        if (result.remaining <= 0) break;
+        // A batch that claimed nothing while work remains means the rows are
+        // held by another in-flight invocation. Backing off beats spinning.
+        if (result.claimed === 0) await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      await syncCampaignRow(campaignId);
+      return { sent, failed };
+    } catch (err: unknown) {
+      const message = extractDbErrorMessage(err, 'SMS sending failed');
+      setDbError(message);
+      await syncCampaignRow(campaignId);
+      // Partial success is the normal outcome of a mid-loop failure: the
+      // rows already sent stay SENT and the rest stay QUEUED, so "Retry
+      // failed" / re-running the campaign picks up exactly the remainder.
+      return { sent, failed, error: message };
+    } finally {
+      setSmsProgress(null);
+    }
+  };
+
+  const sendSmsCampaign = async (input: {
+    name: string;
+    message: string;
+    recipients: Customer[];
+    audience: 'ALL' | 'SELECTED';
+    dryRun?: boolean;
+  }): Promise<{ success: boolean; campaignId?: string; sent?: number; failed?: number; skipped?: number; error?: string }> => {
+    if (!useSupabase) {
+      return { success: false, error: 'SMS sending needs a cloud connection — Supabase is not configured on this machine.' };
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { success: false, error: 'No internet connection. SMS campaigns cannot be queued offline — reconnect and try again.' };
+    }
+    if (smsSendingRef.current) {
+      return { success: false, error: 'An SMS campaign is already being sent. Wait for it to finish.' };
+    }
+
+    const { queued, skipped } = buildRecipients(input.recipients, input.message, {
+      storeName: settings.storeName,
+      currencySymbol: settings.currencySymbol,
+    });
+
+    if (queued.length === 0) {
+      return { success: false, error: 'No customers in this selection have a usable mobile number.', skipped: skipped.length };
+    }
+
+    smsSendingRef.current = true;
+    try {
+      const campaignId = await db.createSmsCampaign({
+        name: input.name,
+        message: input.message,
+        audience: input.audience,
+        createdBy: currentUser?.id,
+        createdByName: currentUser?.name ?? '',
+        branchId: currentBranch?.id,
+        branchName: currentBranch?.name ?? '',
+        recipients: [...queued, ...skipped],
+      });
+
+      const result = await runSmsCampaign(campaignId, queued.length, { dryRun: input.dryRun });
+      return {
+        success: !result.error,
+        campaignId,
+        sent: result.sent,
+        failed: result.failed,
+        skipped: skipped.length,
+        error: result.error,
+      };
+    } catch (err: unknown) {
+      // fn_create_sms_campaign's RAISE messages (disabled, no sender ID,
+      // daily cap) are written for the operator — surface them as-is.
+      const message = extractDbErrorMessage(err, 'Failed to start the SMS campaign');
+      return { success: false, error: message, skipped: skipped.length };
+    } finally {
+      smsSendingRef.current = false;
+    }
+  };
+
+  const cancelSmsCampaign = async (campaignId: string) => {
+    try {
+      await db.cancelSmsCampaign(campaignId);
+      await syncCampaignRow(campaignId);
+    } catch (err: unknown) {
+      setDbError(extractDbErrorMessage(err, 'Failed to cancel the SMS campaign'));
+    }
+  };
+
+  // Requeues the failed recipients, then runs the loop again over just those.
+  const retrySmsCampaign = async (campaignId: string): Promise<{ success: boolean; requeued?: number; error?: string }> => {
+    if (smsSendingRef.current) return { success: false, error: 'An SMS campaign is already being sent.' };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { success: false, error: 'No internet connection.' };
+    }
+
+    smsSendingRef.current = true;
+    try {
+      const requeued = await db.requeueFailedSms(campaignId);
+      if (requeued === 0) {
+        await syncCampaignRow(campaignId);
+        return { success: true, requeued: 0 };
+      }
+      const result = await runSmsCampaign(campaignId, requeued);
+      return { success: !result.error, requeued, error: result.error };
+    } catch (err: unknown) {
+      return { success: false, error: extractDbErrorMessage(err, 'Failed to retry the SMS campaign') };
+    } finally {
+      smsSendingRef.current = false;
+    }
+  };
+
+  const deleteSmsCampaign = async (campaignId: string) => {
+    setSmsCampaigns(prev => prev.filter(c => c.id !== campaignId));
+    try {
+      await db.deleteSmsCampaign(campaignId);
+    } catch (err: unknown) {
+      setDbError(extractDbErrorMessage(err, 'Failed to delete the SMS campaign'));
+      await refreshSmsCampaigns();
+    }
+  };
+
+  const getSmsSenderVerification = async (senderId: string): Promise<SmsSenderVerification | null> => {
+    if (!useSupabase || !senderId.trim()) return null;
+    try {
+      return await db.fetchSmsSenderVerification(senderId);
+    } catch (err) {
+      // Unverifiable is treated as unverified: the server enforces it anyway,
+      // so the worst a failed read does is show the "verify" prompt.
+      console.error('Failed to read SMS sender verification', err);
+      return null;
+    }
+  };
+
+  const verifySmsSender = async (senderId: string, phone: string): Promise<SmsSenderCheckResult & { error?: string }> => {
+    const id = senderId.trim();
+    const fail = (error: string) => ({ ok: false, senderId: id, error });
+
+    if (!useSupabase) return fail('SMS verification needs a cloud connection — Supabase is not configured on this machine.');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return fail('No internet connection.');
+
+    const formatError = validateSenderId(id);
+    if (formatError) return fail(formatError);
+
+    const normalized = normalizePhone(phone);
+    if (!normalized.ok) return fail(normalized.reason ?? 'Enter a valid mobile number for the test message.');
+
+    try {
+      return await db.verifySmsSender(id, normalized.msisdn);
+    } catch (err: unknown) {
+      return fail(extractDbErrorMessage(err, 'Could not reach the SMS verification service'));
+    }
   };
 
   // ============================================================
@@ -2483,10 +2754,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <StoreContext.Provider value={{
       products, customers, cart, salesHistory, stockHistory, stockTransfers, exchangeHistory, categories, brands, branches, suppliers, supplierTransactions, expenses, damagedGoods, users, settings,
+      smsCampaigns, smsProgress,
       currentBranch, assignedBranchId, assignedBranchLoaded, currentUser, currentView, isLoading, dbError, offlineQueue, offlinePopup, lastSyncTime, isCloudConnected, realtimeStatus,
       setBranch, setAssignedBranch, addBranch, updateBranch,
       addProduct, updateProduct, deleteProduct, getProductSalesUsage,
       addCustomer, updateCustomer, deleteCustomer, loadCustomers, refreshCustomers,
+      loadSmsCampaigns, refreshSmsCampaigns, loadSmsMessages, sendSmsCampaign, cancelSmsCampaign, retrySmsCampaign, deleteSmsCampaign, getSmsSenderVerification, verifySmsSender,
       addToCart, removeFromCart, updateCartItemDiscount, updateCartQuantity, clearCart,
       completeSale, updateSale, deleteSale, refreshSalesHistory, completeExchange, loadExchangesForPeriod, refreshRecentExchanges, exchangeRefreshCooldownUntil, adjustStock, transferStock, deleteTransfer, refreshTransfers,
       addCategory, removeCategory, updateCategory, addBrand, removeBrand, updateBrand,

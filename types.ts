@@ -66,6 +66,9 @@ export interface Customer {
   email: string;
   loyaltyPoints: number;
   totalSpent: number;
+  // Excluded from SMS campaigns. Optional because rows cached before
+  // migration 019 (and JSON imports) won't carry the field.
+  smsOptOut?: boolean;
 }
 
 export interface SalesRecord {
@@ -189,6 +192,92 @@ export interface AppSettings {
   enableLowStockAlerts: boolean;
   thermalPrinterName?: string; // Name of the thermal printer for silent printing
   barcodePrinterName?: string; // Name of the barcode label printer (e.g. XP-T451B)
+  // SMS (text.lk). The API token is NOT here and never reaches the client —
+  // it is an Edge Function secret (see supabase/functions/send-sms).
+  smsEnabled?: boolean;
+  smsSenderId?: string;
+  smsDailyLimit?: number;
+}
+
+// ========================
+// SMS CAMPAIGNS
+// ========================
+
+export type SmsCampaignStatus = 'QUEUED' | 'SENDING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'CANCELLED';
+export type SmsMessageStatus = 'QUEUED' | 'SENDING' | 'SENT' | 'FAILED' | 'SKIPPED';
+
+export interface SmsCampaign {
+  id: string;
+  name: string;
+  /** The template as typed, placeholders un-substituted. */
+  message: string;
+  senderId: string;
+  status: SmsCampaignStatus;
+  audience: 'ALL' | 'SELECTED';
+  /** Sendable recipients (excludes SKIPPED). */
+  totalCount: number;
+  sentCount: number;
+  failedCount: number;
+  skippedCount: number;
+  /** Gateway credits, not store currency. */
+  totalCost: number;
+  createdBy?: string;
+  createdByName: string;
+  branchId?: string;
+  branchName: string;
+  errorMessage?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface SmsMessage {
+  id: string;
+  campaignId: string;
+  customerId?: string;
+  customerName: string;
+  /** Normalized msisdn actually sent, e.g. 94771234567. */
+  phone: string;
+  rawPhone: string;
+  body: string;
+  status: SmsMessageStatus;
+  providerUid?: string;
+  providerStatus?: string;
+  cost?: number;
+  smsCount?: number;
+  errorMessage?: string;
+  attempts: number;
+  sentAt?: string;
+  createdAt: string;
+}
+
+/**
+ * Proof that text.lk accepted a test message from this sender ID
+ * (sms_sender_checks, written only by the send-sms Edge Function).
+ */
+export interface SmsSenderVerification {
+  senderId: string;
+  verifiedAt: string;
+  /** Test number with the middle hidden, e.g. 9477***567. */
+  phoneMasked: string;
+}
+
+/** Result of one "Verify sender ID" attempt. */
+export interface SmsSenderCheckResult {
+  ok: boolean;
+  senderId: string;
+  message?: string;
+  providerUid?: string;
+  providerStatus?: string;
+}
+
+/** Live progress of the batch loop in StoreContext.runSmsCampaign. */
+export interface SmsSendProgress {
+  campaignId: string;
+  total: number;
+  sent: number;
+  failed: number;
+  remaining: number;
+  status: SmsCampaignStatus;
 }
 
 export interface ExchangeRecord {

@@ -41,6 +41,9 @@ export const INITIAL_SETTINGS: AppSettings = {
   enableLowStockAlerts: true,
   thermalPrinterName: '',
   barcodePrinterName: '',
+  smsEnabled: false,
+  smsSenderId: '',
+  smsDailyLimit: 500,
 };
 
 

@@ -20,6 +20,7 @@ spent are **not** edited here — they are maintained by the sale/exchange paths
 | [services/db/customers.ts](../../services/db/customers.ts) (55 lines) | DB layer: `fetchCustomers`, `insertCustomer`, `updateCustomer`, `deleteCustomer`, `mapCustomer`. |
 | [services/localCustomers.ts](../../services/localCustomers.ts) | Offline mirror: `electron-store` cache (`customers_cache`), day-fresh check (`isCacheFresh`). |
 | [supabase/migrations/001_initial_schema.sql:92](../../supabase/migrations/001_initial_schema.sql) | `customers` table; `sales.customer_id` FK is `ON DELETE SET NULL`. |
+| [docs/map/sms.md](./sms.md) | **Separate unit** — the SMS campaign screen that lives inside this component. |
 
 ## How it works
 
@@ -29,7 +30,13 @@ calls `db.fetchCustomers()` — `select('*')` on `customers` ordered by `created
 limit, no branch scope** (customers are global, not branch-scoped). Result is cached with today's date.
 The **Refresh** button calls `refreshCustomers` which always refetches and rewrites the cache.
 
-**Search** (`Customers.tsx:26`) filters the already-loaded array client-side by name / phone / email.
+**Search** (`Customers.tsx`) filters the already-loaded array client-side by name / phone / email.
+
+**Selection + SMS** (added with migration 019): each row carries a checkbox (hidden for cashiers) feeding
+`selectedIds`, and **Select all** acts on the *filtered* rows. The **SMS** button switches `activeView` to
+a third value, `'SMS'`, which renders the Compose / History tabs from `components/sms/`. That feature is
+documented separately in [docs/map/sms.md](./sms.md) — this doc only owns the list, the modal and the
+profile.
 
 **Add** (`handleSaveCustomer`, `Customers.tsx:47`): requires `name` + `phone` (email optional). Builds a
 customer with a throwaway base-36 id and `loyaltyPoints:0`/`totalSpent:0`, then `addCustomer`
@@ -85,6 +92,9 @@ table only renders date / invoice / items / branch / amount. `lastVisit` = date 
 - **Loyalty/total-spent edits via this screen are possible but not exposed.** The DB layer accepts them in
   a partial update; the UI never sends them. Don't wire the modal to those fields without deciding who owns
   the number (the sale RPC does today).
+- **`smsOptOut` is edited here but consumed by the SMS unit.** The customer modal's "Do not send SMS"
+  box writes `customers.sms_opt_out` through the ordinary `updateCustomer` partial; nothing in this screen
+  reads it except the "No SMS" badge.
 - **The temp id from the modal is thrown away.** `Math.random()` base-36 id in `handleSaveCustomer` exists
   only until `addCustomer` swaps in a real UUID — don't rely on it.
 
@@ -101,3 +111,5 @@ table only renders date / invoice / items / branch / amount. `lastVisit` = date 
 
 <!-- changelog: append one line per code change that touched this unit -->
 - 2026-07-03 6091b5f — initial documentation (DRAFT).
+- 2026-09-28 — row selection + `activeView: 'SMS'` + `smsOptOut` on the modal/badges added for the SMS
+  campaigns feature (own unit: `docs/map/sms.md`). List/profile behaviour otherwise unchanged.

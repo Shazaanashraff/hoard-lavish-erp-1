@@ -1,20 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Plus, Phone, Mail, Edit2, Trash2, X, Search, ChevronLeft, ShoppingBag, Star, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Users, Plus, Phone, Mail, Edit2, Trash2, X, Search, ChevronLeft, ShoppingBag, Star, Calendar, MessageSquare, BellOff } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { fetchSales } from '../services/supabaseService';
 import { Customer, SalesRecord } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
 import { fmtCurrency } from '../utils/formatters';
 import ConfirmDialog from './shared/ConfirmDialog';
+import TabButton from './shared/TabButton';
+import SmsComposer from './sms/SmsComposer';
+import SmsCampaignHistory from './sms/SmsCampaignHistory';
 import { pushBack, dismissBack } from '../hooks/useBackStack';
 
 const Customers: React.FC = () => {
   const { customers, addCustomer, updateCustomer, deleteCustomer, loadCustomers, refreshCustomers, currentUser } = useStore();
   const isCashier = currentUser?.role === 'CASHIER';
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeView, setActiveView] = useState<'LIST' | 'PROFILE'>('LIST');
+  const [activeView, setActiveView] = useState<'LIST' | 'PROFILE' | 'SMS'>('LIST');
+  const [smsTab, setSmsTab] = useState<'COMPOSE' | 'HISTORY'>('COMPOSE');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  // Ticked rows, carried into the SMS composer as the "Selected" audience.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,6 +35,31 @@ const Customers: React.FC = () => {
     c.phone.includes(searchTerm) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Selection is over the *filtered* rows: "select all" while a search is
+  // active means "all matches", which is how the feature gets used (search
+  // "Colombo", tick all, message them).
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const allFilteredSelected = filteredCustomers.length > 0 && filteredCustomers.every(c => selectedIdSet.has(c.id));
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      const filteredIds = new Set(filteredCustomers.map(c => c.id));
+      setSelectedIds(prev => prev.filter(id => !filteredIds.has(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...filteredCustomers.map(c => c.id)])));
+    }
+  };
+
+  const openSms = () => {
+    pushBack(() => setActiveView('LIST'));
+    setSmsTab('COMPOSE');
+    setActiveView('SMS');
+  };
 
   // Customer Profile Calculations — lazy loaded on profile open
   const [customerHistory, setCustomerHistory] = useState<SalesRecord[]>([]);
@@ -90,7 +121,7 @@ const Customers: React.FC = () => {
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-4">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            {activeView === 'PROFILE' && (
+            {activeView !== 'LIST' && (
               <button
                 onClick={() => { dismissBack(); setActiveView('LIST'); setSelectedCustomer(null); }}
                 className="p-2 hover:bg-slate-100 rounded-full transition-colors"
@@ -100,16 +131,29 @@ const Customers: React.FC = () => {
             )}
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-slate-900">
-                {activeView === 'PROFILE' ? 'Customer Profile' : 'Customer Management'}
+                {activeView === 'PROFILE' ? 'Customer Profile' : activeView === 'SMS' ? 'Customer SMS' : 'Customer Management'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-500">
-                {activeView === 'PROFILE' ? 'View history and loyalty details.' : 'Manage customer database and loyalty program.'}
+                {activeView === 'PROFILE'
+                  ? 'View history and loyalty details.'
+                  : activeView === 'SMS'
+                    ? 'Send a text message to selected customers or the whole list.'
+                    : 'Manage customer database and loyalty program.'}
               </p>
             </div>
           </div>
 
           {activeView === 'LIST' && (
             <div className="flex gap-2">
+              {!isCashier && (
+                <button
+                  onClick={openSms}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm font-medium"
+                >
+                  <MessageSquare size={16} />
+                  {selectedIds.length > 0 ? `SMS (${selectedIds.length})` : 'SMS'}
+                </button>
+              )}
               <button
                 onClick={async () => {
                   setIsRefreshing(true);
@@ -157,43 +201,86 @@ const Customers: React.FC = () => {
         {/* VIEW: LIST */}
         {activeView === 'LIST' && (
           <>
-            <div className="relative max-w-md mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search customers by name, phone, or email..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-200"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <div className="relative max-w-md w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search customers by name, phone, or email..."
+                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-200"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {!isCashier && filteredCustomers.length > 0 && (
+                <div className="flex items-center gap-3 text-sm">
+                  <button
+                    onClick={toggleSelectAllFiltered}
+                    className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors font-medium whitespace-nowrap"
+                  >
+                    {allFilteredSelected ? 'Clear these' : searchTerm ? `Select ${filteredCustomers.length} matches` : 'Select all'}
+                  </button>
+                  {selectedIds.length > 0 && (
+                    <span className="text-slate-500 whitespace-nowrap">
+                      {selectedIds.length} selected
+                      <button onClick={() => setSelectedIds([])} className="ml-2 text-slate-400 hover:text-slate-700 underline">
+                        reset
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Card list — below `md`, where the 5-column table can't fit. Same
                 fields, same tap target (opens the profile), stacked. */}
             <div className="md:hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
               {filteredCustomers.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => openProfile(c)}
-                  className="w-full text-left p-4 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                >
-                  <div className="w-10 h-10 flex-shrink-0 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
-                    {c.name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-900 truncate">{c.name}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                      <Phone size={11} className="flex-shrink-0" /> <span className="truncate">{c.phone}</span>
-                    </p>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px]">
-                      <Star size={10} /> {c.loyaltyPoints} pts
-                    </span>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold">Spent</p>
-                    <p className="font-medium text-slate-900 text-sm">{fmtCurrency(c.totalSpent)}</p>
-                  </div>
-                </button>
+                // Checkbox sits beside the tap target rather than inside it —
+                // a form control nested in a <button> is invalid and swallows
+                // its own clicks.
+                <div key={c.id} className="flex items-center hover:bg-slate-50 active:bg-slate-100 transition-colors">
+                  {!isCashier && (
+                    <label className="pl-4 py-4 flex-shrink-0 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedIdSet.has(c.id)}
+                        onChange={() => toggleSelected(c.id)}
+                        aria-label={`Select ${c.name}`}
+                        className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                      />
+                    </label>
+                  )}
+                  <button
+                    onClick={() => openProfile(c)}
+                    className="flex-1 min-w-0 text-left p-4 flex items-center gap-3"
+                  >
+                    <div className="w-10 h-10 flex-shrink-0 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                      {c.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 truncate">{c.name}</p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                        <Phone size={11} className="flex-shrink-0" /> <span className="truncate">{c.phone}</span>
+                      </p>
+                      <span className="inline-flex items-center gap-1.5 mt-1.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px]">
+                          <Star size={10} /> {c.loyaltyPoints} pts
+                        </span>
+                        {c.smsOptOut && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold text-[10px]">
+                            <BellOff size={10} /> No SMS
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold">Spent</p>
+                      <p className="font-medium text-slate-900 text-sm">{fmtCurrency(c.totalSpent)}</p>
+                    </div>
+                  </button>
+                </div>
               ))}
               {filteredCustomers.length === 0 && (
                 <p className="p-8 text-center text-slate-400 text-sm">No customers found.</p>
@@ -204,6 +291,17 @@ const Customers: React.FC = () => {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                   <tr>
+                    {!isCashier && (
+                      <th className="pl-4 w-10">
+                        <input
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          onChange={toggleSelectAllFiltered}
+                          aria-label="Select all shown customers"
+                          className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                        />
+                      </th>
+                    )}
                     <th className="p-4">Customer Name</th>
                     <th className="p-4">Contact Info</th>
                     <th className="p-4 text-center">Loyalty Points</th>
@@ -214,12 +312,30 @@ const Customers: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredCustomers.map(c => (
                     <tr key={c.id} className="hover:bg-slate-50 group cursor-pointer" onClick={() => openProfile(c)}>
+                      {!isCashier && (
+                        // stopPropagation: the whole row opens the profile, and
+                        // ticking a box must not navigate away from the list.
+                        <td className="pl-4" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIdSet.has(c.id)}
+                            onChange={() => toggleSelected(c.id)}
+                            aria-label={`Select ${c.name}`}
+                            className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                          />
+                        </td>
+                      )}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
                             {c.name.charAt(0)}
                           </div>
                           <span className="font-bold text-slate-900">{c.name}</span>
+                          {c.smsOptOut && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold text-[10px] uppercase">
+                              <BellOff size={10} /> No SMS
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
@@ -243,12 +359,25 @@ const Customers: React.FC = () => {
                   ))}
                   {filteredCustomers.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-slate-400">No customers found.</td>
+                      <td colSpan={isCashier ? 5 : 6} className="p-8 text-center text-slate-400">No customers found.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+          </>
+        )}
+
+        {/* VIEW: SMS — compose against the current selection, or review past sends. */}
+        {activeView === 'SMS' && !isCashier && (
+          <>
+            <div className="flex border-b border-slate-200 mb-6 max-w-4xl mx-auto">
+              <TabButton<typeof smsTab> id="COMPOSE" label="Compose" activeTab={smsTab} onSelect={setSmsTab} />
+              <TabButton<typeof smsTab> id="HISTORY" label="History" activeTab={smsTab} onSelect={setSmsTab} />
+            </div>
+            {smsTab === 'COMPOSE'
+              ? <SmsComposer customers={customers} selectedIds={selectedIds} />
+              : <SmsCampaignHistory />}
           </>
         )}
 
@@ -267,6 +396,11 @@ const Customers: React.FC = () => {
                     <span className="flex items-center gap-1 min-w-0"><Phone size={12} className="flex-shrink-0" /> <span className="break-all">{selectedCustomer.phone}</span></span>
                     <span className="flex items-center gap-1 min-w-0"><Mail size={12} className="flex-shrink-0" /> <span className="break-all">{selectedCustomer.email}</span></span>
                   </div>
+                  {selectedCustomer.smsOptOut && (
+                    <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-bold text-[10px] uppercase">
+                      <BellOff size={10} /> Opted out of SMS
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -398,6 +532,18 @@ const Customers: React.FC = () => {
                   onChange={e => setEditingCustomer({ ...editingCustomer, email: e.target.value })}
                 />
               </div>
+              <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!editingCustomer.smsOptOut}
+                  onChange={e => setEditingCustomer({ ...editingCustomer, smsOptOut: e.target.checked })}
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                />
+                <span className="text-sm text-slate-600">
+                  <span className="font-medium text-slate-800 block">Do not send SMS</span>
+                  Excluded from every SMS campaign, including &ldquo;all customers&rdquo;.
+                </span>
+              </label>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Settings as SettingsIcon, Users, Database, Shield, Tag, Save, Upload, Download, Trash2, Plus, Edit2, CheckCircle, AlertTriangle, X, Lock, FileSpreadsheet, FileDown, PackagePlus, Printer } from 'lucide-react';
+import { Settings as SettingsIcon, Users, Database, Shield, Tag, Save, Upload, Download, Trash2, Plus, Edit2, CheckCircle, AlertTriangle, X, Lock, FileSpreadsheet, FileDown, PackagePlus, Printer, MessageSquare } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { User, Role, Product } from '../types';
 import { normalizeBranchName, isMountLaviniaBranch, getThermalPrinterForBranch, MOUNT_LAVINIA_DEFAULT_PRINTER } from '../utils/branch';
 import { parseCSV, CSV_COLUMNS, CSV_REQUIRED, CSV_SAMPLE } from '../utils/csv';
+import SenderIdVerifier from './sms/SenderIdVerifier';
 
 const Settings: React.FC = () => {
   const {
@@ -16,7 +17,7 @@ const Settings: React.FC = () => {
   } = useStore();
   const isAdmin = currentUser?.role === 'ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'DATA' | 'IMPORT'>('GENERAL');
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'USERS' | 'SMS' | 'DATA' | 'IMPORT'>('GENERAL');
   
   // User Management State
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -49,6 +50,34 @@ const Settings: React.FC = () => {
     barcodePrinterName: currentBranch.barcodePrinterName || '',
   });
   const [generalSaved, setGeneralSaved] = useState(false);
+
+  // SMS tab. Its own form + save button so a sender-ID change can't ride
+  // along with an unsaved tax-rate edit (or vice versa).
+  const [smsForm, setSmsForm] = useState({
+    smsEnabled: settings.smsEnabled ?? false,
+    smsSenderId: settings.smsSenderId ?? '',
+    smsDailyLimit: settings.smsDailyLimit ?? 500,
+  });
+  const [smsSaved, setSmsSaved] = useState(false);
+  // refreshSettings() lands asynchronously on mount, so re-seed the form
+  // from the server values once they arrive (unless mid-edit).
+  useEffect(() => {
+    setSmsForm({
+      smsEnabled: settings.smsEnabled ?? false,
+      smsSenderId: settings.smsSenderId ?? '',
+      smsDailyLimit: settings.smsDailyLimit ?? 500,
+    });
+  }, [settings.smsEnabled, settings.smsSenderId, settings.smsDailyLimit]);
+
+  const handleSaveSms = () => {
+    updateSettings({
+      smsEnabled: smsForm.smsEnabled,
+      smsSenderId: smsForm.smsSenderId.trim(),
+      smsDailyLimit: Math.max(0, Math.floor(Number(smsForm.smsDailyLimit) || 0)),
+    });
+    setSmsSaved(true);
+    setTimeout(() => setSmsSaved(false), 2000);
+  };
 
   // Machine Location — per-machine, saved independently of the General form (electron-store, not Supabase)
   const [machineLocationSelection, setMachineLocationSelection] = useState('');
@@ -296,6 +325,7 @@ const Settings: React.FC = () => {
         <div className="py-4">
            <TabButton id="GENERAL" label="General" icon={SettingsIcon} />
            <TabButton id="USERS" label="Users & Roles" icon={Users} />
+           <TabButton id="SMS" label="SMS" icon={MessageSquare} />
            <TabButton id="IMPORT" label="Import Products" icon={PackagePlus} />
            <TabButton id="DATA" label="Backup & Restore" icon={Database} />
         </div>
@@ -309,6 +339,7 @@ const Settings: React.FC = () => {
         <div className="flex gap-2 overflow-x-auto">
           <TabPill id="GENERAL" label="General" icon={SettingsIcon} />
           <TabPill id="USERS" label="Users &amp; Roles" icon={Users} />
+          <TabPill id="SMS" label="SMS" icon={MessageSquare} />
           <TabPill id="IMPORT" label="Import" icon={PackagePlus} />
           <TabPill id="DATA" label="Backup" icon={Database} />
         </div>
@@ -491,6 +522,95 @@ const Settings: React.FC = () => {
                 </button>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* SMS TAB */}
+        {activeTab === 'SMS' && (
+          <div className="max-w-2xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">SMS (text.lk)</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Controls the bulk-SMS feature on the Customers screen.
+            </p>
+
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={smsForm.smsEnabled}
+                  onChange={e => setSmsForm(prev => ({ ...prev, smsEnabled: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                />
+                <span className="text-sm">
+                  <span className="font-bold text-slate-700 block">Enable SMS sending</span>
+                  <span className="text-slate-500">
+                    The master switch. While this is off the server refuses every campaign, however it was started.
+                  </span>
+                </span>
+              </label>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Sender ID</label>
+                <input
+                  type="text"
+                  maxLength={15}
+                  placeholder="e.g. HoardLavish"
+                  className="w-full p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 font-mono"
+                  value={smsForm.smsSenderId}
+                  onChange={e => setSmsForm(prev => ({ ...prev, smsSenderId: e.target.value }))}
+                />
+                <p className="text-xs text-slate-500 mt-1.5">
+                  The name recipients see. Must match, letter for letter, a sender ID approved on your text.lk
+                  account. Alphanumeric IDs are max 11 characters; a phone number with country code also works.
+                </p>
+                <SenderIdVerifier senderId={smsForm.smsSenderId} />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Daily message limit</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full sm:w-48 p-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900"
+                  value={smsForm.smsDailyLimit}
+                  onChange={e => setSmsForm(prev => ({ ...prev, smsDailyLimit: Number(e.target.value) }))}
+                />
+                <p className="text-xs text-slate-500 mt-1.5">
+                  A spend guard, enforced on the server: campaigns are refused once this many messages have
+                  been queued or sent today. Set it a little above your largest expected send.
+                </p>
+              </div>
+
+              {/* The token deliberately has no field here — see docs/sms-setup.md.
+                  Anything typed into this screen is readable by every client. */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-start gap-3">
+                <Lock size={16} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-slate-600 min-w-0">
+                  <p className="font-bold text-slate-700">Where is the API token?</p>
+                  <p className="mt-1">
+                    Not here, on purpose — anything stored in these settings is readable by every till. The
+                    text.lk token is a server-side secret on the <code className="font-mono text-xs">send-sms</code> Edge
+                    Function. Setup steps are in <code className="font-mono text-xs">docs/sms-setup.md</code>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => refreshSettings()}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 transition-colors font-medium"
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={handleSaveSms}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium shadow-sm"
+                >
+                  {smsSaved ? <><CheckCircle size={16} /> Saved!</> : <><Save size={16} /> Save SMS Settings</>}
+                </button>
+              </div>
             </div>
           </div>
         )}

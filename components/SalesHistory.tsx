@@ -12,6 +12,10 @@ import { pushBack, dismissBack } from '../hooks/useBackStack';
 
 type TimePeriod = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL' | 'CUSTOM';
 
+// A date input yields 'YYYY-MM-DD', which Postgres reads as midnight — an inclusive "to" date must
+// run to the end of that day or every sale on it is dropped (the Dashboard does the same).
+const endOfDay = (d?: string) => (d ? `${d}T23:59:59.999` : undefined);
+
 const isInPeriod = (dateStr: string, period: TimePeriod, dateFrom?: string, dateTo?: string): boolean => {
   if (period === 'ALL') return true;
   const d = parseBusinessDate(dateStr);
@@ -99,8 +103,8 @@ const SalesHistory: React.FC = () => {
 
   const buildSalesOptions = useCallback((offset = 0) => {
     const now = new Date();
-    let dFrom = dateFrom || undefined;
-    let dTo = dateTo || undefined;
+    let dFrom = timePeriod === 'CUSTOM' ? (dateFrom || undefined) : undefined;
+    const dTo = timePeriod === 'CUSTOM' ? endOfDay(dateTo || undefined) : undefined;
     if (!dFrom && timePeriod !== 'ALL' && timePeriod !== 'CUSTOM') {
       if (timePeriod === 'TODAY') dFrom = now.toISOString().split('T')[0];
       else if (timePeriod === 'WEEK') { const d = new Date(now); d.setDate(d.getDate() - 7); dFrom = d.toISOString().split('T')[0]; }
@@ -190,7 +194,7 @@ const SalesHistory: React.FC = () => {
         dFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
       } else if (itemTimePeriod === 'CUSTOM') {
         dFrom = itemDateFrom || undefined;
-        dTo = itemDateTo || undefined;
+        dTo = endOfDay(itemDateTo || undefined);
       }
       const data = await fetchSales({ dateFrom: dFrom, dateTo: dTo, limit: 5000 });
       setItemSales(data);
@@ -283,6 +287,21 @@ const SalesHistory: React.FC = () => {
         });
       } else {
         const exchange = item.data as ExchangeRecord;
+        // Returned lines reduce revenue so the period total nets to Σ exchange.difference,
+        // matching the Dashboard (sales + exchange net). Quantity counts only items sold.
+        exchange.returnedItems?.forEach(cartItem => {
+          const existing = stats.get(cartItem.id) || {
+            name: cartItem.name,
+            quantity: 0,
+            revenue: 0,
+            sku: cartItem.sku,
+            size: cartItem.size,
+            color: cartItem.color,
+            category: resolveItemCategory(cartItem)
+          };
+          const lineRevenue = cartItem.lineEffectiveTotal ?? ((cartItem.effectiveUnitPrice ?? cartItem.price) * cartItem.quantity);
+          stats.set(cartItem.id, { ...existing, revenue: existing.revenue - lineRevenue });
+        });
         exchange.newItems?.forEach(cartItem => {
           const existing = stats.get(cartItem.id) || {
             name: cartItem.name, 

@@ -75,3 +75,7 @@ Severity and category legend lives in [README.md](./README.md). Quick reminder:
 
 ## Resolved
 <!-- - DASH-NN · fixed in <sha> <date> — one line on the fix. -->
+- DASH-07 · fixed 2026-10-09 — Day End Report left exchange money out of the Cash/Card rows (only in TOTAL).
+- DASH-08 · fixed 2026-10-09 — Sales Details custom range sent `dateTo` as midnight (dropped the whole last
+  day) and item revenue ignored exchange returns; both now match Dashboard revenue. Residual: Sales Details
+  item panel is all-branch, Dashboard is current-branch only.

@@ -414,7 +414,27 @@ const Dashboard: React.FC = () => {
     const payhereTotal  = payhereS.reduce((s, x) => s + x.totalAmount, 0);
     const onlineTotal  = onlineS.reduce((s, x) => s + x.totalAmount, 0);
     const mintpayTotal = mintpayS.reduce((s, x) => s + x.totalAmount, 0);
-    const allCardTotal = cardTotal + payhereTotal + onlineTotal + mintpayTotal;
+
+    // Exchange settlements move real money: a positive difference is collected via paymentMethod,
+    // a negative one is refunded via refundMethod. Fold each into the same Cash / Card buckets as sales
+    // so Cash + Card reconciles to TOTAL SALES (which already includes the exchange net).
+    const exchangeByMethod: Record<string, { net: number; count: number }> = {};
+    filteredExchanges.forEach(e => {
+      const method = e.difference < 0 ? (e.refundMethod ?? e.paymentMethod) : e.paymentMethod;
+      const slot = exchangeByMethod[method] ?? (exchangeByMethod[method] = { net: 0, count: 0 });
+      slot.net += e.difference;
+      slot.count += 1;
+    });
+    const exNet = (m: string) => exchangeByMethod[m]?.net ?? 0;
+    const exCount = (m: string) => exchangeByMethod[m]?.count ?? 0;
+    // POS never offers Cash+Card/COD for exchanges (no split amounts are stored), so they count as cash.
+    const exchangeCash        = exNet('Cash') + exNet('COD') + exNet('Cash+Card');
+    const exchangeCard        = exNet('Card');
+    const exchangeCashCount   = exCount('Cash') + exCount('COD') + exCount('Cash+Card');
+    const exchangeCardCount   = exCount('Card') + exCount('PayHere') + exCount('Online Transfer') + exCount('MintPay');
+    const allCardTotal = cardTotal + payhereTotal + onlineTotal + mintpayTotal
+                       + exchangeCard + exNet('PayHere') + exNet('Online Transfer') + exNet('MintPay');
+    const allCashTotal = cashTotal + exchangeCash;
 
     const totalSalesRevenue  = salesData.reduce((s: number, x: any) => s + x.totalAmount, 0);
     const exchangeNet         = filteredExchanges.reduce((s, e) => s + e.difference, 0);
@@ -471,9 +491,11 @@ const Dashboard: React.FC = () => {
     if (cashSales.length > 0) cashSubParts.push(`${fmtCurrency(cashSales.reduce((s, x) => s + x.totalAmount, 0))} direct`);
     if (splitCashTotal > 0) cashSubParts.push(`${fmtCurrency(splitCashTotal)} from split`);
     if (codTotal > 0) cashSubParts.push(`${fmtCurrency(codTotal)} COD`);
+    const signed = (n: number) => (n >= 0 ? '+' : '-') + fmtCurrency(Math.abs(n));
+    if (exchangeCash !== 0) cashSubParts.push(`${signed(exchangeCash)} exchanges`);
     const cashSubLabel = cashSubParts.length > 0 ? `(${cashSubParts.join('  |  ')})` : '—';
-    const cashCount = cashSales.length + splitSales.length + codSales.length;
-    salesBreakdown.push([`Cash Sales ${cashSubLabel}`, fmtCurrency(cashTotal), `${cashCount} transaction${cashCount !== 1 ? 's' : ''}`]);
+    const cashCount = cashSales.length + splitSales.length + codSales.length + exchangeCashCount;
+    salesBreakdown.push([`Cash Sales ${cashSubLabel}`, fmtCurrency(allCashTotal), `${cashCount} transaction${cashCount !== 1 ? 's' : ''}`]);
 
     // Card total row
     const cardSubParts: string[] = [];
@@ -481,13 +503,11 @@ const Dashboard: React.FC = () => {
     if (payhereTotal > 0) cardSubParts.push(`PayHere: ${fmtCurrency(payhereTotal)}`);
     if (onlineTotal > 0)  cardSubParts.push(`Online Transfer: ${fmtCurrency(onlineTotal)}`);
     if (mintpayTotal > 0) cardSubParts.push(`MintPay: ${fmtCurrency(mintpayTotal)}`);
+    const exchangeCardAll = allCardTotal - (cardTotal + payhereTotal + onlineTotal + mintpayTotal);
+    if (exchangeCardAll !== 0) cardSubParts.push(`${signed(exchangeCardAll)} exchanges`);
     const cardSubLabel = cardSubParts.length > 0 ? `(${cardSubParts.join('  |  ')})` : '—';
-    const allCardCount = cardSales.length + splitSales.length + payhereS.length + onlineS.length + mintpayS.length;
+    const allCardCount = cardSales.length + splitSales.length + payhereS.length + onlineS.length + mintpayS.length + exchangeCardCount;
     salesBreakdown.push([`Card Sales  ${cardSubLabel}`, fmtCurrency(allCardTotal), `${allCardCount} transaction${allCardCount !== 1 ? 's' : ''}`]);
-
-    if (exchangeNet !== 0) {
-      salesBreakdown.push(['Exchange Adjustments', (exchangeNet >= 0 ? '+' : '') + fmtCurrency(exchangeNet), `${filteredExchanges.length} exchange${filteredExchanges.length !== 1 ? 's' : ''}`]);
-    }
 
     autoTable(doc, {
       startY: 69,

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Truck, Plus, Phone, Mail, MapPin, Edit2, Trash2, X, Calendar, FileText, Search, Package, ShieldAlert, RefreshCw } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { fetchSupplierTransactions } from '../services/db/suppliers';
-import { Supplier, SupplierTransaction, DamagedGood } from '../types';
+import { Supplier, SupplierTransaction, DamagedGood, Product } from '../types';
 import { parseBusinessDate } from '../utils/dateTime';
 import { fmtCurrency } from '../utils/formatters';
 import { CUR } from '../constants';
 import ConfirmDialog from './shared/ConfirmDialog';
+import ProductScanSearch from './shared/ProductScanSearch';
 import TabButton from './shared/TabButton';
 
 const renderTransactionNotes = (notes: string) => {
@@ -272,6 +273,28 @@ const Suppliers: React.FC = () => {
       }
       return { ...item, [field]: value };
     }));
+  };
+
+  // Scan/search adds the product as a line, or bumps its quantity if it's already listed.
+  const handleScanInventoryProduct = (prod: Product) => {
+    setInventoryItems(prev => {
+      const existing = prev.findIndex(i => i.productId === prod.id);
+      if (existing >= 0) {
+        return prev.map((item, i) => i === existing ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      // Reuse a blank row the user already opened before appending a new one.
+      const blank = prev.findIndex(i => !i.productId);
+      const line: InventoryLineItem = {
+        productId: prod.id,
+        productName: prod.name,
+        sku: prod.sku || '',
+        size: prod.size || '',
+        color: prod.color || '',
+        quantity: 1,
+        unitPrice: prod.costPrice || 0,
+      };
+      return blank >= 0 ? prev.map((item, i) => i === blank ? line : item) : [...prev, line];
+    });
   };
 
   const handleRemoveInventoryItem = (idx: number) => {
@@ -561,6 +584,10 @@ const Suppliers: React.FC = () => {
                     >
                       <Plus size={12} /> Add Item
                     </button>
+                  </div>
+
+                  <div className="mb-3">
+                    <ProductScanSearch products={products} onSelect={handleScanInventoryProduct} />
                   </div>
 
                   {inventoryItems.length > 0 && (
@@ -906,6 +933,13 @@ const Suppliers: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Product</label>
+                    <div className="mb-2">
+                      <ProductScanSearch
+                        products={products}
+                        placeholder="Search or scan QR / barcode…"
+                        onSelect={p => setDamagedForm(f => ({ ...f, productId: p.id, unitPrice: p.costPrice || 0 }))}
+                      />
+                    </div>
                     <select
                       required
                       className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-900 bg-white text-sm"

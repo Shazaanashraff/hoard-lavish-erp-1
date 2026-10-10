@@ -61,7 +61,9 @@ The Dashboard's own `recentWithItems`/activity caches are **not** reloaded after
 **Day End Report** (`handleGenerateDayReport`, `index.tsx:342`): lazily loads
 `fetchSalesSummary({...,extended:true})` (adds `payment_method`, `cash_amount`, `card_amount`,
 `sale_items(quantity)`), then `generateDayEndReport` builds a `jsPDF` doc — payment-method breakdown
-(Cash/Card/COD/Cash+Card/PayHere/Online/MintPay, with split amounts allocated to cash vs card), gross/
+(Cash/Card/COD/Cash+Card/PayHere/Online/MintPay, with split amounts allocated to cash vs card; **exchange
+settlements are folded into the same Cash / Card rows** — a positive `difference` by `paymentMethod`, a
+negative one by `refundMethod` — so Cash + Card = TOTAL SALES), gross/
 net sales, items sold (sales + exchange `newItems`), avg bill/item, and the ledger table.
 
 ## Business rules
@@ -135,3 +137,6 @@ net sales, items sold (sales + exchange `newItems`), avg bill/item, and the ledg
 - 2026-07-01 6091b5f — initial documentation. LOCKED: edit/void left open by design (financials admin-only) — confirmed.
 - 2026-07-16 — `recentEditableSales` excludes fully-returned sales (companion to the POS-09 exchange
   fix that stopped deleting the original sale on a full return).
+- 2026-10-09 — Day End Report: exchange `difference` now lands in the Cash / Card rows (was only in the
+  TOTAL, so cash+card under-reported). Related: Sales Details (`SalesHistory.tsx`) custom "To" date now
+  runs to end-of-day and its item revenue nets exchange returns, so it tallies with Dashboard revenue.

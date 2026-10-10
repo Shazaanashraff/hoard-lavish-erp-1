@@ -4,7 +4,18 @@ import { X } from 'lucide-react';
 interface CameraScannerProps {
   onDetect: (value: string) => void;
   onClose: () => void;
+  /** Keep the camera open after a scan (default: close/stop after the first detection). */
+  continuous?: boolean;
+  /** Continuous mode only: minimum pause between accepted scans, in ms. */
+  cooldownMs?: number;
+  title?: string;
+  /** Optional status line shown over the camera (e.g. the last scanned item). */
+  message?: { text: string; tone: 'success' | 'error' } | null;
 }
+
+// Continuous mode: holding one code in view must not re-fire it. A repeat of the same value is
+// ignored for as long as it keeps being seen with gaps shorter than this.
+const REPEAT_GAP_MS = 3000;
 
 // Chrome/Android expose a native BarcodeDetector — no dependency needed there.
 // iOS Safari (and any browser without it) fall back to zxing-wasm, sampling
@@ -12,7 +23,7 @@ interface CameraScannerProps {
 const CANONICAL_FORMATS = ['EAN13', 'EAN8', 'UPCA', 'UPCE', 'Code128', 'Code39', 'QRCode'];
 const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
 
-const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
+const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose, continuous = false, cooldownMs = 1500, title = 'Scan Barcode', message = null }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -27,9 +38,25 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
   const onDetectRef = useRef(onDetect);
   useEffect(() => { onDetectRef.current = onDetect; }, [onDetect]);
 
+  const continuousRef = useRef(continuous);
+  const cooldownRef = useRef(cooldownMs);
+  useEffect(() => { continuousRef.current = continuous; cooldownRef.current = cooldownMs; }, [continuous, cooldownMs]);
+  const pausedUntilRef = useRef(0);
+  const lastValueRef = useRef('');
+  const lastSeenRef = useRef(0);
+
   const handleDetected = useCallback((value: string) => {
     const trimmed = value.trim();
-    if (trimmed) onDetectRef.current(trimmed);
+    if (!trimmed) return;
+    if (continuousRef.current) {
+      const now = Date.now();
+      const isRepeat = trimmed === lastValueRef.current && now - lastSeenRef.current < REPEAT_GAP_MS;
+      lastSeenRef.current = now;
+      if (isRepeat) return;
+      lastValueRef.current = trimmed;
+      pausedUntilRef.current = now + cooldownRef.current;
+    }
+    onDetectRef.current(trimmed);
   }, []);
 
   useEffect(() => {
@@ -66,7 +93,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
 
           const loop = async () => {
             if (cancelled) return;
-            if (detectingRef.current || !videoRef.current || videoRef.current.readyState < 2) {
+            if (detectingRef.current || !videoRef.current || videoRef.current.readyState < 2 || Date.now() < pausedUntilRef.current) {
               rafRef.current = requestAnimationFrame(loop);
               return;
             }
@@ -75,7 +102,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
               const codes = await detector.detect(videoRef.current);
               if (codes.length > 0 && !cancelled) {
                 handleDetected(codes[0].rawValue);
-                return;
+                if (!continuousRef.current) return;
               }
             } catch {
               // transient decode failures are expected mid-frame — keep scanning
@@ -93,7 +120,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
           ctx = canvas.getContext('2d');
 
           intervalRef.current = setInterval(async () => {
-            if (cancelled || detectingRef.current || !videoRef.current || !ctx || !canvas) return;
+            if (cancelled || detectingRef.current || !videoRef.current || !ctx || !canvas || Date.now() < pausedUntilRef.current) return;
             const video = videoRef.current;
             if (video.readyState < 2 || video.videoWidth === 0) return;
             detectingRef.current = true;
@@ -105,7 +132,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
               const results = await readBarcodes(imageData, { tryHarder: true, formats: CANONICAL_FORMATS as any });
               if (results.length > 0 && !cancelled) {
                 handleDetected(results[0].text);
-                return;
+                if (!continuousRef.current) return;
               }
             } catch {
               // ignore decode errors on this frame, keep sampling
@@ -130,7 +157,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black z-[70] flex flex-col">
       <div className="flex items-center justify-between p-4" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}>
-        <h3 className="text-white font-bold">Scan Barcode</h3>
+        <h3 className="text-white font-bold">{title}</h3>
         <button onClick={onClose} className="text-white p-2 -mr-2" aria-label="Close scanner">
           <X size={24} />
         </button>
@@ -143,6 +170,11 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ onDetect, onClose }) => {
         </div>
         {status === 'starting' && !error && (
           <div className="absolute inset-0 flex items-center justify-center text-white text-sm">Starting camera&hellip;</div>
+        )}
+        {message && !error && (
+          <div className={`absolute inset-x-4 bottom-8 text-white text-sm p-3 rounded-lg text-center ${message.tone === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+            {message.text}
+          </div>
         )}
         {error && (
           <div className="absolute inset-x-4 bottom-8 bg-red-600 text-white text-sm p-3 rounded-lg text-center">
